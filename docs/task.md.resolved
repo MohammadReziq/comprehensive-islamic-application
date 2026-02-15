@@ -1,0 +1,432 @@
+# 📋 صلاتي حياتي - كل المهام بالتفصيل الممل
+
+## القرارات النهائية
+- **Backend:** Supabase (Auth + DB + Realtime + Storage)
+- **Offline:** sqflite (بدل Hive)
+- **Notifications:** Firebase Cloud Messaging (FCM)
+- **State:** flutter_bloc + get_it
+- **Navigation:** go_router
+- **اللغة:** عربي فقط (RTL)
+- **Super Admin:** ✅ نعم
+
+---
+
+## المرحلة 1: البنية التحتية والتهيئة
+
+### 1.1 إعداد المشروع
+- [ ] تنظيف [main.dart](file:///c:/development/comprehensive_islamic_application/lib/main.dart) من كود الـ Counter التلقائي
+- [ ] إنشاء `lib/app/app.dart` (MaterialApp + GoRouter)
+- [ ] تعديل [pubspec.yaml](file:///c:/development/comprehensive_islamic_application/pubspec.yaml) - إضافة كل الباكجات المطلوبة
+- [ ] تشغيل `flutter pub get`
+- [ ] إنشاء هيكل المجلدات الكامل (features/, core/, shared/)
+
+### 1.2 الثوابت (Constants)
+- [ ] [lib/app/core/constants/app_colors.dart](file:///c:/development/comprehensive_islamic_application/lib/app/core/constants/app_colors.dart) - كل الألوان
+  - اللون الأساسي (أزرق داكن + درجاته)
+  - ألوان النجاح/الخطأ/التحذير
+  - ألوان الخلفيات والنصوص
+  - ألوان الـ Shimmer
+- [ ] `lib/app/core/constants/app_dimensions.dart` - المقاسات
+  - حجم الهوامش (padding/margin) - xs, sm, md, lg, xl
+  - أنصاف الأقطار (border radius)
+  - أحجام الأيقونات
+  - ارتفاعات العناصر (AppBar, BottomNav, Cards)
+- [ ] `lib/app/core/constants/app_strings.dart` - كل النصوص العربية
+  - نصوص Auth (تسجيل دخول, إنشاء حساب, ...)
+  - نصوص الصلوات (الفجر, الظهر, العصر, المغرب, العشاء)
+  - نصوص الأدوار (ولي أمر, إمام, مشرف)
+  - نصوص الإشعارات
+  - رسائل الخطأ (`لا يوجد اتصال`, `حدث خطأ`, ...)
+  - نصوص الأزرار والتأكيدات
+  - أحاديث وآيات عن الصلاة (مصفوفة)
+- [ ] [lib/app/core/constants/app_enums.dart](file:///c:/development/comprehensive_islamic_application/lib/app/core/constants/app_enums.dart) - التعدادات
+  - `UserRole` (superAdmin, parent, imam)
+  - `Prayer` (fajr, dhuhr, asr, maghrib, isha)
+  - `LocationType` (mosque, home)
+  - `MosqueStatus` (pending, approved, rejected)
+  - `MosqueRole` (owner, supervisor)
+  - `MosqueType` (primary, secondary)
+  - `CorrectionStatus` (pending, approved, rejected)
+- [ ] `lib/app/core/constants/app_assets.dart` - مسارات الصور والأصول
+  - مسارات صور Lottie
+  - مسارات أيقونات SVG
+  - مسارات صور Onboarding
+
+### 1.3 الثيم (Theme)
+- [ ] [lib/app/core/theme/app_theme.dart](file:///c:/development/comprehensive_islamic_application/lib/app/core/theme/app_theme.dart)
+  - ThemeData كامل (light mode)
+  - ألوان الـ ColorScheme
+  - AppBarTheme
+  - CardTheme
+  - ElevatedButtonTheme
+  - OutlinedButtonTheme
+  - TextButtonTheme
+  - InputDecorationTheme (حقول الإدخال)
+  - BottomNavigationBarTheme
+  - FloatingActionButtonTheme
+  - DialogTheme
+  - SnackBarTheme
+- [ ] `lib/app/core/theme/app_fonts.dart`
+  - خط Cairo أو Tajawal (google_fonts)
+  - أحجام النصوص: headline, title, body, caption, label
+  - TextTheme كامل
+
+### 1.4 الموديلات (Models)
+- [ ] [lib/app/models/user_model.dart](file:///c:/development/comprehensive_islamic_application/lib/app/models/user_model.dart)
+  - id, name, email, phone, role, avatarUrl, fcmToken, createdAt
+  - fromJson / toJson / copyWith
+- [ ] `lib/app/models/child_model.dart`
+  - id, parentId, name, age, qrCode, mosqueNumber, avatarUrl
+  - totalPoints, currentStreak, bestStreak, createdAt
+  - fromJson / toJson / copyWith
+- [ ] `lib/app/models/mosque_model.dart`
+  - id, ownerId, name, code, inviteCode, address, lat, lng
+  - status, prayerConfig, createdAt
+  - fromJson / toJson / copyWith
+- [ ] `lib/app/models/attendance_model.dart`
+  - id, childId, mosqueId, recordedBy, prayer, locationType
+  - pointsEarned, prayerDate, syncedOffline, recordedAt
+  - fromJson / toJson / copyWith
+- [ ] `lib/app/models/mosque_member_model.dart`
+  - id, mosqueId, userId, role, joinedAt
+- [ ] `lib/app/models/mosque_child_model.dart`
+  - id, mosqueId, childId, type, localNumber, isActive, joinedAt
+- [ ] `lib/app/models/badge_model.dart`
+  - id, childId, type, nameAr, earnedAt
+- [ ] `lib/app/models/reward_model.dart`
+  - id, childId, parentId, title, targetPoints, isClaimed, createdAt
+- [ ] `lib/app/models/correction_model.dart`
+  - id, childId, parentId, mosqueId, prayer, prayerDate
+  - status, note, reviewedBy, createdAt, reviewedAt
+- [ ] `lib/app/models/note_model.dart`
+  - id, childId, senderId, mosqueId, message, isRead, createdAt
+- [ ] `lib/app/models/announcement_model.dart`
+  - id, mosqueId, senderId, title, body, createdAt
+
+### 1.5 الشبكة والخدمات الأساسية (Core Services)
+- [ ] `lib/app/core/network/supabase_client.dart`
+  - إعداد Supabase client
+  - Supabase URL + Anon Key
+- [ ] `lib/app/core/services/connectivity_service.dart`
+  - مراقبة حالة الإنترنت
+  - Stream<bool> isConnected
+- [ ] `lib/app/core/services/notification_service.dart`
+  - Firebase FCM setup
+  - requestPermission
+  - getToken + onTokenRefresh
+  - onMessage + onBackgroundMessage
+  - handleNotificationTap
+- [ ] `lib/app/core/services/offline_sync_service.dart`
+  - sqflite database setup
+  - حفظ العمليات المعلقة
+  - مزامنة عند عودة الإنترنت
+  - جدول offline_queue
+- [ ] `lib/app/core/services/prayer_times_service.dart`
+  - حساب أوقات الصلاة بحساب adhan package
+  - الصلاة الحالية/القادمة
+  - الوقت المتبقي
+- [ ] `lib/app/core/services/points_service.dart`
+  - حساب النقاط حسب نوع الحضور
+  - حساب السلاسل
+  - تقييم الشارات
+
+### 1.6 الملاحة (Router)
+- [ ] `lib/app/core/router/app_router.dart`
+  - GoRouter setup
+  - Routes لكل الشاشات
+  - Guards (redirect حسب حالة Auth + الدور)
+  - Splash → Auth → Role Selection → Dashboard
+  - Parent routes (home, reports, leaderboard, rewards, ...)
+  - Supervisor routes (home, scanner, students, ...)
+  - Admin routes (supervisors, settings, stats)
+  - Super Admin routes
+
+### 1.7 حقن التبعيات (DI)
+- [ ] [lib/app/injection_container.dart](file:///c:/development/comprehensive_islamic_application/lib/app/injection_container.dart)
+  - تسجيل كل الـ Services
+  - تسجيل كل الـ Repositories
+  - تسجيل كل الـ BLoCs/Cubits
+
+### 1.8 الـ Widgets المشتركة (Shared Widgets)
+- [ ] `lib/app/shared/widgets/app_dialog.dart` - wrapper لـ awesome_dialog
+- [ ] `lib/app/shared/widgets/app_toast.dart` - wrapper لـ elegant_notification
+- [ ] `lib/app/shared/widgets/shimmer_loading.dart` - تحميل لامع
+- [ ] `lib/app/shared/widgets/prayer_card.dart` - بطاقة صلاة
+- [ ] `lib/app/shared/widgets/streak_widget.dart` - عداد السلسلة
+- [ ] `lib/app/shared/widgets/points_badge.dart` - شارة النقاط
+- [ ] `lib/app/shared/widgets/qr_display.dart` - عرض QR
+- [ ] `lib/app/shared/widgets/app_button.dart` - زر موحد
+- [ ] `lib/app/shared/widgets/app_text_field.dart` - حقل إدخال موحد
+- [ ] `lib/app/shared/widgets/offline_banner.dart` - شريط "بدون نت"
+- [ ] `lib/app/shared/widgets/empty_state.dart` - حالة فارغة
+- [ ] `lib/app/shared/widgets/error_state.dart` - حالة خطأ
+
+### 1.9 إعداد Supabase (Backend)
+- [ ] إنشاء مشروع Supabase
+- [ ] إنشاء كل الجداول (14 جدول)
+  - users
+  - children
+  - mosques
+  - mosque_members
+  - mosque_children
+  - attendance
+  - badges
+  - rewards
+  - correction_requests
+  - notes
+  - announcements
+  - offline_queue
+  - daily_tips (أحاديث وفوائد)
+  - notification_log
+- [ ] إعداد RLS Policies لكل جدول
+  - users: المستخدم يرى/يعدل نفسه فقط
+  - children: الأب يرى أطفاله فقط
+  - mosques: الكل يقرأ، المالك/المشرف يعدل
+  - attendance: المشرف يكتب، الأب يقرأ أطفاله فقط
+  - ... لكل جدول سياسة خاصة
+- [ ] إعداد Database Functions (إن لزم)
+- [ ] إعداد Edge Functions (إن لزم)
+- [ ] إعداد Firebase في Supabase (للـ Auth)
+
+### 1.10 إعداد Firebase
+- [ ] إنشاء مشروع Firebase
+- [ ] إضافة Android app + google-services.json
+- [ ] إضافة iOS app + GoogleService-Info.plist
+- [ ] تفعيل Firebase Auth (Email + Phone + Google)
+- [ ] تفعيل Firebase Cloud Messaging
+
+---
+
+## المرحلة 2: نظام Auth + Onboarding
+
+### 2.1 BLoC / Cubit
+- [ ] `lib/app/features/auth/presentation/bloc/auth_bloc.dart`
+  - Events: login, register, logout, checkAuth, selectRole
+  - States: initial, loading, authenticated, unauthenticated, error
+  - الربط مع Firebase Auth + Supabase user record
+
+### 2.2 Repository
+- [ ] `lib/app/features/auth/data/repositories/auth_repository.dart`
+  - signInWithEmail(email, password)
+  - signUpWithEmail(email, password, name)
+  - signInWithPhone(phone)
+  - verifyOTP(verificationId, code)
+  - signInWithGoogle()
+  - signOut()
+  - getCurrentUser()
+  - updateRole(role)
+  - updateFcmToken(token)
+
+### 2.3 الشاشات
+- [ ] Splash Screen - شعار + آية + أنيميشن Lottie
+- [ ] شاشة اختيار الدور - ولي أمر / إمام (مع تبديل Dark Mode)
+- [ ] شاشة تسجيل الدخول - إيميل + كلمة سر + Google + نسيت كلمة المرور
+- [ ] شاشة إنشاء حساب - اسم + إيميل + رقم هاتف + كلمة سر
+- [ ] شاشة OTP - تأكيد رقم الهاتف
+
+---
+
+## المرحلة 3: المشرف + المسجد
+
+### 3.1 تسجيل المسجد
+- [ ] شاشة "إنشاء مسجد جديد" أو "الانضمام بكود"
+- [ ] نموذج إنشاء مسجد (اسم + عنوان + هاتف)
+- [ ] شاشة "طلبك قيد المراجعة" (بانتظار Super Admin)
+- [ ] شاشة "الانضمام بكود دعوة"
+
+### 3.2 Dashboard المشرف
+- [ ] الشاشة الرئيسية
+  - عدد الطلاب المسجلين
+  - الصلاة القادمة + العد التنازلي
+  - نسب حضور اليوم (كل صلاة)
+  - عدد طلبات التصحيح المعلقة
+  - آخر الإعلانات
+
+### 3.3 التحضير (QR Scanner)
+- [ ] شاشة التحضير الرئيسية
+  - 3 تبويبات: QR / رقم / اسم
+  - كاميرا QR (mobile_scanner)
+  - حقل إدخال رقم الطالب
+  - حقل بحث بالاسم مع autocomplete
+  - قائمة الحضور اللحظية (مع checkboxes)
+  - عداد الحضور + شريط نسبة
+  - زر "إنهاء التحضير"
+  - دعم Offline (حفظ في sqflite)
+- [ ] Cubit: ScannerCubit
+  - scanQR(code)
+  - recordByNumber(number)
+  - recordByName(name)
+  - toggleFromList(childId)
+  - finishAttendance()
+  - syncOffline()
+
+### 3.4 قائمة الطلاب
+- [ ] شاشة قائمة الطلاب
+  - بحث (اسم / رقم)
+  - فلتر: الكل / حاضر / غائب
+  - بطاقة كل طالب (اسم + رقم + نسبة الحضور الأسبوعية)
+  - الضغط على طالب = تفاصيل كاملة
+  - شاشة تفاصيل الطالب (إحصائيات + إرسال ملاحظة)
+
+### 3.5 طلبات التصحيح (المشرف)
+- [ ] قائمة الطلبات المعلقة
+- [ ] تفاصيل كل طلب (اسم الطالب + الصلاة + التاريخ + ملاحظة الأب)
+- [ ] زر قبول ✅ / رفض ❌
+- [ ] إشعار للأب بالنتيجة
+
+### 3.6 الملاحظات السريعة
+- [ ] شاشة الملاحظات
+  - اختيار الطالب من dropdown
+  - رسائل جاهزة (أزرار): "ابنك مجتهد" / "يحتاج تشجيع" / "غاب كثيراً" / "ممتاز"
+  - حقل رسالة مخصصة
+  - زر إرسال → إشعار فوري للأب
+
+### 3.7 إدارة المشرفين (مدير المسجد فقط)
+- [ ] قائمة المشرفين الحاليين (اسم + تاريخ انضمام)
+- [ ] زر إزالة مشرف
+- [ ] إنشاء كود/رابط دعوة
+- [ ] نسخ الكود + مشاركة الرابط
+
+---
+
+## المرحلة 4: ولي الأمر
+
+### 4.1 إضافة الأطفال
+- [ ] شاشة "أطفالي" - قائمة ملفات الأطفال
+- [ ] نموذج إضافة طفل (اسم + عمر + صورة اختيارية)
+- [ ] توليد QR Code تلقائي عند الإضافة
+- [ ] تعديل / حذف ملف الطفل
+
+### 4.2 ربط الطفل بمسجد
+- [ ] إدخال كود المسجد (6 أحرف)
+- [ ] اختيار نوع المسجد (أساسي / إضافي)
+- [ ] عرض المساجد المرتبطة
+- [ ] إلغاء ربط / تغيير الأساسي
+
+### 4.3 بطاقة الطفل (QR)
+- [ ] عرض QR Code كبير وواضح
+- [ ] رقم الطالب
+- [ ] اسم الطالب + المسجد الأساسي
+- [ ] زر "طباعة البطاقة" (PDF)
+- [ ] زر "مشاركة البطاقة" (share_plus)
+- [ ] زر "إعادة توليد QR" (يُبطل القديم)
+
+### 4.4 Dashboard ولي الأمر
+- [ ] الشاشة الرئيسية
+  - اسم الطفل (+ switcher لو أكثر من طفل)
+  - الصلاة القادمة + العد التنازلي
+  - حضور اليوم (5 صلوات مع حالة كل واحدة)
+  - النقاط الحالية + السلسلة الحالية 🔥
+  - شريط تقدم الجائزة الحالية
+  - آخر ملاحظة من المشرف
+  - "فائدة اليوم" (حديث أو قصة)
+
+### 4.5 صلاة منزلية
+- [ ] عرض الصلوات مع أزرار ✅ / ❌
+- [ ] ملاحظة "الصلاة المنزلية = 3 نقاط (الجماعة = 10)"
+- [ ] رسالة تذكيرية لطيفة بالصدق
+
+### 4.6 طلب تصحيح حضور
+- [ ] اختيار الطفل
+- [ ] اختيار الصلاة + التاريخ
+- [ ] كتابة ملاحظة
+- [ ] إرسال الطلب
+- [ ] تتبع حالة الطلبات (معلقة / مقبولة / مرفوضة)
+
+### 4.7 التقارير (Reports)
+- [ ] رسم بياني أسبوعي (fl_chart) - 7 أيام × نسبة الحضور
+- [ ] رسم بياني شهري - مقارنة الأسابيع
+- [ ] نسبة الحضور: جماعة vs منزل (Pie chart)
+- [ ] أفضل يوم / أسوأ يوم
+- [ ] مقارنة بين الأشهر
+
+### 4.8 لوحة الشرف (Leaderboard)
+- [ ] أول 3 بالأسماء الكاملة
+- [ ] ترتيب الابن + فرق النقاط عن الأول
+- [ ] تبويبات: أسبوعي / شهري
+- [ ] أنيميشن الترتيب
+
+### 4.9 الجوائز (Rewards)
+- [ ] قائمة الجوائز الحالية
+- [ ] إضافة جائزة (عنوان + عدد النقاط المطلوبة)
+- [ ] شريط تقدم لكل جائزة
+- [ ] عند الوصول = كونفيتي 🎊 + Dialog احتفال
+- [ ] أرشيف الجوائز المحققة
+
+### 4.10 البروفايل والإعدادات
+- [ ] معلومات الحساب (اسم + إيميل + هاتف + صورة)
+- [ ] إدارة الأطفال (إضافة/تعديل/حذف)
+- [ ] المساجد المرتبطة
+- [ ] إعدادات الإشعارات (تفعيل/إيقاف لكل نوع)
+- [ ] عن التطبيق + التواصل
+- [ ] تسجيل الخروج
+
+---
+
+## المرحلة 5: التحفيز (Gamification)
+
+### 5.1 نظام النقاط (Points Service)
+- [ ] صلاة جماعة = 10 نقاط
+- [ ] صلاة منزلية (فجر) = 5 نقاط
+- [ ] صلاة منزلية (أخرى) = 3 نقاط
+- [ ] مكافأة سلسلة 7 أيام = +25
+- [ ] مكافأة سلسلة 30 يوم = +100
+- [ ] تحديث total_points تلقائياً
+- [ ] تحديث current_streak تلقائياً
+- [ ] حفظ best_streak
+
+### 5.2 الشارات (Badges)
+- [ ] بطل الصلاة (7 أيام متتالية) 🏅
+- [ ] زعيم الصلاة (30 يوم متتالي) 👑
+- [ ] أمير المسجد (الأول أسبوعياً) 🏰
+- [ ] فارس الفجر (15 فجر في الشهر) 🌙
+- [ ] المثابر (استعاد السلسلة بعد انقطاع) 💪
+- [ ] تقييم تلقائي + إشعار + أنيميشن عند الحصول على شارة
+
+### 5.3 الإشعارات الكاملة (FCM)
+- [ ] تأكيد حضور → الأب
+- [ ] تنبيه غياب → الأب
+- [ ] تذكير قبل الصلاة → الأب (اختياري)
+- [ ] إنجاز/شارة → الأب
+- [ ] اقتراب من الجائزة → الأب
+- [ ] ملاحظة من المشرف → الأب
+- [ ] تقرير أسبوعي → الأب (كل جمعة)
+- [ ] طلب تصحيح جديد → المشرف
+- [ ] نتيجة طلب التصحيح → الأب
+- [ ] لم يسجل أحد → المدير
+- [ ] انضمام طالب جديد → المشرف
+- [ ] طلب مسجد جديد → Super Admin
+
+---
+
+## المرحلة 6: Super Admin + التلميع
+
+### 6.1 Super Admin
+- [ ] شاشة لوحة Super Admin
+  - طلبات المساجد المعلقة
+  - تفاصيل كل طلب (اسم المسجد + العنوان + بيانات المدير)
+  - قبول ✅ / رفض ❌
+  - قائمة المساجد المعتمدة
+  - إحصائيات عامة (عدد المساجد + الطلاب + الأولياء)
+
+### 6.2 Offline Sync
+- [ ] إنشاء sqflite database locally
+  - جدول offline_attendance
+  - جدول cached_students (للبحث بدون نت)
+  - جدول cached_prayer_times
+- [ ] كتابة الحضور محلياً أولاً دائماً
+- [ ] مزامنة تلقائية عند عودة الإنترنت
+- [ ] شريط "⚡ وضع عدم الاتصال" واضح
+- [ ] اختبار سيناريوهات القطع والعودة
+
+### 6.3 التلميع والتجهيز
+- [ ] مراجعة كل الأنيميشن
+- [ ] مراجعة كل الـ Loading states (Shimmer)
+- [ ] مراجعة كل الـ Error states
+- [ ] مراجعة كل الـ Empty states
+- [ ] إضافة أحاديث وآيات في الأماكن المناسبة
+- [ ] اختبار RTL positioning
+- [ ] اختبار على أجهزة مختلفة
+- [ ] إصلاح كل الأخطاء
+- [ ] بناء APK release
+- [ ] تجربة فعلية (مسجد + أب + طفل)
