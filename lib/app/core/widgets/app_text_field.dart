@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_dimensions.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
 
 /// حقل إدخال نصي موحد
 class AppTextField extends StatelessWidget {

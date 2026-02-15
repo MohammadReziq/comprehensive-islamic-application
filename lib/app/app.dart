@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/constants/app_strings.dart';
 import 'core/theme/app_theme.dart';
+import 'core/router/app_router.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/auth/presentation/bloc/auth_event.dart';
+import 'injection_container.dart';
 
 /// نقطة بداية التطبيق
 class SalatiHayatiApp extends StatelessWidget {
@@ -8,64 +13,34 @@ class SalatiHayatiApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppStrings.appName,
-      debugShowCheckedModeBanner: false,
-
-      // ─── الثيم ───
-      theme: AppTheme.lightTheme,
-
-      // ─── الاتجاه: عربي (RTL) ───
-      locale: const Locale('ar', 'SA'),
-      supportedLocales: const [
-        Locale('ar', 'SA'),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create: (_) => sl<AuthBloc>()..add(const AuthCheckRequested()),
+        ),
       ],
+      child: Builder(
+        builder: (context) {
+          final authBloc = context.read<AuthBloc>();
+          final appRouter = AppRouter(authBloc: authBloc);
 
-      // ─── الصفحة المؤقتة (ستُستبدل بـ GoRouter) ───
-      home: const _TempHomePage(),
-    );
-  }
-}
+          return MaterialApp.router(
+            title: AppStrings.appName,
+            debugShowCheckedModeBanner: false,
 
-/// صفحة مؤقتة للاختبار - ستُحذف لاحقاً
-class _TempHomePage extends StatelessWidget {
-  const _TempHomePage();
+            // ─── الثيم ───
+            theme: AppTheme.lightTheme,
 
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text(AppStrings.appName),
-        ),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '🕌',
-                style: TextStyle(fontSize: 64),
-              ),
-              SizedBox(height: 16),
-              Text(
-                AppStrings.appName,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                AppStrings.appTagline,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
+            // ─── الاتجاه: عربي (RTL) ───
+            locale: const Locale('ar', 'SA'),
+            supportedLocales: const [
+              Locale('ar', 'SA'),
             ],
-          ),
-        ),
+
+            // ─── GoRouter ───
+            routerConfig: appRouter.router,
+          );
+        },
       ),
     );
   }

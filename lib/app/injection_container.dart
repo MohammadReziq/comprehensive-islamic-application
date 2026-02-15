@@ -1,4 +1,6 @@
 import 'package:get_it/get_it.dart';
+import 'features/auth/data/repositories/auth_repository.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
 
 /// حاوية حقن التبعيات
 final sl = GetIt.instance;
@@ -13,7 +15,7 @@ Future<void> initDependencies() async {
   // TODO: sl.registerLazySingleton(() => PointsService());
 
   // ─── Repositories ───
-  // TODO: sl.registerLazySingleton(() => AuthRepository());
+  sl.registerLazySingleton(() => AuthRepository());
   // TODO: sl.registerLazySingleton(() => MosqueRepository());
   // TODO: sl.registerLazySingleton(() => ChildRepository());
   // TODO: sl.registerLazySingleton(() => AttendanceRepository());
@@ -25,7 +27,7 @@ Future<void> initDependencies() async {
   // TODO: sl.registerLazySingleton(() => ReportRepository());
 
   // ─── BLoCs / Cubits ───
-  // TODO: sl.registerFactory(() => AuthBloc(sl()));
+  sl.registerFactory(() => AuthBloc(sl<AuthRepository>()));
   // TODO: sl.registerFactory(() => ScannerCubit(sl()));
   // TODO: sl.registerFactory(() => ParentDashboardCubit(sl()));
   // TODO: sl.registerFactory(() => SupervisorDashboardCubit(sl()));

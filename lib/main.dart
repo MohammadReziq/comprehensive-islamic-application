@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
+import 'app/core/network/supabase_client.dart';
+import 'app/injection_container.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,14 +22,14 @@ void main() async {
     ),
   );
 
-  // TODO: إعداد Firebase
-  // await Firebase.initializeApp();
+  // ─── إعداد Supabase ───
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
+  );
 
-  // TODO: إعداد Supabase
-  // await Supabase.initialize(url: '', anonKey: '');
-
-  // TODO: إعداد DI
-  // await initDependencies();
+  // ─── إعداد DI ───
+  await initDependencies();
 
   runApp(const SalatiHayatiApp());
 }

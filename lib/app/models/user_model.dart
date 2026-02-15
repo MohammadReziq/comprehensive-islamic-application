@@ -4,7 +4,7 @@ import '../core/constants/app_enums.dart';
 /// نموذج المستخدم
 class UserModel extends Equatable {
   final String id;
-  final String? firebaseUid;
+  final String? authId;
   final String name;
   final String? email;
   final String? phone;
@@ -16,7 +16,7 @@ class UserModel extends Equatable {
 
   const UserModel({
     required this.id,
-    this.firebaseUid,
+    this.authId,
     required this.name,
     this.email,
     this.phone,
@@ -30,7 +30,7 @@ class UserModel extends Equatable {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
-      firebaseUid: json['firebase_uid'] as String?,
+      authId: json['auth_id'] as String?,
       name: json['name'] as String,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
@@ -45,7 +45,7 @@ class UserModel extends Equatable {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'firebase_uid': firebaseUid,
+      'auth_id': authId,
       'name': name,
       'email': email,
       'phone': phone,
@@ -59,7 +59,7 @@ class UserModel extends Equatable {
 
   UserModel copyWith({
     String? id,
-    String? firebaseUid,
+    String? authId,
     String? name,
     String? email,
     String? phone,
@@ -71,7 +71,7 @@ class UserModel extends Equatable {
   }) {
     return UserModel(
       id: id ?? this.id,
-      firebaseUid: firebaseUid ?? this.firebaseUid,
+      authId: authId ?? this.authId,
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
@@ -85,7 +85,7 @@ class UserModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, firebaseUid, name, email, phone,
+        id, authId, name, email, phone,
         role, avatarUrl, fcmToken, isActive, createdAt,
       ];
 }
