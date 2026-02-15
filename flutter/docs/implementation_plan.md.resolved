@@ -1,0 +1,691 @@
+# 📱 الخطة النهائية - تطبيق "صلاتي حياتي" v4.0
+
+> Express.js Backend + Super Admin + رؤية إسلامية تربوية
+
+---
+
+## 🎯 الملخص التنفيذي
+
+| البند | القيمة |
+|------|--------|
+| **Frontend** | Flutter (Android + iOS) |
+| **Backend** | Express.js + PostgreSQL + Prisma ORM |
+| **Auth** | Firebase Auth (إيميل + هاتف + Google) |
+| **Notifications** | Firebase Cloud Messaging (FCM) |
+| **Offline** | Hive (محلي) + Sync Queue |
+| **اللغة** | عربي فقط (RTL) |
+| **التصميم** | ملائم للأطفال - مبهج - بسيط |
+
+---
+
+## 📐 البنية التقنية - Express.js Architecture
+
+```mermaid
+graph TB
+    subgraph "📱 Flutter App"
+        FA["واجهة ولي الأمر"]
+        FB["واجهة المشرف"]
+        FC["واجهة Super Admin"]
+    end
+    
+    subgraph "🔐 Firebase"
+        AUTH["Firebase Auth<br/>تسجيل + توثيق"]
+        FCM["Firebase FCM<br/>إشعارات"]
+    end
+    
+    subgraph "⚙️ Express.js Server"
+        API["REST API"]
+        MW["Middleware<br/>Auth + Validation"]
+        CRON["Cron Jobs<br/>تنبيهات + تقارير"]
+    end
+    
+    subgraph "🗄️ PostgreSQL"
+        DB["قاعدة البيانات"]
+    end
+    
+    FA & FB & FC --> AUTH
+    FA & FB & FC --> API
+    AUTH -->|"JWT Token"| MW
+    MW --> API
+    API --> DB
+    API --> FCM
+    CRON --> DB
+    CRON --> FCM
+    
+    style API fill:#68a063,color:#fff
+    style DB fill:#336791,color:#fff
+    style AUTH fill:#FFA611,color:#fff
+```
+
+### لماذا هذا الـ Stack؟
+
+| القرار | السبب |
+|--------|-------|
+| **Express.js** | تحكم كامل بالـ API، مرونة، سهل التوسّع |
+| **PostgreSQL** | أقوى من MySQL للعلاقات المعقدة + JSON support |
+| **Prisma ORM** | يسهّل التعامل مع DB + Type Safety + Migrations |
+| **Firebase Auth** | بدل ما نبني Auth من الصفر → جاهز + آمن + يدعم هاتف/إيميل |
+| **Firebase FCM** | أفضل حل للـ Push Notifications على Android + iOS |
+
+### هيكل الـ Backend
+
+```
+server/
+├── src/
+│   ├── index.ts                    # Entry point
+│   ├── app.ts                      # Express app setup
+│   │
+│   ├── config/
+│   │   ├── database.ts             # Prisma client
+│   │   ├── firebase.ts             # Firebase Admin SDK
+│   │   └── env.ts                  # Environment variables
+│   │
+│   ├── middleware/
+│   │   ├── auth.middleware.ts       # Firebase JWT verification
+│   │   ├── role.middleware.ts       # Role-based access control
+│   │   ├── validate.middleware.ts   # Request validation (Zod)
+│   │   └── error.middleware.ts      # Global error handler
+│   │
+│   ├── routes/
+│   │   ├── auth.routes.ts           # POST /auth/register, /auth/role
+│   │   ├── mosque.routes.ts         # CRUD mosques
+│   │   ├── supervisor.routes.ts     # Manage supervisors
+│   │   ├── child.routes.ts          # CRUD children
+│   │   ├── attendance.routes.ts     # Record + query attendance
+│   │   ├── correction.routes.ts     # Correction requests
+│   │   ├── note.routes.ts           # Quick notes
+│   │   ├── reward.routes.ts         # Rewards CRUD
+│   │   ├── leaderboard.routes.ts    # Rankings
+│   │   ├── report.routes.ts         # Charts data
+│   │   ├── notification.routes.ts   # Notification preferences
+│   │   └── admin.routes.ts          # Super Admin endpoints
+│   │
+│   ├── controllers/                 # Request handlers
+│   ├── services/                    # Business logic
+│   │   ├── attendance.service.ts
+│   │   ├── points.service.ts        # Points calculation
+│   │   ├── badge.service.ts         # Badge evaluation
+│   │   ├── notification.service.ts  # FCM sender
+│   │   └── prayer-times.service.ts
+│   │
+│   ├── utils/
+│   │   ├── qr.util.ts              # QR code generation
+│   │   └── response.util.ts        # Standard API responses
+│   │
+│   └── cron/
+│       ├── missing-attendance.ts    # تنبيه عدم تسجيل أي طالب
+│       └── weekly-report.ts         # تقرير أسبوعي للأولياء
+│
+├── prisma/
+│   ├── schema.prisma               # Database schema
+│   └── seed.ts                     # Seed data
+│
+├── package.json
+├── tsconfig.json
+└── .env
+```
+
+### أهم الـ API Endpoints
+
+```
+🔐 Auth
+POST   /api/auth/register          → تسجيل + اختيار دور
+POST   /api/auth/set-role          → تحديد الدور
+
+🏛️ Super Admin
+GET    /api/admin/mosque-requests   → طلبات المساجد المعلقة
+PATCH  /api/admin/mosque-requests/:id → قبول/رفض مسجد
+GET    /api/admin/stats             → إحصائيات عامة
+
+🕌 المسجد
+POST   /api/mosques                 → طلب إنشاء مسجد (يحتاج موافقة)
+GET    /api/mosques/:id             → تفاصيل المسجد
+PATCH  /api/mosques/:id             → تعديل الإعدادات
+
+👨‍🏫 المشرفون
+POST   /api/mosques/:id/invite      → إنشاء كود دعوة
+POST   /api/mosques/join            → انضمام بكود
+DELETE /api/mosques/:id/supervisors/:uid → إزالة مشرف
+
+👶 الأطفال
+POST   /api/children                → إضافة طفل
+GET    /api/children                → أطفالي
+GET    /api/children/:id/qr         → QR Code
+POST   /api/children/:id/mosques    → ربط بمسجد
+
+✅ الحضور
+POST   /api/attendance/scan         → تسجيل بـ QR
+POST   /api/attendance/number       → تسجيل برقم
+POST   /api/attendance/name         → تسجيل باسم
+POST   /api/attendance/home         → صلاة منزلية
+POST   /api/attendance/sync         → مزامنة Offline
+GET    /api/attendance/today/:mosqueId → حضور اليوم
+
+📩 التصحيح
+POST   /api/corrections             → إرسال طلب تصحيح
+GET    /api/corrections/pending     → الطلبات المعلقة
+PATCH  /api/corrections/:id         → قبول/رفض
+
+📝 الملاحظات
+POST   /api/notes                   → إرسال ملاحظة
+GET    /api/notes/child/:id         → ملاحظات طفل
+
+🏆 التحفيز
+GET    /api/leaderboard/:mosqueId   → الترتيب (خصوصية)
+GET    /api/badges/:childId         → شارات الطفل
+POST   /api/rewards                 → إضافة جائزة
+
+📊 التقارير
+GET    /api/reports/weekly/:childId  → تقرير أسبوعي
+GET    /api/reports/monthly/:childId → تقرير شهري
+```
+
+---
+
+## 👥 هرم الأدوار النهائي (مع Super Admin)
+
+```mermaid
+graph TB
+    GOD["👨‍💻 Super Admin<br/>صاحب التطبيق/المبادرة<br/>يوافق على المساجد"]
+    SA["🏛️ مدير المسجد<br/>يُقبل من Super Admin<br/>يدير مسجده + يدعو مشرفين"]
+    AD["👨‍🏫 مشرف<br/>يُدعى من المدير<br/>يسجل الحضور"]
+    PA["👨‍👩‍👧 ولي أمر<br/>يسجل بنفسه<br/>يربط أطفاله"]
+    CH["👶 طفل<br/>لا يحتاج حساب<br/>بطاقة QR"]
+    
+    GOD -->|"يوافق/يرفض"| SA
+    SA -->|"يدعو بكود"| AD
+    AD -->|"يسجل حضور"| CH
+    PA -->|"يضيف + يربط"| CH
+    
+    style GOD fill:#8B0000,color:#fff
+    style SA fill:#1a3a5c,color:#fff
+    style AD fill:#2d5f8a,color:#fff
+    style PA fill:#4a90d9,color:#fff
+    style CH fill:#87ceeb,color:#000
+```
+
+### رحلة تسجيل المسجد (مع Super Admin)
+
+```mermaid
+sequenceDiagram
+    participant Imam as الإمام
+    participant App as التطبيق
+    participant API as Express API
+    participant SA as Super Admin
+
+    Imam->>App: إنشاء حساب
+    Imam->>App: اختار "إمام/مشرف"
+    Imam->>App: "إنشاء مسجد جديد"
+    Imam->>App: ملء البيانات (اسم + عنوان + رقم هاتف)
+    App->>API: POST /api/mosques {status: "pending"}
+    API->>SA: 🔔 طلب مسجد جديد!
+    
+    Note over Imam: ⏳ في انتظار الموافقة
+    App->>Imam: "طلبك قيد المراجعة"
+    
+    SA->>App: مراجعة الطلب
+    SA->>API: PATCH /api/admin/mosque-requests/123 {approved}
+    API->>Imam: 🔔 مبروك! تمت الموافقة على مسجدك
+    
+    Note over Imam: الآن يمكنه دعوة المشرفين
+```
+
+---
+
+## 📖 رؤية إسلامية تربوية
+
+### مراعاة الجانب الشرعي والتربوي
+
+| الجانب | المراعاة في التطبيق |
+|--------|-------------------|
+| **الإخلاص** | النظام يحفّز على الصلاة لكن لا يجعلها "لعبة" فقط. كل شاشة فيها ذكر أو حديث عن فضل الصلاة |
+| **فضل صلاة الجماعة** | صلاة الجماعة = نقاط أعلى. يتوافق مع حديث "صلاة الجماعة أفضل من صلاة الفذ بسبع وعشرين درجة" |
+| **صلاة الفجر** | نقاط خاصة لأن "من صلى الفجر في جماعة فكأنما قام الليل كله". حتى لو في البيت = تشجيع |
+| **الصدق والأمانة** | التذكير بأن تزوير الحضور حرام. رسالة لطيفة عند تسجيل الصلاة المنزلية |
+| **عدم الرياء** | لوحة الشرف مقيدة (أول 3 فقط) لتقليل الرياء والتفاخر |
+| **التدرج** | نبدأ بالصلوات الخمس فقط، ولا نثقل الأطفال. "أحب الأعمال إلى الله أدومها وإن قلّ" |
+| **التربية لا التعنيف** | الملاحظات للأولياء تشجيعية أولاً. الغياب = "يحتاج تشجيع" لا "مقصر" |
+
+### أذكار وأحاديث في التطبيق
+
+| المكان | المحتوى |
+|--------|---------|
+| **Splash Screen** | آية: ﴿إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَّوْقُوتًا﴾ |
+| **بعد تسجيل الحضور** | حديث مختلف كل مرة عن فضل الصلاة |
+| **شارة جديدة** | "ماشاء الله تبارك الله!" + حديث مناسب |
+| **تذكير قبل الصلاة** | "حيّ على الصلاة 🕌" |
+| **تقرير أسبوعي** | "بارك الله فيك وفي ابنك" |
+| **سلسلة جديدة** | "من حافظ عليها كان له نوراً يوم القيامة" |
+
+### ميزة "فائدة اليوم" 💡
+كل يوم تظهر فائدة صغيرة عن الصلاة في الشاشة الرئيسية:
+- حكم من أحكام الصلاة مبسط للأطفال
+- قصة صحابي وصلاته
+- فضل من فضائل الصلاة
+
+---
+
+## 🗄️ قاعدة البيانات - PostgreSQL + Prisma
+
+```prisma
+// prisma/schema.prisma
+
+model User {
+  id            String   @id @default(uuid())
+  firebaseUid   String   @unique
+  name          String
+  email         String?  @unique
+  phone         String?  @unique
+  role          Role     @default(PARENT)
+  avatarUrl     String?
+  fcmToken      String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  
+  children      Child[]
+  mosqueMemberships MosqueMember[]
+  notes         Note[]        @relation("NoteSender")
+  corrections   CorrectionRequest[]
+}
+
+model Child {
+  id            String   @id @default(uuid())
+  parentId      String
+  name          String
+  age           Int
+  qrCode        String   @unique @default(uuid())
+  avatarUrl     String?
+  totalPoints   Int      @default(0)
+  currentStreak Int      @default(0)
+  bestStreak    Int      @default(0)
+  createdAt     DateTime @default(now())
+  
+  parent        User     @relation(fields: [parentId], references: [id])
+  mosques       MosqueChild[]
+  attendance    Attendance[]
+  badges        Badge[]
+  rewards       Reward[]
+  notes         Note[]
+  corrections   CorrectionRequest[]
+}
+
+model Mosque {
+  id            String       @id @default(uuid())
+  ownerId       String
+  name          String
+  code          String       @unique // كود 6 أحرف
+  inviteCode    String       @unique // كود دعوة المشرفين
+  address       String?
+  lat           Float?
+  lng           Float?
+  status        MosqueStatus @default(PENDING)
+  prayerConfig  Json?
+  createdAt     DateTime     @default(now())
+  
+  members       MosqueMember[]
+  children      MosqueChild[]
+  attendance    Attendance[]
+  announcements Announcement[]
+}
+
+model MosqueMember {
+  id        String     @id @default(uuid())
+  mosqueId  String
+  userId    String
+  role      MosqueRole // OWNER أو SUPERVISOR
+  joinedAt  DateTime   @default(now())
+  
+  mosque    Mosque     @relation(fields: [mosqueId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+  
+  @@unique([mosqueId, userId])
+}
+
+model MosqueChild {
+  id          String     @id @default(uuid())
+  mosqueId    String
+  childId     String
+  type        MosqueType // PRIMARY أو SECONDARY
+  localNumber Int        // رقم داخل المسجد
+  isActive    Boolean    @default(true)
+  joinedAt    DateTime   @default(now())
+  
+  mosque      Mosque     @relation(fields: [mosqueId], references: [id])
+  child       Child      @relation(fields: [childId], references: [id])
+  
+  @@unique([mosqueId, childId])
+}
+
+model Attendance {
+  id             String   @id @default(uuid())
+  childId        String
+  mosqueId       String?  // null = منزل
+  recordedById   String
+  prayer         Prayer
+  locationType   LocationType
+  pointsEarned   Int
+  prayerDate     DateTime @db.Date
+  syncedOffline  Boolean  @default(false)
+  recordedAt     DateTime @default(now())
+  
+  child          Child    @relation(fields: [childId], references: [id])
+  mosque         Mosque?  @relation(fields: [mosqueId], references: [id])
+  
+  @@unique([childId, prayer, prayerDate]) // منع التكرار
+}
+
+model Badge {
+  id        String   @id @default(uuid())
+  childId   String
+  type      String
+  nameAr    String
+  earnedAt  DateTime @default(now())
+  
+  child     Child    @relation(fields: [childId], references: [id])
+}
+
+model Reward {
+  id            String   @id @default(uuid())
+  childId       String
+  parentId      String
+  title         String
+  targetPoints  Int
+  isClaimed     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  
+  child         Child    @relation(fields: [childId], references: [id])
+}
+
+model CorrectionRequest {
+  id         String           @id @default(uuid())
+  childId    String
+  parentId   String
+  mosqueId   String
+  prayer     Prayer
+  prayerDate DateTime         @db.Date
+  status     CorrectionStatus @default(PENDING)
+  note       String?
+  reviewedBy String?
+  createdAt  DateTime         @default(now())
+  reviewedAt DateTime?
+  
+  child      Child            @relation(fields: [childId], references: [id])
+  parent     User             @relation(fields: [parentId], references: [id])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  childId   String
+  senderId  String
+  mosqueId  String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  child     Child    @relation(fields: [childId], references: [id])
+  sender    User     @relation("NoteSender", fields: [senderId], references: [id])
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  mosqueId  String
+  senderId  String
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  
+  mosque    Mosque   @relation(fields: [mosqueId], references: [id])
+}
+
+// Enums
+enum Role {
+  SUPER_ADMIN
+  PARENT
+  IMAM
+}
+
+enum MosqueStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MosqueRole {
+  OWNER
+  SUPERVISOR
+}
+
+enum MosqueType {
+  PRIMARY
+  SECONDARY
+}
+
+enum Prayer {
+  FAJR
+  DHUHR
+  ASR
+  MAGHRIB
+  ISHA
+}
+
+enum LocationType {
+  MOSQUE
+  HOME
+}
+
+enum CorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+```
+
+---
+
+## ☁️ الاستضافة والتكلفة
+
+| الخدمة | الخيار المجاني | الخيار المدفوع |
+|--------|---------------|---------------|
+| **Express Server** | Railway.app (مجاني) أو Render | DigitalOcean $5/شهر |
+| **PostgreSQL** | Neon.tech (مجاني) أو Railway | Supabase DB مجاني |
+| **Firebase Auth** | مجاني حتى 50K مستخدم | - |
+| **Firebase FCM** | مجاني بالكامل | - |
+| **التكلفة الشهرية** | **$0** (للبداية) | **$5-15** |
+
+---
+
+## 🌐 سيناريوهات "ماذا لو؟"
+
+### الإنترنت
+
+| ماذا لو | الحل |
+|---------|------|
+| المشرف بدون نت أثناء التحضير | يحفظ محلياً → يزامن لما النت يرجع + شريط "⚡ وضع Offline" |
+| النت قطع في المنتصف | كل Scan يُحفظ محلياً أولاً ثم يُزامن |
+| مزامنة بيانات متعارضة | Last-Write-Wins + timestamp من الجهاز |
+
+### القيود والبطاقات
+
+| ماذا لو | الحل |
+|---------|------|
+| نسي البطاقة | رقم الطالب أو البحث بالاسم أو ضغطة من القائمة |
+| البطاقة تلفت | الأب يولّد QR جديد → الكود القديم يُبطل |
+| تبديل بطاقات | المشرف يرى الاسم بعد الـ Scan ← يتحقق |
+| الطفل معه جوال أبوه | يعرض QR من التطبيق مباشرة |
+
+### الحضور
+
+| ماذا لو | الحل |
+|---------|------|
+| نسي المشرف يحضر طفل | طلب تصحيح من الأب → المشرف يوافق |
+| نسي تحضير صلاة كاملة | Cron Job يكشف ويرسل تنبيه للمدير |
+| حضّر طفل غلط | يلغي الحضور نفس اليوم |
+| تسجيل مزدوج | Unique constraint يمنع تلقائياً |
+| الأب زوّر الفجر | نظام ثقة + 3 نقاط فقط (بدل 10) |
+
+### إدارية
+
+| ماذا لو | الحل |
+|---------|------|
+| مدير المسجد ترك | يعيّن مدير جديد قبل المغادرة، أو يتواصل مع Super Admin |
+| مشرف ترك | المدير يزيله |
+| الكل ينشئ حساب إمام | Super Admin يوافق فقط على المساجد الحقيقية |
+| مسجد بدون طلاب | يبقى فعال، لا مشكلة |
+
+---
+
+## 📱 Flutter - الباكجات النهائية
+
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management + DI
+  flutter_bloc: ^9.1.1
+  get_it: ^9.2.0
+  
+  # Auth + Notifications
+  firebase_core: ^3.x.x
+  firebase_auth: ^5.x.x
+  firebase_messaging: ^15.x.x
+  
+  # HTTP + API
+  dio: ^5.x.x                       # HTTP client
+  
+  # Navigation
+  go_router: ^14.x.x
+  
+  # QR Code
+  mobile_scanner: ^6.x.x
+  qr_flutter: ^4.x.x
+  
+  # UI الجميلة
+  awesome_dialog: ^3.x.x
+  elegant_notification: ^2.x.x
+  flutter_animate: ^4.x.x
+  shimmer: ^3.x.x
+  lottie: ^3.x.x
+  confetti: ^0.8.x
+  
+  # الصور والخطوط
+  cached_network_image: ^3.x.x
+  flutter_svg: ^2.x.x
+  google_fonts: ^6.x.x              # Cairo / Tajawal
+  
+  # رسوم بيانية
+  fl_chart: ^0.69.x
+  
+  # تخزين محلي
+  hive_flutter: ^1.x.x
+  
+  # أخرى
+  intl: ^0.19.x
+  permission_handler: ^11.x.x
+  share_plus: ^10.x.x
+  printing: ^5.x.x                  # طباعة QR كـ PDF
+  connectivity_plus: ^6.x.x         # مراقبة الإنترنت
+```
+
+---
+
+## 📱 الشاشات (21 شاشة)
+
+| # | الشاشة | الدور | الوصف |
+|---|--------|------|-------|
+| 1 | Splash | الكل | شعار + آية + أنيميشن |
+| 2 | اختيار الدور | الكل | ولي أمر / إمام |
+| 3 | تسجيل دخول | الكل | إيميل + هاتف + Google |
+| 4 | إنشاء حساب | الكل | بيانات + اختيار الدور |
+| 5 | طلب إنشاء مسجد | إمام | بيانات المسجد → ينتظر الموافقة |
+| 6 | الانضمام لمسجد | إمام | إدخال كود الدعوة |
+| 7 | الرئيسية | ولي أمر | ملخص اليوم + نقاط + إشعارات |
+| 8 | التقارير | ولي أمر | رسوم بيانية أسبوعية/شهرية |
+| 9 | لوحة الشرف | ولي أمر | أول 3 + ترتيب ابنه |
+| 10 | الجوائز | ولي أمر | إضافة/تتبع جوائز |
+| 11 | بطاقة الطفل | ولي أمر | QR + طباعة + مشاركة |
+| 12 | صلاة منزلية | ولي أمر | تسجيل ✅/❌ |
+| 13 | طلب تصحيح | ولي أمر | تحديد صلاة + إرسال |
+| 14 | البروفايل | ولي أمر | إعدادات + أطفال + مساجد |
+| 15 | الرئيسية | مشرف | إحصائيات + الصلاة القادمة |
+| 16 | التحضير | مشرف | QR + رقم + اسم + قائمة |
+| 17 | الطلاب | مشرف | بحث + فلتر + تفاصيل |
+| 18 | طلبات التصحيح | مشرف | قبول/رفض |
+| 19 | ملاحظات سريعة | مشرف | رسائل جاهزة + مخصصة |
+| 20 | إدارة المشرفين | مدير | دعوة/إزالة + كود الدعوة |
+| 21 | لوحة Super Admin | SA | طلبات + إحصائيات عامة |
+
+---
+
+## 🚀 خطة التنفيذ (5 مراحل)
+
+### المرحلة 1: البنية التحتية (أسبوع 1-2)
+- [ ] Express.js project setup + TypeScript
+- [ ] PostgreSQL + Prisma schema + migrations
+- [ ] Firebase Admin SDK setup
+- [ ] Auth middleware (JWT verification)
+- [ ] Role middleware + validation
+- [ ] API endpoints أساسية (auth, users)
+- [ ] Flutter: Theme + ألوان + خطوط عربية
+- [ ] Flutter: Splash + Onboarding + Auth screens
+- [ ] Flutter: Dio HTTP client + interceptors
+
+### المرحلة 2: المشرف + المسجد (أسبوع 3)
+- [ ] API: CRUD mosques + Super Admin approval
+- [ ] API: Supervisors management (invite/remove)
+- [ ] API: Attendance (scan/number/name)
+- [ ] API: Students listing
+- [ ] Flutter: Dashboard المشرف
+- [ ] Flutter: QR Scanner + بحث رقم/اسم
+- [ ] Flutter: قائمة الطلاب
+- [ ] Flutter: إدارة المشرفين
+- [ ] Offline Queue (Hive) + Sync
+
+### المرحلة 3: ولي الأمر (أسبوع 4)
+- [ ] API: Children CRUD + QR generation
+- [ ] API: Mosque enrollment (primary/secondary)
+- [ ] API: Home prayer recording
+- [ ] API: Corrections
+- [ ] API: Notes
+- [ ] Flutter: Dashboard ولي الأمر
+- [ ] Flutter: إضافة أطفال + بطاقة QR
+- [ ] Flutter: صلاة منزلية + تصحيح
+- [ ] Push Notifications (FCM) - كل الأنواع
+
+### المرحلة 4: التحفيز + التقارير (أسبوع 5)
+- [ ] API: Points system + badge evaluation
+- [ ] API: Leaderboard (privacy-aware)
+- [ ] API: Rewards CRUD
+- [ ] API: Reports (weekly/monthly charts data)
+- [ ] Cron: Weekly report + missing attendance alert
+- [ ] Flutter: لوحة الشرف + شارات
+- [ ] Flutter: جوائز + confetti 🎊
+- [ ] Flutter: رسوم بيانية (fl_chart)
+
+### المرحلة 5: التلميع (أسبوع 6)
+- [ ] Super Admin panel
+- [ ] أنيميشن + Lottie + polishing
+- [ ] أحاديث وأذكار في التطبيق
+- [ ] اختبار Offline كامل
+- [ ] Security review
+- [ ] بناء APK + تجربة فعلية
+- [ ] Deploy Express to Railway/Render
+
+---
+
+## ✅ ملخص القرارات النهائية
+
+| القرار | الاختيار |
+|--------|---------|
+| Backend | **Express.js + TypeScript** |
+| Database | **PostgreSQL + Prisma** |
+| Auth | **Firebase Auth** |
+| Notifications | **Firebase FCM** |
+| State Management | **flutter_bloc** |
+| DI | **get_it** |
+| Navigation | **go_router** |
+| اللغة | **عربي فقط** |
+| Super Admin | **✅ نعم - يوافق على المساجد** |
+| أفكار إبداعية | **❌ ليس في MVP** |
+| Offline | **✅ Hive + Sync Queue** |
+| Hosting | **Railway/Render (مجاني)** |
