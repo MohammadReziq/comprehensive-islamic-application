@@ -1,4 +1,9 @@
 import 'package:get_it/get_it.dart';
+import 'core/services/connectivity_service.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/offline_sync_service.dart';
+import 'core/services/prayer_times_service.dart';
+import 'core/services/points_service.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 
@@ -8,11 +13,14 @@ final sl = GetIt.instance;
 /// تهيئة كل التبعيات
 Future<void> initDependencies() async {
   // ─── Core Services ───
-  // TODO: sl.registerLazySingleton(() => ConnectivityService());
-  // TODO: sl.registerLazySingleton(() => NotificationService());
-  // TODO: sl.registerLazySingleton(() => OfflineSyncService());
-  // TODO: sl.registerLazySingleton(() => PrayerTimesService());
-  // TODO: sl.registerLazySingleton(() => PointsService());
+  sl.registerLazySingleton(() => ConnectivityService());
+  sl.registerLazySingleton(() => NotificationService());
+  sl.registerLazySingleton(() => OfflineSyncService(sl<ConnectivityService>()));
+  sl.registerLazySingleton(() => PrayerTimesService());
+  sl.registerLazySingleton(() => PointsService());
+
+  // ─── تهيئة الخدمات الأساسية ───
+  await sl<ConnectivityService>().init();
 
   // ─── Repositories ───
   sl.registerLazySingleton(() => AuthRepository());
