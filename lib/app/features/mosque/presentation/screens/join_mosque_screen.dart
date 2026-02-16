@@ -58,8 +58,15 @@ class _JoinMosqueScreenState extends State<JoinMosqueScreen> {
                   behavior: SnackBarBehavior.floating,
                 ),
               );
-            } else if (state is MosqueLoaded && _isSubmitting) {
+            } else if (state is MosqueJoinRequestSent) {
               setState(() => _isSubmitting = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message ?? 'تم إرسال طلب الانضمام. سيتم إعلامك عند الموافقة.'),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
               Navigator.of(context).pop();
             }
           },

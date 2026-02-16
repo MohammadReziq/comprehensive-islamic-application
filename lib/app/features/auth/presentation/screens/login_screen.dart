@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               if (role == UserRole.superAdmin) {
                 context.go('/admin');
-              } else if (role == UserRole.imam) {
+              } else if (role == UserRole.imam || role == UserRole.supervisor) {
                 context.go('/mosque');
               } else {
                 context.go('/home');

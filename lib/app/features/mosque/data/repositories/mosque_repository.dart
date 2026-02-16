@@ -2,6 +2,7 @@ import 'dart:math';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/network/supabase_client.dart';
 import '../../../../models/mosque_model.dart';
+import '../../../../models/other_models.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 
 /// مستودع المساجد - إنشاء، انضمام، جلب مساجدي
@@ -58,8 +59,8 @@ class MosqueRepository {
     }
   }
 
-  /// الانضمام لمسجد بكود الدعوة
-  Future<MosqueModel> joinByInviteCode(String inviteCode) async {
+  /// طلب الانضمام لمسجد بكود الدعوة (يُرسل طلباً للإمام للموافقة)
+  Future<MosqueModel> requestToJoinByInviteCode(String inviteCode) async {
     final user = await _authRepo.getCurrentUserProfile();
     if (user == null) throw Exception('يجب تسجيل الدخول');
 
@@ -70,15 +71,85 @@ class MosqueRepository {
         .from('mosques')
         .select()
         .eq('invite_code', trimmed)
+        .eq('status', 'approved')
         .maybeSingle();
     if (row == null) throw Exception('كود الدعوة غير صحيح');
 
-    await supabase.from('mosque_members').insert({
-      'mosque_id': row['id'],
+    final mosqueId = row['id'] as String;
+
+    final existingMember = await supabase
+        .from('mosque_members')
+        .select('id')
+        .eq('mosque_id', mosqueId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+    if (existingMember != null) throw Exception('أنت منضم لهذا المسجد مسبقاً');
+
+    final existingRequest = await supabase
+        .from('mosque_join_requests')
+        .select('id')
+        .eq('mosque_id', mosqueId)
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .maybeSingle();
+    if (existingRequest != null) throw Exception('لديك طلب انضمام قيد المراجعة لهذا المسجد');
+
+    await supabase.from('mosque_join_requests').insert({
+      'mosque_id': mosqueId,
       'user_id': user.id,
-      'role': 'supervisor',
+      'status': 'pending',
     });
     return MosqueModel.fromJson(row);
+  }
+
+  /// طلبات الانضمام المعلقة لمسجد مع أسماء الطالبين (للإمام، عبر RPC لتجنب RLS على users)
+  Future<List<MosqueJoinRequestModel>> getPendingJoinRequests(String mosqueId) async {
+    final res = await supabase.rpc(
+      'get_pending_join_requests_with_names',
+      params: {'p_mosque_id': mosqueId},
+    );
+    if (res == null) return [];
+    final list = res is List ? res : (res is Map ? (res['data'] as List?) ?? [] : []);
+    return list
+        .map((e) => MosqueJoinRequestModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  /// موافقة الإمام على طلب انضمام → إدراج في mosque_members وتحديث الطلب
+  Future<void> approveJoinRequest(String requestId) async {
+    final user = await _authRepo.getCurrentUserProfile();
+    if (user == null) throw Exception('يجب تسجيل الدخول');
+
+    final req = await supabase
+        .from('mosque_join_requests')
+        .select('mosque_id, user_id')
+        .eq('id', requestId)
+        .eq('status', 'pending')
+        .maybeSingle();
+    if (req == null) throw Exception('الطلب غير موجود أو تمت معالجته');
+
+    await supabase.from('mosque_members').insert({
+      'mosque_id': req['mosque_id'],
+      'user_id': req['user_id'],
+      'role': 'supervisor',
+    });
+    await supabase.from('mosque_join_requests').update({
+      'status': 'approved',
+      'reviewed_at': DateTime.now().toUtc().toIso8601String(),
+      'reviewed_by': user.id,
+    }).eq('id', requestId);
+  }
+
+  /// رفض الإمام لطلب انضمام
+  Future<void> rejectJoinRequest(String requestId) async {
+    final user = await _authRepo.getCurrentUserProfile();
+    if (user == null) throw Exception('يجب تسجيل الدخول');
+
+    await supabase.from('mosque_join_requests').update({
+      'status': 'rejected',
+      'reviewed_at': DateTime.now().toUtc().toIso8601String(),
+      'reviewed_by': user.id,
+    }).eq('id', requestId).eq('status', 'pending');
   }
 
   /// مساجدي (كمالك أو مشرف)
@@ -95,6 +166,28 @@ class MosqueRepository {
     final ids = (members as List).map((e) => e['mosque_id'] as String).toSet().toList();
     final list = await supabase.from('mosques').select().inFilter('id', ids).order('created_at', ascending: false);
     return (list as List).map((e) => MosqueModel.fromJson(e)).toList();
+  }
+
+  /// قائمة مشرفي المسجد مع الأسماء (للمالك/الإمام، عبر RPC لتجنب RLS على users)
+  Future<List<MosqueMemberModel>> getMosqueSupervisors(String mosqueId) async {
+    final res = await supabase.rpc(
+      'get_mosque_supervisors_with_names',
+      params: {'p_mosque_id': mosqueId},
+    );
+    if (res == null) return [];
+    final list = res is List ? res : (res is Map ? (res['data'] as List?) ?? [] : []);
+    return list
+        .map((e) => MosqueMemberModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  /// إزالة مشرف من المسجد (للمالك فقط — RLS يسمح بحذف أعضاء مسجده)
+  Future<void> removeMosqueMember(String mosqueId, String userId) async {
+    await supabase
+        .from('mosque_members')
+        .delete()
+        .eq('mosque_id', mosqueId)
+        .eq('user_id', userId);
   }
 
   /// هل لدي مسجد معتمد؟

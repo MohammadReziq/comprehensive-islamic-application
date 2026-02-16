@@ -14,12 +14,13 @@ import '../../features/parent/presentation/screens/child_card_screen.dart';
 import '../../features/mosque/presentation/screens/mosque_gate_screen.dart';
 import '../../features/mosque/presentation/screens/create_mosque_screen.dart';
 import '../../features/mosque/presentation/screens/join_mosque_screen.dart';
+import '../../features/imam/presentation/screens/imam_dashboard_screen.dart';
 import '../../features/supervisor/presentation/screens/supervisor_dashboard_screen.dart';
 import '../../features/supervisor/presentation/screens/supervisor_placeholder_screen.dart';
 import '../../features/supervisor/presentation/screens/students_screen.dart';
 import '../../features/supervisor/presentation/screens/scanner_screen.dart';
 import '../../features/supervisor/presentation/bloc/scanner_bloc.dart';
-import '../../features/admin/presentation/screens/admin_mosque_requests_screen.dart';
+import '../../features/super_admin/presentation/screens/admin_mosque_requests_screen.dart';
 import '../../injection_container.dart';
 
 /// إعداد التنقل في التطبيق
@@ -36,7 +37,8 @@ class AppRouter {
     redirect: (context, state) {
       final authState = authBloc.state;
       final isUnauthenticated = authState is AuthUnauthenticated;
-      final isOnAuth = state.matchedLocation == '/login' ||
+      final isOnAuth =
+          state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
       final isOnSplash = state.matchedLocation == '/splash';
 
@@ -51,7 +53,8 @@ class AppRouter {
           if (profile == null) return null;
           final role = profile.role;
           if (role == UserRole.superAdmin) return '/admin';
-          if (role == UserRole.imam) return '/mosque';
+          if (role == UserRole.imam || role == UserRole.supervisor)
+            return '/mosque';
           return '/home';
         }
         return '/login'; // غير مسجّل → تسجيل الدخول
@@ -63,29 +66,41 @@ class AppRouter {
       // إذا كان مسجلاً
       if (authState is AuthAuthenticated) {
         final profile = authState.userProfile;
-        
-        // إذا لم تكتمل البيانات بعد، ننتقل للـ Splash وننتظر
+        final isOnImamOrSupervisorDashboard =
+            state.matchedLocation.startsWith('/imam') ||
+            state.matchedLocation.startsWith('/supervisor');
+
+        // إذا لم تكتمل البيانات بعد، ننتقل للـ Splash — إلا إذا كنا على لوحة الإمام/المشرف (تفادي وميض ثم redirect)
         if (profile == null) {
           if (isOnSplash) return null;
+          if (isOnImamOrSupervisorDashboard) return null;
           return '/splash';
         }
 
         final role = profile.role;
         final isSuperAdmin = role == UserRole.superAdmin;
-        final isImam = role == UserRole.imam;
+        final isImamOrSupervisor =
+            role == UserRole.imam || role == UserRole.supervisor;
         final isOnAdmin = state.matchedLocation.startsWith('/admin');
-        final isOnMosque = state.matchedLocation.startsWith('/mosque') ||
-                          state.matchedLocation.startsWith('/supervisor');
+        final isOnMosque =
+            state.matchedLocation.startsWith('/mosque') ||
+            state.matchedLocation.startsWith('/supervisor') ||
+            state.matchedLocation.startsWith('/imam');
         final isOnHome = state.matchedLocation == '/home';
 
         // السوبر أدمن → صفحة إدارة طلبات المساجد فقط
         if (isSuperAdmin && !isOnAdmin) return '/admin';
-        // الإمام → بوابة المسجد / لوحة المشرف
-        if (isImam && !isOnMosque) return '/mosque';
+        // الإمام أو المشرف → بوابة المسجد / لوحة الإمام / لوحة المشرف
+        if (isImamOrSupervisor && !isOnMosque) return '/mosque';
         // توجيه الأهل إذا لم يكونوا في صفحتهم
-        if (!isSuperAdmin && !isImam && (isOnAuth || isOnSplash)) return '/home';
+        if (!isSuperAdmin && !isImamOrSupervisor && (isOnAuth || isOnSplash))
+          return '/home';
         // منع الأهل من دخول صفحات المسجد والإدارة
-        if (!isSuperAdmin && !isImam && (isOnMosque || isOnAdmin) && !isOnHome) return '/home';
+        if (!isSuperAdmin &&
+            !isImamOrSupervisor &&
+            (isOnMosque || isOnAdmin) &&
+            !isOnHome)
+          return '/home';
       }
 
       return null;
@@ -129,9 +144,8 @@ class AppRouter {
       GoRoute(
         path: '/parent/children/:id/card',
         name: 'parentChildCard',
-        builder: (context, state) => ChildCardScreen(
-          childId: state.pathParameters['id'],
-        ),
+        builder: (context, state) =>
+            ChildCardScreen(childId: state.pathParameters['id']),
       ),
       GoRoute(
         path: '/admin',
@@ -154,6 +168,11 @@ class AppRouter {
         builder: (context, state) => const JoinMosqueScreen(),
       ),
       GoRoute(
+        path: '/imam/dashboard',
+        name: 'imamDashboard',
+        builder: (context, state) => const ImamDashboardScreen(),
+      ),
+      GoRoute(
         path: '/supervisor/dashboard',
         name: 'supervisorDashboard',
         builder: (context, state) => const SupervisorDashboardScreen(),
@@ -174,12 +193,14 @@ class AppRouter {
       GoRoute(
         path: '/supervisor/corrections',
         name: 'supervisorCorrections',
-        builder: (context, state) => const SupervisorPlaceholderScreen(title: 'طلبات التصحيح'),
+        builder: (context, state) =>
+            const SupervisorPlaceholderScreen(title: 'طلبات التصحيح'),
       ),
       GoRoute(
         path: '/supervisor/notes',
         name: 'supervisorNotes',
-        builder: (context, state) => const SupervisorPlaceholderScreen(title: 'الملاحظات'),
+        builder: (context, state) =>
+            const SupervisorPlaceholderScreen(title: 'الملاحظات'),
       ),
     ],
   );

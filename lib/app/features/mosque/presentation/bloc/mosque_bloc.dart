@@ -40,9 +40,8 @@ class MosqueBloc extends Bloc<MosqueEvent, MosqueState> {
   Future<void> _onJoinByCode(MosqueJoinByCode e, Emitter<MosqueState> emit) async {
     emit(const MosqueLoading());
     try {
-      await _repo.joinByInviteCode(e.inviteCode);
-      final list = await _repo.getMyMosques();
-      emit(MosqueLoaded(list));
+      await _repo.requestToJoinByInviteCode(e.inviteCode);
+      emit(const MosqueJoinRequestSent('تم إرسال طلب الانضمام. سيتم إعلامك عند الموافقة.'));
     } catch (err) {
       emit(MosqueError(err.toString().replaceFirst('Exception: ', '')));
     }

@@ -37,3 +37,13 @@ class MosqueError extends MosqueState {
   @override
   List<Object?> get props => [message];
 }
+
+/// تم إرسال طلب الانضمام (بانتظار موافقة الإمام)
+class MosqueJoinRequestSent extends MosqueState {
+  const MosqueJoinRequestSent([this.message]);
+
+  final String? message;
+
+  @override
+  List<Object?> get props => [message];
+}

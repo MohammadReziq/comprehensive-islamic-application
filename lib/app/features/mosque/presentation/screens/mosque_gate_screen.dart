@@ -8,6 +8,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 import '../bloc/mosque_bloc.dart';
 import '../bloc/mosque_event.dart';
 import '../bloc/mosque_state.dart';
@@ -76,7 +77,15 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
                   }
                   if (state.hasApproved) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (context.mounted) context.go('/supervisor/dashboard');
+                      if (!context.mounted) return;
+                      final authState = context.read<AuthBloc>().state;
+                      final userId = authState is AuthAuthenticated
+                          ? authState.userProfile?.id
+                          : null;
+                      final isOwner = userId != null &&
+                          state.mosques.any((m) =>
+                              m.status == MosqueStatus.approved && m.ownerId == userId);
+                      context.go(isOwner ? '/imam/dashboard' : '/supervisor/dashboard');
                     });
                     return const Center(child: CircularProgressIndicator(color: Colors.white));
                   }
@@ -115,6 +124,10 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
   }
 
   Widget _buildEmpty(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    final isSupervisor = authState is AuthAuthenticated &&
+        authState.userProfile?.role == UserRole.supervisor;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppDimensions.paddingLG),
       child: Column(
@@ -132,7 +145,9 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingSM),
           Text(
-            AppStrings.imamGateSubtitle,
+            isSupervisor
+                ? 'ادخل كود الدعوة الذي أعطاك إياه مدير المسجد لتنضم وتُسجّل الحضور'
+                : AppStrings.imamGateSubtitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -140,12 +155,14 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
             ),
           ),
           const SizedBox(height: AppDimensions.paddingXXL),
-          AppButton(
-            text: AppStrings.createMosque,
-            onPressed: () => context.push('/mosque/create'),
-            icon: Icons.add_circle_outline,
-          ),
-          const SizedBox(height: AppDimensions.paddingMD),
+          if (!isSupervisor) ...[
+            AppButton(
+              text: AppStrings.createMosque,
+              onPressed: () => context.push('/mosque/create'),
+              icon: Icons.add_circle_outline,
+            ),
+            const SizedBox(height: AppDimensions.paddingMD),
+          ],
           AppButton.outlined(
             text: AppStrings.joinMosque,
             onPressed: () => context.push('/mosque/join'),

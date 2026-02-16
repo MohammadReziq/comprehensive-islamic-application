@@ -65,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               if (role == UserRole.superAdmin) {
                 context.go('/admin');
-              } else if (role == UserRole.imam) {
+              } else if (role == UserRole.imam || role == UserRole.supervisor) {
                 context.go('/mosque');
               } else {
                 context.go('/home');
@@ -277,31 +277,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 const SizedBox(height: AppDimensions.spacingMD),
 
                                 // ─── بطاقات الأدوار ───
-                                Row(
+                                Column(
                                   children: [
-                                    Expanded(
-                                      child: _RoleCard(
-                                        emoji: '👨‍👩‍👧',
-                                        title: AppStrings.roleParent,
-                                        subtitle: AppStrings.roleParentDesc,
-                                        isSelected: _selectedRole == 'parent',
-                                        onTap: () => setState(
-                                          () => _selectedRole = 'parent',
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _RoleCard(
+                                            emoji: '👨‍👩‍👧',
+                                            title: AppStrings.roleParent,
+                                            subtitle: AppStrings.roleParentDesc,
+                                            isSelected: _selectedRole == 'parent',
+                                            onTap: () => setState(
+                                              () => _selectedRole = 'parent',
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(
-                                      width: AppDimensions.spacingMD,
-                                    ),
-                                    Expanded(
-                                      child: _RoleCard(
-                                        emoji: '🕌',
-                                        title: AppStrings.roleImam,
-                                        subtitle: AppStrings.roleImamDesc,
-                                        isSelected: _selectedRole == 'imam',
-                                        onTap: () => setState(
-                                          () => _selectedRole = 'imam',
+                                        const SizedBox(
+                                          width: AppDimensions.spacingMD,
                                         ),
+                                        Expanded(
+                                          child: _RoleCard(
+                                            emoji: '🕌',
+                                            title: AppStrings.roleImam,
+                                            subtitle: AppStrings.roleImamDesc,
+                                            isSelected: _selectedRole == 'imam',
+                                            onTap: () => setState(
+                                              () => _selectedRole = 'imam',
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: AppDimensions.spacingMD),
+                                    _RoleCard(
+                                      emoji: '📋',
+                                      title: AppStrings.roleSupervisor,
+                                      subtitle: AppStrings.roleSupervisorDesc,
+                                      isSelected: _selectedRole == 'supervisor',
+                                      onTap: () => setState(
+                                        () => _selectedRole = 'supervisor',
                                       ),
                                     ),
                                   ],

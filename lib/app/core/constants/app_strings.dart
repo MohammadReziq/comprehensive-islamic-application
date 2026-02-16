@@ -28,6 +28,8 @@ class AppStrings {
   static const String roleParentDesc = 'تابع صلاة أطفالك واحصل على تقارير';
   static const String roleImam = 'إمام (مدير المسجد)';
   static const String roleImamDesc = 'أنشئ مسجدك وادعُ المشرفين، وسجّل حضور الطلاب';
+  static const String roleSupervisor = 'مشرف';
+  static const String roleSupervisorDesc = 'انضم بكوْد الدعوة من مدير المسجد، وسجّل حضور الطلاب';
   static const String welcomeMessage = 'مرحباً بك في تطبيق صلاتي';
 
   // ─── الصلوات ───
@@ -79,6 +81,8 @@ class AppStrings {
 
   // ─── المشرفين ───
   static const String supervisors = 'المشرفون';
+  static const String imamDashboardTitle = 'لوحة مدير المسجد';
+  static const String supervisorDashboardTitle = 'لوحة المشرف';
   static const String addSupervisor = 'إضافة مشرف';
   static const String removeSupervisor = 'إزالة المشرف';
   static const String shareInviteCode = 'مشاركة كود الدعوة';

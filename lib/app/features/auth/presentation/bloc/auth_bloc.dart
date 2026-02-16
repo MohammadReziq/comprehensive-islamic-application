@@ -66,9 +66,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
 
       if (profile == null) {
-        emit(const AuthError(
-          'لم يتم العثور على بياناتك. في Supabase: شغّل ملف 003_link_user_profile_to_auth في SQL Editor ثم جرّب مرة أخرى.',
-        ));
+        emit(
+          const AuthError(
+            'لم يتم العثور على بياناتك. في Supabase: شغّل ملف 003_link_user_profile_to_auth في SQL Editor ثم جرّب مرة أخرى.',
+          ),
+        );
         return;
       }
 
