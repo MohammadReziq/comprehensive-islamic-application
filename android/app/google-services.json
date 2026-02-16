@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "468419636460",
+    "project_id": "comprehensiveislamic",
+    "storage_bucket": "comprehensiveislamic.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:468419636460:android:c9e9867d39a432d8a0c9c9",
+        "android_client_info": {
+          "package_name": "com.example.comprehensive_islamic_application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfZEJqtS9AH_18Gd5sOl3X6v8_4WGZ6vk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

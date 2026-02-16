@@ -5,6 +5,8 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/mosque/presentation/bloc/mosque_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'injection_container.dart';
 
 /// نقطة بداية التطبيق
@@ -18,6 +20,7 @@ class SalatiHayatiApp extends StatelessWidget {
         BlocProvider<AuthBloc>(
           create: (_) => sl<AuthBloc>()..add(const AuthCheckRequested()),
         ),
+        BlocProvider<MosqueBloc>(create: (_) => sl<MosqueBloc>()),
       ],
       child: Builder(
         builder: (context) {
@@ -33,8 +36,11 @@ class SalatiHayatiApp extends StatelessWidget {
 
             // ─── الاتجاه: عربي (RTL) ───
             locale: const Locale('ar', 'SA'),
-            supportedLocales: const [
-              Locale('ar', 'SA'),
+            supportedLocales: const [Locale('ar', 'SA')],
+            localizationsDelegates: [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
             ],
 
             // ─── GoRouter ───

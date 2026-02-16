@@ -24,7 +24,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     try {
       if (_authRepository.isLoggedIn) {
-        final profile = await _authRepository.getCurrentUserProfile();
+        final profile = await _authRepository.getCurrentUserProfile().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => null,
+        );
         emit(AuthAuthenticated(userProfile: profile));
       } else {
         emit(const AuthUnauthenticated());

@@ -59,7 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is AuthAuthenticated) {
-              context.go('/home');
+              context.go(_selectedRole == 'imam' ? '/mosque' : '/home');
             } else if (state is AuthError) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

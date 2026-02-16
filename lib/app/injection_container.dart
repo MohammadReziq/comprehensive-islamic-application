@@ -6,6 +6,8 @@ import 'core/services/prayer_times_service.dart';
 import 'core/services/points_service.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/mosque/data/repositories/mosque_repository.dart';
+import 'features/mosque/presentation/bloc/mosque_bloc.dart';
 
 /// حاوية حقن التبعيات
 final sl = GetIt.instance;
@@ -24,7 +26,7 @@ Future<void> initDependencies() async {
 
   // ─── Repositories ───
   sl.registerLazySingleton(() => AuthRepository());
-  // TODO: sl.registerLazySingleton(() => MosqueRepository());
+  sl.registerLazySingleton(() => MosqueRepository(sl<AuthRepository>()));
   // TODO: sl.registerLazySingleton(() => ChildRepository());
   // TODO: sl.registerLazySingleton(() => AttendanceRepository());
   // TODO: sl.registerLazySingleton(() => CorrectionRepository());
@@ -36,7 +38,7 @@ Future<void> initDependencies() async {
 
   // ─── BLoCs / Cubits ───
   sl.registerFactory(() => AuthBloc(sl<AuthRepository>()));
-  // TODO: sl.registerFactory(() => ScannerCubit(sl()));
+  sl.registerFactory(() => MosqueBloc(sl<MosqueRepository>()));
   // TODO: sl.registerFactory(() => ParentDashboardCubit(sl()));
   // TODO: sl.registerFactory(() => SupervisorDashboardCubit(sl()));
   // TODO: sl.registerFactory(() => LeaderboardCubit(sl()));
