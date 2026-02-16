@@ -102,4 +102,36 @@ class MosqueRepository {
     final list = await getMyMosques();
     return list.any((m) => m.status == MosqueStatus.approved);
   }
+
+  /// مسجد معتمد بكوده (لربط الأطفال من ولي الأمر)
+  Future<MosqueModel?> getApprovedMosqueByCode(String code) async {
+    final trimmed = code.trim().toUpperCase();
+    if (trimmed.isEmpty) return null;
+    final row = await supabase
+        .from('mosques')
+        .select()
+        .eq('code', trimmed)
+        .eq('status', 'approved')
+        .maybeSingle();
+    if (row == null) return null;
+    return MosqueModel.fromJson(row);
+  }
+
+  /// طلبات المساجد قيد المراجعة (للسوبر أدمن فقط)
+  Future<List<MosqueModel>> getPendingMosquesForAdmin() async {
+    final res = await supabase
+        .from('mosques')
+        .select()
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
+    return (res as List).map((e) => MosqueModel.fromJson(e)).toList();
+  }
+
+  /// تحديث حالة المسجد (موافقة/رفض) — للسوبر أدمن
+  Future<void> updateMosqueStatus(String mosqueId, MosqueStatus status) async {
+    await supabase
+        .from('mosques')
+        .update({'status': status.value})
+        .eq('id', mosqueId);
+  }
 }

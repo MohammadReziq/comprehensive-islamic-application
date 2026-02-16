@@ -32,3 +32,28 @@ class MosqueJoinByCode extends MosqueEvent {
   @override
   List<Object?> get props => [inviteCode];
 }
+
+/// جلب طلبات المساجد قيد المراجعة (سوبر أدمن)
+class MosqueLoadPendingForAdmin extends MosqueEvent {
+  const MosqueLoadPendingForAdmin();
+}
+
+/// موافقة على طلب مسجد (سوبر أدمن)
+class MosqueApproveRequest extends MosqueEvent {
+  const MosqueApproveRequest(this.mosqueId);
+
+  final String mosqueId;
+
+  @override
+  List<Object?> get props => [mosqueId];
+}
+
+/// رفض طلب مسجد (سوبر أدمن)
+class MosqueRejectRequest extends MosqueEvent {
+  const MosqueRejectRequest(this.mosqueId);
+
+  final String mosqueId;
+
+  @override
+  List<Object?> get props => [mosqueId];
+}

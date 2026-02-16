@@ -26,8 +26,8 @@ class AppStrings {
   static const String chooseRole = 'اختر ما يناسبك';
   static const String roleParent = 'ولي أمر';
   static const String roleParentDesc = 'تابع صلاة أطفالك واحصل على تقارير';
-  static const String roleImam = 'إمام / مشرف';
-  static const String roleImamDesc = 'سجّل حضور الطلاب في المسجد';
+  static const String roleImam = 'إمام (مدير المسجد)';
+  static const String roleImamDesc = 'أنشئ مسجدك وادعُ المشرفين، وسجّل حضور الطلاب';
   static const String welcomeMessage = 'مرحباً بك في تطبيق صلاتي';
 
   // ─── الصلوات ───
@@ -66,8 +66,14 @@ class AppStrings {
   static const String mosqueAddress = 'عنوان المسجد';
   static const String pendingApproval = 'طلبك قيد المراجعة';
   static const String pendingApprovalDesc = 'سيتم إعلامك فور الموافقة على طلبك';
+  static const String pendingApprovalByAdmin = 'مدير النظام ينظر في الطلبات ويوافق أو يرفض';
+  static const String imamGateSubtitle = 'أنشئ مسجدك أو انضم بكوْد — طلبك سيراجعه مدير النظام للموافقة';
   static const String mosqueApproved = 'تمت الموافقة على مسجدك!';
   static const String mosqueRejected = 'تم رفض طلبك';
+  static const String adminMosqueRequests = 'طلبات المساجد';
+  static const String adminMosqueRequestsDesc = 'موافقة أو رفض طلبات إنشاء المساجد';
+  static const String approve = 'موافقة';
+  static const String reject = 'رفض';
   static const String primaryMosque = 'مسجد أساسي';
   static const String secondaryMosque = 'مسجد إضافي';
 

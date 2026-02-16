@@ -1,16 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../../injection_container.dart';
+import '../../data/repositories/child_repository.dart';
+import '../../../../models/child_model.dart';
+import '../../../../models/attendance_model.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 
-/// الشاشة الرئيسية المؤقتة - ستُستبدل لاحقاً بـ Dashboard كامل
-class HomeScreen extends StatelessWidget {
+/// الشاشة الرئيسية — ترحيب + حضور اليوم (دورة حياة الحضور) + أطفالي
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  List<ChildModel> _children = [];
+  List<AttendanceModel> _todayAttendance = [];
+  bool _loadingAttendance = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayAttendance();
+  }
+
+  Future<void> _loadTodayAttendance() async {
+    setState(() => _loadingAttendance = true);
+    try {
+      final repo = sl<ChildRepository>();
+      final children = await repo.getMyChildren();
+      final attendance = await repo.getAttendanceForMyChildren(DateTime.now());
+      if (mounted) setState(() {
+        _children = children;
+        _todayAttendance = attendance;
+        _loadingAttendance = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingAttendance = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +177,7 @@ class HomeScreen extends StatelessWidget {
                         const SizedBox(height: AppDimensions.spacingXL),
 
                         const Text(
-                          'تم الربط مع Supabase بنجاح! 🎉',
+                          'تابع صلاة أطفالك',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -153,7 +189,7 @@ class HomeScreen extends StatelessWidget {
                         const SizedBox(height: AppDimensions.spacingMD),
 
                         Text(
-                          'التطبيق جاهز للبناء عليه.\nالخطوة القادمة: بناء Dashboard كامل.',
+                          'أضف أطفالك واربطهم بمسجدهم لترى حضورهم ونقاطهم.',
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.textSecondary,
@@ -162,7 +198,34 @@ class HomeScreen extends StatelessWidget {
                           textAlign: TextAlign.center,
                         ).animate().fadeIn(delay: 1000.ms),
 
+                        const SizedBox(height: AppDimensions.paddingLG),
+
+                        // ─── حضور اليوم (دورة حياة الحضور) ───
+                        _buildTodayAttendanceSection(),
+
                         const Spacer(),
+
+                        // ─── أطفالي ───
+                        SizedBox(
+                          width: double.infinity,
+                          height: AppDimensions.buttonHeight,
+                          child: FilledButton.icon(
+                            onPressed: () => context.push('/parent/children'),
+                            icon: const Icon(Icons.child_care),
+                            label: const Text(
+                              'أطفالي',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                            ),
+                          ),
+                        ).animate().fadeIn(delay: 1100.ms),
+
+                        const SizedBox(height: AppDimensions.paddingMD),
 
                         // ─── زر تسجيل الخروج ───
                         SizedBox(
@@ -204,6 +267,73 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTodayAttendanceSection() {
+    if (_loadingAttendance) {
+      return const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (_children.isEmpty) {
+      return Text(
+        'أضف طفلاً واربطه بمسجد لترى حضور اليوم هنا.',
+        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        textAlign: TextAlign.center,
+      );
+    }
+    final byChild = <String, List<AttendanceModel>>{};
+    for (final a in _todayAttendance) {
+      byChild.putIfAbsent(a.childId, () => []).add(a);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppStrings.todayAttendance,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ..._children.map((c) {
+          final list = byChild[c.id] ?? [];
+          final prayers = list.map((a) => a.prayer.nameAr).join('، ');
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Text(
+                  c.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (list.isEmpty)
+                  Text(
+                    'لا حضور مسجّل اليوم',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  )
+                else
+                  Text(
+                    prayers,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 }

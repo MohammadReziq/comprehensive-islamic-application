@@ -59,22 +59,65 @@ class AuthRepository {
   // ─── بيانات المستخدم من جدول users ───
 
   /// جلب بيانات المستخدم الحالي من جدول users
+  /// إذا لم يُعثر: يربط سجل بنفس الإيميل (RPC) أو ينشئ سجل من بيانات الدخول
   Future<UserModel?> getCurrentUserProfile() async {
     final authUser = currentAuthUser;
     if (authUser == null) return null;
 
+    // 1) جلب بالـ auth_id
+    var data = await supabase
+        .from('users')
+        .select()
+        .eq('auth_id', authUser.id)
+        .maybeSingle();
+
+    if (data != null) return UserModel.fromJson(data);
+
+    // 2) ربط سجل موجود بنفس الإيميل (يحتاج تشغيل 003 في Supabase)
     try {
-      final data = await supabase
+      await supabase.rpc('link_user_profile_to_auth');
+      data = await supabase
           .from('users')
           .select()
           .eq('auth_id', authUser.id)
           .maybeSingle();
-
-      if (data == null) return null;
-      return UserModel.fromJson(data);
-    } catch (e) {
-      return null;
+      if (data != null) return UserModel.fromJson(data);
+    } catch (_) {
+      // الدالة قد تكون غير موجودة أو فشل الربط
     }
+
+    // 3) إنشاء سجل جديد من بيانات المصادقة (لو ما في سجل أصلاً)
+    try {
+      await ensureProfileFromAuthSession();
+      data = await supabase
+          .from('users')
+          .select()
+          .eq('auth_id', authUser.id)
+          .maybeSingle();
+      if (data != null) return UserModel.fromJson(data);
+    } catch (_) {
+      // قد يفشل لو الإيميل مكرر لسجل آخر
+    }
+
+    return null;
+  }
+
+  /// إنشاء/تحديث سجل في users من بيانات جلسة المصادقة الحالية
+  Future<void> ensureProfileFromAuthSession() async {
+    final u = currentAuthUser;
+    if (u == null) return;
+    final email = u.email?.trim();
+    final name = (u.userMetadata?['name'] ?? u.userMetadata?['full_name'] ?? email ?? 'مستخدم جديد').toString().trim();
+    if (name.isEmpty) return;
+    await supabase.from('users').upsert(
+      {
+        'auth_id': u.id,
+        'name': name.isEmpty ? 'مستخدم جديد' : name,
+        'email': email?.isEmpty == true ? null : email,
+        'role': 'parent',
+      },
+      onConflict: 'auth_id',
+    );
   }
 
   /// تحديث بيانات المستخدم
@@ -102,5 +145,24 @@ class AuthRepository {
     required String role,
   }) async {
     await supabase.from('users').update({'role': role}).eq('id', userId);
+  }
+
+  /// إنشاء أو تحديث سجل المستخدم في جدول users بعد التسجيل (من التطبيق مباشرة)
+  /// لو الـ Trigger ما نفّذ أو تأخر، التطبيق يضمن وجود السجل بدون اعتماد على توقيت الـ DB
+  Future<void> ensureProfileAfterSignUp({
+    required String authId,
+    required String name,
+    required String email,
+    String role = 'parent',
+  }) async {
+    await supabase.from('users').upsert(
+      {
+        'auth_id': authId,
+        'name': name.trim().isEmpty ? 'مستخدم جديد' : name.trim(),
+        'email': email.trim().isEmpty ? null : email.trim(),
+        'role': role,
+      },
+      onConflict: 'auth_id',
+    );
   }
 }

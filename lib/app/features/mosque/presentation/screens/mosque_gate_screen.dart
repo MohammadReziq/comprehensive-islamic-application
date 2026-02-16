@@ -6,6 +6,8 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/constants/app_enums.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_event.dart';
 import '../bloc/mosque_bloc.dart';
 import '../bloc/mosque_event.dart';
 import '../bloc/mosque_state.dart';
@@ -43,7 +45,11 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
             ),
           ),
           child: SafeArea(
-            child: BlocConsumer<MosqueBloc, MosqueState>(
+            child: Column(
+              children: [
+                _buildTopBar(context),
+                Expanded(
+                  child: BlocConsumer<MosqueBloc, MosqueState>(
               listener: (context, state) {
                 if (state is MosqueError) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -69,15 +75,41 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
                     return _buildEmpty(context);
                   }
                   if (state.hasApproved) {
-                    return _buildHasApproved(context);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (context.mounted) context.go('/supervisor/dashboard');
+                    });
+                    return const Center(child: CircularProgressIndicator(color: Colors.white));
                   }
                   return _buildPending(context, state);
                 }
                 return _buildEmpty(context);
               },
             ),
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.paddingSM,
+        vertical: AppDimensions.paddingXS,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+            tooltip: AppStrings.logout,
+          ),
+          const SizedBox(width: 48),
+        ],
       ),
     );
   }
@@ -100,7 +132,8 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
           ),
           const SizedBox(height: AppDimensions.spacingSM),
           Text(
-            'أنشئ مسجدك أو انضم بكوْد الدعوة',
+            AppStrings.imamGateSubtitle,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
               color: Colors.white.withValues(alpha: 0.9),
@@ -148,6 +181,15 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
               color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
+          const SizedBox(height: AppDimensions.spacingXS),
+          Text(
+            AppStrings.pendingApprovalByAdmin,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.85),
+            ),
+          ),
           const SizedBox(height: AppDimensions.paddingXL),
           ...state.mosques.map((m) => Card(
                 margin: const EdgeInsets.only(bottom: AppDimensions.paddingSM),
@@ -172,30 +214,4 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
     );
   }
 
-  Widget _buildHasApproved(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-      child: Column(
-        children: [
-          const SizedBox(height: AppDimensions.paddingXXL),
-          const Text('✅', style: TextStyle(fontSize: 56)),
-          const SizedBox(height: AppDimensions.spacingMD),
-          Text(
-            AppStrings.mosqueApproved,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: AppDimensions.paddingXL),
-          AppButton(
-            text: 'لوحة المشرف (قريباً)',
-            onPressed: () {},
-            icon: Icons.dashboard,
-          ),
-        ],
-      ),
-    );
-  }
 }

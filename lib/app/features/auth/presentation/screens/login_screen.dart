@@ -52,8 +52,16 @@ class _LoginScreenState extends State<LoginScreen> {
         body: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is AuthAuthenticated) {
-              final isImam = state.userProfile?.role == UserRole.imam;
-              context.go(isImam ? '/mosque' : '/home');
+              final role = state.userProfile?.role;
+              if (role == null) return; // منع التوجيه إذا لم تكتمل البيانات
+
+              if (role == UserRole.superAdmin) {
+                context.go('/admin');
+              } else if (role == UserRole.imam) {
+                context.go('/mosque');
+              } else {
+                context.go('/home');
+              }
             } else if (state is AuthError) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

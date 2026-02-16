@@ -25,9 +25,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       if (_authRepository.isLoggedIn) {
         final profile = await _authRepository.getCurrentUserProfile().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => null,
+          const Duration(seconds: 15),
+          onTimeout: () => throw Exception('Timeout fetching profile'),
         );
+
+        if (profile == null) {
+          emit(
+            const AuthError(
+              'لم يتم العثور على بيانات المستخدم في النظام. يرجى التواصل مع المسؤول.',
+            ),
+          );
+          return;
+        }
+
         emit(AuthAuthenticated(userProfile: profile));
       } else {
         emit(const AuthUnauthenticated());
@@ -50,7 +60,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         password: event.password,
       );
 
-      final profile = await _authRepository.getCurrentUserProfile();
+      final profile = await _authRepository.getCurrentUserProfile().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Timeout fetching profile'),
+      );
+
+      if (profile == null) {
+        emit(const AuthError(
+          'لم يتم العثور على بياناتك. في Supabase: شغّل ملف 003_link_user_profile_to_auth في SQL Editor ثم جرّب مرة أخرى.',
+        ));
+        return;
+      }
+
       emit(AuthAuthenticated(userProfile: profile));
     } on AuthException catch (e) {
       emit(AuthError(_mapAuthError(e.message)));
@@ -74,7 +95,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         role: event.role,
       );
 
-      final profile = await _authRepository.getCurrentUserProfile();
+      final authUser = _authRepository.currentAuthUser;
+      if (authUser != null) {
+        await _authRepository.ensureProfileAfterSignUp(
+          authId: authUser.id,
+          name: event.name,
+          email: event.email,
+          role: event.role.isNotEmpty ? event.role : 'parent',
+        );
+      }
+
+      var profile = await _authRepository.getCurrentUserProfile();
+      if (profile == null) {
+        emit(const AuthError('فشل جلب بيانات المستخدم بعد التسجيل.'));
+        return;
+      }
+
       emit(AuthAuthenticated(userProfile: profile));
     } on AuthException catch (e) {
       emit(AuthError(_mapAuthError(e.message)));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:salati_hayati/app/core/constants/app_enums.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_dimensions.dart';
@@ -59,7 +60,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is AuthAuthenticated) {
-              context.go(_selectedRole == 'imam' ? '/mosque' : '/home');
+              final role = state.userProfile?.role;
+              if (role == null) return; // منع التوجيه إذا لم تكتمل البيانات
+
+              if (role == UserRole.superAdmin) {
+                context.go('/admin');
+              } else if (role == UserRole.imam) {
+                context.go('/mosque');
+              } else {
+                context.go('/home');
+              }
             } else if (state is AuthError) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
