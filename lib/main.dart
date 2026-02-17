@@ -8,6 +8,7 @@ import 'app/core/services/notification_service.dart';
 import 'app/core/services/offline_sync_service.dart';
 import 'app/injection_container.dart';
 
+//re_hSb4Mpcc_NX1Q8ZDkXCc8NVAQKDLAvMD5
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

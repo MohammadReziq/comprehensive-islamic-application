@@ -1,3 +1,4 @@
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../models/user_model.dart';
 import '../../../../core/network/supabase_client.dart';
@@ -12,8 +13,8 @@ class AuthRepository {
   /// هل المستخدم مسجّل دخول؟
   bool get isLoggedIn => currentAuthUser != null;
 
-  /// Stream لمتابعة تغييرات حالة Auth
-  Stream<AuthState> get authStateChanges => supabase.auth.onAuthStateChange;
+  /// تيار أحداث تغيير الجلسة (للاستماع بعد عودة المستخدم من تسجيل الدخول بـ Google)
+  Stream get authChangeStream => supabase.auth.onAuthStateChange;
 
   // ─── تسجيل حساب جديد ───
 
@@ -48,6 +49,73 @@ class AuthRepository {
       password: password,
     );
     return response;
+  }
+
+  /// تسجيل دخول بـ Google.
+  /// إذا [SupabaseConfig.googleWebClientId] معرّف: يظهر اختيار الحساب داخل التطبيق (بدون متصفح).
+  /// وإلا: يفتح المتصفح ثم يعود للتطبيق عبر deep link.
+  /// نفس الإيميل مسجّل مسبقاً يُربط تلقائياً عبر link_user_profile_to_auth.
+  Future<void> signInWithGoogle() async {
+    final webClientId = SupabaseConfig.googleWebClientId.trim();
+    if (webClientId.isNotEmpty) {
+      await _signInWithGoogleNative(webClientId: webClientId);
+      return;
+    }
+    await supabase.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: SupabaseConfig.authRedirectUrl,
+    );
+  }
+
+  /// تسجيل دخول بـ Google داخل التطبيق (قائمة الحسابات — بدون متصفح).
+  Future<void> _signInWithGoogleNative({required String webClientId}) async {
+    final googleSignIn = GoogleSignIn(
+      serverClientId: webClientId,
+      clientId: SupabaseConfig.googleIosClientId.trim().isEmpty
+          ? null
+          : SupabaseConfig.googleIosClientId.trim(),
+    );
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) {
+      throw GoogleSignInCancelledException();
+    }
+    final googleAuth = await googleUser.authentication;
+    final idToken = googleAuth.idToken;
+    final accessToken = googleAuth.accessToken;
+    if (idToken == null) {
+      throw Exception('لم يتم الحصول على رمز Google');
+    }
+    await supabase.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: accessToken,
+    );
+  }
+
+  /// إرسال إيميل استعادة كلمة المرور (يحتوي على رمز OTP إذا عدّلت القالب في Supabase ليعرض {{ .Token }}).
+  Future<void> resetPasswordForEmail(String email) async {
+    await supabase.auth.resetPasswordForEmail(
+      email.trim(),
+      redirectTo: SupabaseConfig.passwordResetRedirectUrl,
+    );
+  }
+
+  /// التحقق من رمز OTP المُرسل إلى البريد (بعد طلب استعادة كلمة المرور).
+  /// عند النجاح تُنشأ جلسة مؤقتة يمكن بعدها استدعاء [updatePassword].
+  Future<void> verifyOtpForRecovery({
+    required String email,
+    required String token,
+  }) async {
+    await supabase.auth.verifyOTP(
+      type: OtpType.recovery,
+      token: token.trim(),
+      email: email.trim(),
+    );
+  }
+
+  /// تعيين كلمة المرور الجديدة للمستخدم الحالي (يُستدعى بعد [verifyOtpForRecovery]).
+  Future<void> updatePassword(String newPassword) async {
+    await supabase.auth.updateUser(UserAttributes(password: newPassword));
   }
 
   // ─── تسجيل خروج ───
@@ -166,3 +234,6 @@ class AuthRepository {
     );
   }
 }
+
+/// يُرمى عند إلغاء المستخدم لاختيار حساب Google (لا نعرض خطأ للمستخدم).
+class GoogleSignInCancelledException implements Exception {}

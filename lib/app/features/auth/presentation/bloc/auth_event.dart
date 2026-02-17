@@ -49,3 +49,47 @@ class AuthRegisterRequested extends AuthEvent {
 class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 }
+
+/// تسجيل دخول بحساب Google
+class AuthLoginWithGoogleRequested extends AuthEvent {
+  const AuthLoginWithGoogleRequested();
+}
+
+/// طلب إرسال رمز استعادة كلمة المرور إلى البريد
+class AuthResetPasswordRequested extends AuthEvent {
+  final String email;
+
+  const AuthResetPasswordRequested({required this.email});
+
+  @override
+  List<Object?> get props => [email];
+}
+
+/// التحقق من رمز OTP المُرسل إلى البريد
+class AuthVerifyResetOtpRequested extends AuthEvent {
+  final String email;
+  final String token;
+
+  const AuthVerifyResetOtpRequested({
+    required this.email,
+    required this.token,
+  });
+
+  @override
+  List<Object?> get props => [email, token];
+}
+
+/// تعيين كلمة المرور الجديدة بعد التحقق من OTP
+class AuthSetNewPasswordRequested extends AuthEvent {
+  final String newPassword;
+
+  const AuthSetNewPasswordRequested({required this.newPassword});
+
+  @override
+  List<Object?> get props => [newPassword];
+}
+
+/// إنهاء تدفق نسيت كلمة المرور (بعد النجاح) للعودة لحالة غير مصادق
+class AuthResetPasswordFlowFinished extends AuthEvent {
+  const AuthResetPasswordFlowFinished();
+}

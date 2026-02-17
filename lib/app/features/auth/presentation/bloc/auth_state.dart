@@ -43,3 +43,18 @@ class AuthError extends AuthState {
   @override
   List<Object?> get props => [message];
 }
+
+/// تم إرسال رمز استعادة كلمة المرور إلى البريد
+class AuthResetPasswordSent extends AuthState {
+  const AuthResetPasswordSent();
+}
+
+/// تم التحقق من الرمز بنجاح — يمكن إدخال كلمة المرور الجديدة
+class AuthResetOtpVerified extends AuthState {
+  const AuthResetOtpVerified();
+}
+
+/// تم تغيير كلمة المرور بنجاح (يُعرض ثم نعود لـ Unauthenticated)
+class AuthPasswordResetSuccess extends AuthState {
+  const AuthPasswordResetSuccess();
+}

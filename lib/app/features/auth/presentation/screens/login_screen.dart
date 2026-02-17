@@ -24,13 +24,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _forgotEmailController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _forgotEmailController.dispose();
     super.dispose();
+  }
+
+  void _showForgotPasswordDialog() {
+    _forgotEmailController.text = _emailController.text.trim();
+    showDialog(
+      context: context,
+      builder: (ctx) => _ForgotPasswordDialogContent(
+        initialEmail: _forgotEmailController.text.trim(),
+        onClose: () => Navigator.of(ctx).pop(),
+      ),
+    );
   }
 
   void _onLogin() {
@@ -73,6 +86,33 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               );
+            } else if (state is AuthResetPasswordSent) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'تم إرسال رمز إلى بريدك. أدخل الرمز في النافذة.',
+                  ),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                  ),
+                ),
+              );
+            } else if (state is AuthPasswordResetSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'تم تغيير كلمة المرور بنجاح. سجّل دخولك بكلمة السر الجديدة.',
+                  ),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                  ),
+                ),
+              );
+              context.read<AuthBloc>().add(const AuthResetPasswordFlowFinished());
             }
           },
           child: Container(
@@ -210,9 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: TextButton(
-                                    onPressed: () {
-                                      // TODO: شاشة نسيت كلمة المرور
-                                    },
+                                    onPressed: _showForgotPasswordDialog,
                                     child: const Text(
                                       AppStrings.forgotPassword,
                                       style: TextStyle(
@@ -268,7 +306,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 // ─── زر Google ───
                                 OutlinedButton.icon(
                                   onPressed: () {
-                                    // TODO: Google Sign-In لاحقاً
+                                    context.read<AuthBloc>().add(const AuthLoginWithGoogleRequested());
                                   },
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
@@ -339,6 +377,236 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// حوار نسيت كلمة المرور — خطوات: إيميل → رمز OTP → كلمة سر جديدة
+class _ForgotPasswordDialogContent extends StatefulWidget {
+  final String initialEmail;
+  final VoidCallback onClose;
+
+  const _ForgotPasswordDialogContent({
+    required this.initialEmail,
+    required this.onClose,
+  });
+
+  @override
+  State<_ForgotPasswordDialogContent> createState() => _ForgotPasswordDialogContentState();
+}
+
+class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogContent> {
+  int _step = 1;
+  String _email = '';
+  final _emailController = TextEditingController();
+  final _otpController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.text = widget.initialEmail;
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _otpController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildContent(BuildContext context) {
+    switch (_step) {
+      case 1:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppTextField(
+              controller: _emailController,
+              label: AppStrings.email,
+              hint: 'example@email.com',
+              prefixIcon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            BlocBuilder<AuthBloc, AuthState>(
+              buildWhen: (a, b) => a is AuthLoading || b is AuthLoading,
+              builder: (context, state) {
+                return FilledButton(
+                  onPressed: state is AuthLoading
+                      ? null
+                      : () {
+                          final email = _emailController.text.trim();
+                          if (email.isEmpty) return;
+                          setState(() => _email = email);
+                          context.read<AuthBloc>().add(AuthResetPasswordRequested(email: email));
+                        },
+                  child: state is AuthLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('إرسال الرمز'),
+                );
+              },
+            ),
+          ],
+        );
+      case 2:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'أدخل الرمز المُرسل إلى $_email',
+              style: TextStyle(fontSize: 13, color: AppColors.textHint),
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            AppTextField(
+              controller: _otpController,
+              label: 'الرمز',
+              hint: '123456',
+              prefixIcon: Icons.pin_outlined,
+              keyboardType: TextInputType.number,
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            BlocBuilder<AuthBloc, AuthState>(
+              buildWhen: (a, b) => a is AuthLoading || b is AuthLoading,
+              builder: (context, state) {
+                return FilledButton(
+                  onPressed: state is AuthLoading
+                      ? null
+                      : () {
+                          final token = _otpController.text.trim();
+                          if (token.length < 6) return;
+                          context.read<AuthBloc>().add(
+                                AuthVerifyResetOtpRequested(email: _email, token: token),
+                              );
+                        },
+                  child: state is AuthLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('تحقق'),
+                );
+              },
+            ),
+          ],
+        );
+      case 3:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppTextField(
+              controller: _newPasswordController,
+              label: 'كلمة المرور الجديدة',
+              hint: '••••••••',
+              prefixIcon: Icons.lock_outline,
+              obscureText: true,
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            AppTextField(
+              controller: _confirmPasswordController,
+              label: 'تأكيد كلمة المرور',
+              hint: '••••••••',
+              prefixIcon: Icons.lock_outline,
+              obscureText: true,
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: AppDimensions.spacingMD),
+            BlocBuilder<AuthBloc, AuthState>(
+              buildWhen: (a, b) => a is AuthLoading || b is AuthLoading,
+              builder: (context, state) {
+                return FilledButton(
+                  onPressed: state is AuthLoading
+                      ? null
+                      : () {
+                          final pass = _newPasswordController.text;
+                          final confirm = _confirmPasswordController.text;
+                          if (pass.length < 6) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('كلمة المرور 6 أحرف على الأقل'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
+                          if (pass != confirm) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('كلمتا المرور غير متطابقتين'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
+                          context.read<AuthBloc>().add(AuthSetNewPasswordRequested(newPassword: pass));
+                        },
+                  child: state is AuthLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('حفظ كلمة المرور'),
+                );
+              },
+            ),
+          ],
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthResetPasswordSent) {
+          setState(() => _step = 2);
+        } else if (state is AuthResetOtpVerified) {
+          setState(() => _step = 3);
+        } else if (state is AuthPasswordResetSuccess) {
+          widget.onClose();
+        } else if (state is AuthError && _step > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+      child: AlertDialog(
+        title: Text(
+          _step == 1
+              ? AppStrings.resetPassword
+              : _step == 2
+                  ? 'أدخل الرمز'
+                  : 'كلمة المرور الجديدة',
+        ),
+        content: SingleChildScrollView(child: _buildContent(context)),
+        actions: [
+          TextButton(
+            onPressed: widget.onClose,
+            child: const Text('إلغاء'),
+          ),
+        ],
       ),
     );
   }
