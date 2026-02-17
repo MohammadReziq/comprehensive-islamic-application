@@ -4,6 +4,7 @@ import 'core/services/notification_service.dart';
 import 'core/services/offline_sync_service.dart';
 import 'core/services/prayer_times_service.dart';
 import 'core/services/points_service.dart';
+import 'core/services/realtime_service.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/mosque/data/repositories/mosque_repository.dart';
@@ -25,6 +26,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => OfflineSyncService(sl<ConnectivityService>()));
   sl.registerLazySingleton(() => PrayerTimesService());
   sl.registerLazySingleton(() => PointsService());
+  sl.registerLazySingleton(() => RealtimeService());
 
   // ─── تهيئة الخدمات الأساسية ───
   await sl<ConnectivityService>().init();

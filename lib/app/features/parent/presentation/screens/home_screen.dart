@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/widgets/app_drawer.dart';
+import '../../../../core/services/realtime_service.dart';
 import '../../../../injection_container.dart';
 import '../../data/repositories/child_repository.dart';
 import '../../../../models/child_model.dart';
@@ -35,17 +36,33 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTodayAttendance();
   }
 
+  @override
+  void dispose() {
+    sl<RealtimeService>().unsubscribeAttendance();
+    super.dispose();
+  }
+
   Future<void> _loadTodayAttendance() async {
     setState(() => _loadingAttendance = true);
     try {
       final repo = sl<ChildRepository>();
       final children = await repo.getMyChildren();
       final attendance = await repo.getAttendanceForMyChildren(DateTime.now());
-      if (mounted) setState(() {
-        _children = children;
-        _todayAttendance = attendance;
-        _loadingAttendance = false;
-      });
+      if (mounted) {
+        setState(() {
+          _children = children;
+          _todayAttendance = attendance;
+          _loadingAttendance = false;
+        });
+        final realtime = sl<RealtimeService>();
+        realtime.unsubscribeAttendance();
+        final childIds = children.map((c) => c.id).toList();
+        if (childIds.isNotEmpty) {
+          realtime.subscribeAttendanceForChildIds(childIds, (_) {
+            if (mounted) _loadTodayAttendance();
+          });
+        }
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingAttendance = false);
     }

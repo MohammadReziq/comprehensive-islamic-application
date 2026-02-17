@@ -6,6 +6,8 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/constants/app_enums.dart';
+import '../../../../core/services/realtime_service.dart';
+import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -26,8 +28,20 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<MosqueBloc>().add(const MosqueLoadMyMosques());
+      sl<RealtimeService>().subscribeMosques((_) {
+        if (mounted) {
+          context.read<MosqueBloc>().add(const MosqueLoadMyMosques());
+        }
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    sl<RealtimeService>().unsubscribeMosques();
+    super.dispose();
   }
 
   @override

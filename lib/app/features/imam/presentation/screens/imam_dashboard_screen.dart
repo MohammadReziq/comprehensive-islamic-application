@@ -8,6 +8,7 @@ import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/services/prayer_times_service.dart';
+import '../../../../core/services/realtime_service.dart';
 import '../../../../injection_container.dart';
 import '../../../../models/mosque_model.dart';
 import '../../../../models/other_models.dart';
@@ -46,7 +47,18 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
       if (state is! MosqueLoaded || state.mosques.isEmpty) {
         context.read<MosqueBloc>().add(const MosqueLoadMyMosques());
       }
+      sl<RealtimeService>().subscribeMosques((_) {
+        if (mounted) {
+          context.read<MosqueBloc>().add(const MosqueLoadMyMosques());
+        }
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    sl<RealtimeService>().unsubscribeMosques();
+    super.dispose();
   }
 
   void _loadSupervisors(String mosqueId) async {
