@@ -6,14 +6,15 @@
 
 ## بعد استنساخ المشروع (Clone)
 
-1. ثبّت FlutterFire CLI إن لم يكن مثبتاً:
+1. ثبّت FlutterFire CLI (مرة واحدة على الجهاز):
    ```bash
    dart pub global activate flutterfire_cli
    ```
-2. ولّد ملف المفاتيح محلياً:
+2. من جذر المشروع ولّد ملف المفاتيح محلياً:
    ```bash
-   dart run flutterfire_cli:flutterfire configure
+   flutterfire configure
    ```
+   (إن لم يُعرَف الأمر: تأكد أن `$HOME/.pub-cache/bin` أو مسار `dart pub global activate` مضاف إلى الـ PATH، أو استخدم: `dart run flutterfire_cli:flutterfire configure` بعد إضافة الحزمة كـ dev_dependency.)
 3. سيُنشأ `lib/firebase_options.dart` بمفاتيح مشروعك ولن يُرفع إلى Git (الملف في `.gitignore`).
 
 ## إذا ظهر تنبيه أمني من Google
