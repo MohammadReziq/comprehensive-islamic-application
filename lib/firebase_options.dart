@@ -6,14 +6,10 @@ import 'package:flutter/foundation.dart'
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
+/// Do NOT commit real keys. Generate this file locally by running:
+///   dart run flutterfire_cli:flutterfire configure
+///
+/// See lib/firebase_options.example.dart for structure.
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -41,44 +37,44 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDv-IiGa70loo5nuCMEazyvNCewoVUmT6k',
-    appId: '1:468419636460:web:e53c8bfb85c1460da0c9c9',
-    messagingSenderId: '468419636460',
+    apiKey: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    appId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    messagingSenderId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
     projectId: 'comprehensiveislamic',
     authDomain: 'comprehensiveislamic.firebaseapp.com',
     storageBucket: 'comprehensiveislamic.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDfZEJqtS9AH_18Gd5sOl3X6v8_4WGZ6vk',
-    appId: '1:468419636460:android:c9e9867d39a432d8a0c9c9',
-    messagingSenderId: '468419636460',
+    apiKey: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    appId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    messagingSenderId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
     projectId: 'comprehensiveislamic',
     storageBucket: 'comprehensiveislamic.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA7bbkOPOsb1eYoS5ixGm1yTwY_puzWmbU',
-    appId: '1:468419636460:ios:334bc8b59b8c9b1fa0c9c9',
-    messagingSenderId: '468419636460',
+    apiKey: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    appId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    messagingSenderId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
     projectId: 'comprehensiveislamic',
     storageBucket: 'comprehensiveislamic.firebasestorage.app',
     iosBundleId: 'com.example.comprehensiveIslamicApplication',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyA7bbkOPOsb1eYoS5ixGm1yTwY_puzWmbU',
-    appId: '1:468419636460:ios:334bc8b59b8c9b1fa0c9c9',
-    messagingSenderId: '468419636460',
+    apiKey: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    appId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    messagingSenderId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
     projectId: 'comprehensiveislamic',
     storageBucket: 'comprehensiveislamic.firebasestorage.app',
     iosBundleId: 'com.example.comprehensiveIslamicApplication',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDv-IiGa70loo5nuCMEazyvNCewoVUmT6k',
-    appId: '1:468419636460:web:7e3607d53c135d6da0c9c9',
-    messagingSenderId: '468419636460',
+    apiKey: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    appId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
+    messagingSenderId: 'REPLACE_ME_RUN_FLUTTERFIRE_CONFIGURE',
     projectId: 'comprehensiveislamic',
     authDomain: 'comprehensiveislamic.firebaseapp.com',
     storageBucket: 'comprehensiveislamic.firebasestorage.app',
