@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../../core/widgets/app_drawer.dart';
 import '../../../../injection_container.dart';
 import '../../data/repositories/child_repository.dart';
 import '../../../../models/child_model.dart';
@@ -22,6 +23,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
   List<ChildModel> _children = [];
   List<AttendanceModel> _todayAttendance = [];
   bool _loadingAttendance = true;
@@ -53,6 +56,24 @@ class _HomeScreenState extends State<HomeScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        key: _scaffoldKey,
+        drawer: AppDrawer(
+          title: 'صلاتي حياتي',
+          subtitle: 'ولي أمر',
+          items: [
+            AppDrawerItem(
+              title: 'الرئيسية',
+              icon: Icons.home,
+              onTap: () => context.go('/home'),
+            ),
+            AppDrawerItem(
+              title: 'أطفالي',
+              icon: Icons.people,
+              onTap: () => context.push('/parent/children'),
+            ),
+          ],
+          onLogout: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+        ),
         body: Container(
           width: double.infinity,
           height: double.infinity,
@@ -66,7 +87,17 @@ class _HomeScreenState extends State<HomeScreen> {
           child: SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: AppDimensions.paddingXL),
+                const SizedBox(height: AppDimensions.paddingSM),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.menu, color: Colors.white),
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppDimensions.paddingSM),
 
                 // ─── ترحيب ───
                 BlocBuilder<AuthBloc, AuthState>(

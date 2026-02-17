@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/services/prayer_times_service.dart';
@@ -15,6 +16,7 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
+import '../../data/repositories/supervisor_repository.dart';
 
 /// لوحة المشرف — ملخص اليوم + التحضير والطلاب والتصحيحات والملاحظات
 class SupervisorDashboardScreen extends StatefulWidget {
@@ -25,6 +27,8 @@ class SupervisorDashboardScreen extends StatefulWidget {
 }
 
 class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +50,44 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        key: _scaffoldKey,
+        drawer: AppDrawer(
+          title: AppStrings.supervisorDashboardTitle,
+          subtitle: 'مشرف',
+          items: [
+            AppDrawerItem(
+              title: 'لوحة المشرف',
+              icon: Icons.dashboard,
+              onTap: () => context.go('/supervisor/dashboard'),
+            ),
+            AppDrawerItem(
+              title: 'التحضير',
+              icon: Icons.qr_code_scanner,
+              onTap: () => context.push('/supervisor/scan'),
+            ),
+            AppDrawerItem(
+              title: AppStrings.students,
+              icon: Icons.people,
+              onTap: () => context.push('/supervisor/students'),
+            ),
+            AppDrawerItem(
+              title: AppStrings.correctionRequest,
+              icon: Icons.edit_note,
+              onTap: () => context.push('/supervisor/corrections'),
+            ),
+            AppDrawerItem(
+              title: 'الملاحظات',
+              icon: Icons.note_alt_outlined,
+              onTap: () => context.push('/supervisor/notes'),
+            ),
+            AppDrawerItem(
+              title: 'انضم لمسجد',
+              icon: Icons.add,
+              onTap: () => context.push('/mosque/join'),
+            ),
+          ],
+          onLogout: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+        ),
         body: Container(
           width: double.infinity,
           decoration: const BoxDecoration(
@@ -84,7 +126,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                           const SizedBox(height: AppDimensions.paddingXL),
                           _buildSectionTitle(AppStrings.todayAttendance),
                           const SizedBox(height: AppDimensions.paddingSM),
-                          _buildStatsRow(),
+                          _buildStatsRow(context, approvedMosque),
                           const SizedBox(height: AppDimensions.paddingXL),
                           _buildSectionTitle('الإجراءات'),
                           const SizedBox(height: AppDimensions.paddingMD),
@@ -224,8 +266,8 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(
-          icon: const Icon(Icons.logout, color: Colors.white),
-          onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+          icon: const Icon(Icons.menu, color: Colors.white),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         Text(
           AppStrings.supervisorDashboardTitle,
@@ -400,17 +442,37 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
     );
   }
 
-  Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatChip('حضور اليوم', '0'),
-        ),
-        const SizedBox(width: AppDimensions.paddingSM),
-        Expanded(
-          child: _buildStatChip('طلاب المسجد', '—'),
-        ),
-      ],
+  Widget _buildStatsRow(BuildContext context, MosqueModel? approvedMosque) {
+    if (approvedMosque == null) {
+      return Row(
+        children: [
+          Expanded(child: _buildStatChip('حضور اليوم', '0')),
+          const SizedBox(width: AppDimensions.paddingSM),
+          Expanded(child: _buildStatChip('طلاب المسجد', '—')),
+        ],
+      );
+    }
+    final repo = sl<SupervisorRepository>();
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        repo.getTodayAttendanceCount(approvedMosque.id),
+        repo.getMosqueStudents(approvedMosque.id),
+      ]),
+      builder: (context, snapshot) {
+        final todayCount = snapshot.hasData && snapshot.data != null
+            ? (snapshot.data![0] as int).toString()
+            : '—';
+        final studentsCount = snapshot.hasData && snapshot.data != null
+            ? (snapshot.data![1] as List).length.toString()
+            : '—';
+        return Row(
+          children: [
+            Expanded(child: _buildStatChip('حضور اليوم', todayCount)),
+            const SizedBox(width: AppDimensions.paddingSM),
+            Expanded(child: _buildStatChip('طلاب المسجد', studentsCount)),
+          ],
+        );
+      },
     );
   }
 

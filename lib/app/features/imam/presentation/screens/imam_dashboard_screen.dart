@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/services/prayer_times_service.dart';
@@ -14,6 +15,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
+import '../../../supervisor/data/repositories/supervisor_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
 
@@ -26,6 +28,8 @@ class ImamDashboardScreen extends StatefulWidget {
 }
 
 class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
   List<MosqueMemberModel>? _supervisors;
   bool _loadingSupervisors = false;
   List<MosqueJoinRequestModel>? _pendingRequests;
@@ -49,35 +53,44 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
     setState(() => _loadingSupervisors = true);
     try {
       final list = await sl<MosqueRepository>().getMosqueSupervisors(mosqueId);
-      if (mounted) setState(() {
-        _supervisors = list;
-        _loadingSupervisors = false;
-      });
+      if (mounted)
+        setState(() {
+          _supervisors = list;
+          _loadingSupervisors = false;
+        });
     } catch (_) {
-      if (mounted) setState(() {
-        _supervisors = [];
-        _loadingSupervisors = false;
-      });
+      if (mounted)
+        setState(() {
+          _supervisors = [];
+          _loadingSupervisors = false;
+        });
     }
   }
 
   void _loadPendingRequests(String mosqueId) async {
     setState(() => _loadingPendingRequests = true);
     try {
-      final list = await sl<MosqueRepository>().getPendingJoinRequests(mosqueId);
-      if (mounted) setState(() {
-        _pendingRequests = list;
-        _loadingPendingRequests = false;
-      });
+      final list = await sl<MosqueRepository>().getPendingJoinRequests(
+        mosqueId,
+      );
+      if (mounted)
+        setState(() {
+          _pendingRequests = list;
+          _loadingPendingRequests = false;
+        });
     } catch (_) {
-      if (mounted) setState(() {
-        _pendingRequests = [];
-        _loadingPendingRequests = false;
-      });
+      if (mounted)
+        setState(() {
+          _pendingRequests = [];
+          _loadingPendingRequests = false;
+        });
     }
   }
 
-  Future<void> _removeSupervisor(MosqueModel mosque, MosqueMemberModel member) async {
+  Future<void> _removeSupervisor(
+    MosqueModel mosque,
+    MosqueMemberModel member,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -104,7 +117,9 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
       await sl<MosqueRepository>().removeMosqueMember(mosque.id, member.userId);
       if (mounted) {
         setState(() {
-          _supervisors = _supervisors?.where((m) => m.userId != member.userId).toList() ?? [];
+          _supervisors =
+              _supervisors?.where((m) => m.userId != member.userId).toList() ??
+              [];
           _removingUserId = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +134,9 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
         setState(() => _removingUserId = null);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text(
+              'فشل: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -136,7 +153,9 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
         MosqueModel? mosque;
         if (state is MosqueLoaded) {
           try {
-            mosque = state.mosques.firstWhere((m) => m.status == MosqueStatus.approved);
+            mosque = state.mosques.firstWhere(
+              (m) => m.status == MosqueStatus.approved,
+            );
           } catch (_) {}
         }
         if (mosque != null && _supervisors == null && !_loadingSupervisors) {
@@ -145,20 +164,55 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
             if (mounted) _loadSupervisors(mosque!.id);
           });
         }
-        if (mosque != null && _pendingRequests == null && !_loadingPendingRequests) {
+        if (mosque != null &&
+            _pendingRequests == null &&
+            !_loadingPendingRequests) {
           _loadingPendingRequests = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _loadPendingRequests(mosque!.id);
           });
         }
 
-        final initialDataReady = mosque != null &&
-            _supervisors != null &&
-            _pendingRequests != null;
+        final initialDataReady =
+            mosque != null && _supervisors != null && _pendingRequests != null;
 
         return Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
+            key: _scaffoldKey,
+            drawer: AppDrawer(
+              title: 'لوحة مدير المسجد',
+              subtitle: 'إمام',
+              items: [
+                AppDrawerItem(
+                  title: 'لوحة المدير',
+                  icon: Icons.dashboard,
+                  onTap: () => context.go('/imam/dashboard'),
+                ),
+                AppDrawerItem(
+                  title: 'التحضير',
+                  icon: Icons.qr_code_scanner,
+                  onTap: () => context.push('/supervisor/scan'),
+                ),
+                AppDrawerItem(
+                  title: AppStrings.students,
+                  icon: Icons.people,
+                  onTap: () => context.push('/supervisor/students'),
+                ),
+                AppDrawerItem(
+                  title: AppStrings.correctionRequest,
+                  icon: Icons.edit_note,
+                  onTap: () => context.push('/supervisor/corrections'),
+                ),
+                AppDrawerItem(
+                  title: 'الملاحظات',
+                  icon: Icons.note_alt_outlined,
+                  onTap: () => context.push('/supervisor/notes'),
+                ),
+              ],
+              onLogout: () =>
+                  context.read<AuthBloc>().add(const AuthLogoutRequested()),
+            ),
             body: Container(
               width: double.infinity,
               decoration: const BoxDecoration(
@@ -178,7 +232,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                             SizedBox(height: 16),
                             Text(
                               'جاري التحميل...',
-                              style: TextStyle(color: Colors.white, fontSize: 16),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
                             ),
                           ],
                         ),
@@ -187,36 +244,65 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                         slivers: [
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.all(AppDimensions.paddingLG),
+                              padding: const EdgeInsets.all(
+                                AppDimensions.paddingLG,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _buildAppBar(context),
-                                  const SizedBox(height: AppDimensions.paddingXL),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingXL,
+                                  ),
                                   _buildMosqueCard(context, mosque),
-                                  const SizedBox(height: AppDimensions.paddingXL),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingXL,
+                                  ),
                                   _buildSectionTitle('طلبات الانضمام'),
-                                  const SizedBox(height: AppDimensions.paddingSM),
-                                  _buildPendingJoinRequestsContent(context, mosque),
-                                  const SizedBox(height: AppDimensions.paddingXL),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingSM,
+                                  ),
+                                  _buildPendingJoinRequestsContent(
+                                    context,
+                                    mosque,
+                                  ),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingXL,
+                                  ),
                                   _buildSectionTitle(AppStrings.supervisors),
-                                  const SizedBox(height: AppDimensions.paddingSM),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingSM,
+                                  ),
                                   _buildSupervisorsContent(context, mosque),
-                                  const SizedBox(height: AppDimensions.paddingXL),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingXL,
+                                  ),
                                   _buildNextPrayerCard(nextPrayer),
-                                  const SizedBox(height: AppDimensions.paddingXL),
-                                  _buildSectionTitle(AppStrings.todayAttendance),
-                                  const SizedBox(height: AppDimensions.paddingSM),
-                                  _buildStatsRow(),
-                                  const SizedBox(height: AppDimensions.paddingXL),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingXL,
+                                  ),
+                                  _buildSectionTitle(
+                                    AppStrings.todayAttendance,
+                                  ),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingSM,
+                                  ),
+                                  _buildStatsRow(context, mosque),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingXL,
+                                  ),
                                   _buildSectionTitle('الإجراءات'),
-                                  const SizedBox(height: AppDimensions.paddingMD),
+                                  const SizedBox(
+                                    height: AppDimensions.paddingMD,
+                                  ),
                                 ],
                               ),
                             ),
                           ),
                           SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingLG),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppDimensions.paddingLG,
+                            ),
                             sliver: SliverList(
                               delegate: SliverChildListDelegate([
                                 _buildActionCard(
@@ -232,7 +318,8 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                                   icon: Icons.people,
                                   title: AppStrings.students,
                                   subtitle: 'قائمة طلاب المسجد',
-                                  onTap: () => context.push('/supervisor/students'),
+                                  onTap: () =>
+                                      context.push('/supervisor/students'),
                                 ),
                                 const SizedBox(height: AppDimensions.paddingSM),
                                 _buildActionCard(
@@ -240,7 +327,8 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                                   icon: Icons.edit_note,
                                   title: AppStrings.correctionRequest,
                                   subtitle: 'طلبات التصحيح من أولياء الأمور',
-                                  onTap: () => context.push('/supervisor/corrections'),
+                                  onTap: () =>
+                                      context.push('/supervisor/corrections'),
                                 ),
                                 const SizedBox(height: AppDimensions.paddingSM),
                                 _buildActionCard(
@@ -248,9 +336,12 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                                   icon: Icons.note_alt_outlined,
                                   title: 'الملاحظات',
                                   subtitle: 'ملاحظات للطلاب',
-                                  onTap: () => context.push('/supervisor/notes'),
+                                  onTap: () =>
+                                      context.push('/supervisor/notes'),
                                 ),
-                                const SizedBox(height: AppDimensions.paddingXXL),
+                                const SizedBox(
+                                  height: AppDimensions.paddingXXL,
+                                ),
                               ]),
                             ),
                           ),
@@ -269,8 +360,8 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(
-          icon: const Icon(Icons.logout, color: Colors.white),
-          onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+          icon: const Icon(Icons.menu, color: Colors.white),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         const Text(
           'لوحة مدير المسجد',
@@ -358,7 +449,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.85)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
               ),
               Text(
                 value,
@@ -371,7 +465,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
               ),
               Text(
                 hint,
-                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7)),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
               ),
             ],
           ),
@@ -385,7 +482,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
     );
   }
 
-  Widget _buildPendingJoinRequestsContent(BuildContext context, MosqueModel mosque) {
+  Widget _buildPendingJoinRequestsContent(
+    BuildContext context,
+    MosqueModel mosque,
+  ) {
     if (_loadingPendingRequests) {
       return const Center(
         child: Padding(
@@ -393,7 +493,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
           child: SizedBox(
             width: 28,
             height: 28,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white70,
+            ),
           ),
         ),
       );
@@ -408,7 +511,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
         ),
         child: Text(
           'لا توجد طلبات انضمام جديدة.',
-          style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.9)),
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
         ),
       );
     }
@@ -457,16 +563,27 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                   const SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white70,
+                    ),
                   )
                 else ...[
                   IconButton(
-                    icon: const Icon(Icons.check_circle, color: Colors.greenAccent, size: 26),
+                    icon: const Icon(
+                      Icons.check_circle,
+                      color: Colors.greenAccent,
+                      size: 26,
+                    ),
                     onPressed: () => _approveJoinRequest(mosque, r),
                     tooltip: AppStrings.approve,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.cancel, color: Colors.redAccent, size: 24),
+                    icon: const Icon(
+                      Icons.cancel,
+                      color: Colors.redAccent,
+                      size: 24,
+                    ),
                     onPressed: () => _rejectJoinRequest(mosque, r),
                     tooltip: AppStrings.reject,
                   ),
@@ -479,13 +596,17 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
     );
   }
 
-  Future<void> _approveJoinRequest(MosqueModel mosque, MosqueJoinRequestModel request) async {
+  Future<void> _approveJoinRequest(
+    MosqueModel mosque,
+    MosqueJoinRequestModel request,
+  ) async {
     setState(() => _processingRequestId = request.id);
     try {
       await sl<MosqueRepository>().approveJoinRequest(request.id);
       if (mounted) {
         setState(() {
-          _pendingRequests = _pendingRequests?.where((r) => r.id != request.id).toList() ?? [];
+          _pendingRequests =
+              _pendingRequests?.where((r) => r.id != request.id).toList() ?? [];
           _processingRequestId = null;
           _supervisors = null;
           _loadingSupervisors = false;
@@ -503,7 +624,9 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
         setState(() => _processingRequestId = null);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text(
+              'فشل: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -512,13 +635,17 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
     }
   }
 
-  Future<void> _rejectJoinRequest(MosqueModel mosque, MosqueJoinRequestModel request) async {
+  Future<void> _rejectJoinRequest(
+    MosqueModel mosque,
+    MosqueJoinRequestModel request,
+  ) async {
     setState(() => _processingRequestId = request.id);
     try {
       await sl<MosqueRepository>().rejectJoinRequest(request.id);
       if (mounted) {
         setState(() {
-          _pendingRequests = _pendingRequests?.where((r) => r.id != request.id).toList() ?? [];
+          _pendingRequests =
+              _pendingRequests?.where((r) => r.id != request.id).toList() ?? [];
           _processingRequestId = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -533,7 +660,9 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
         setState(() => _processingRequestId = null);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text(
+              'فشل: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -550,7 +679,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
           child: SizedBox(
             width: 28,
             height: 28,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white70,
+            ),
           ),
         ),
       );
@@ -565,7 +697,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
         ),
         child: Text(
           'لا يوجد مشرفون بعد. شارك كود الدعوة لدعوتهم.',
-          style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.9)),
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
         ),
       );
     }
@@ -615,10 +750,19 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white70,
+                          ),
                         )
-                      : const Icon(Icons.person_remove, color: Colors.white70, size: 24),
-                  onPressed: isRemoving ? null : () => _removeSupervisor(mosque, m),
+                      : const Icon(
+                          Icons.person_remove,
+                          color: Colors.white70,
+                          size: 24,
+                        ),
+                  onPressed: isRemoving
+                      ? null
+                      : () => _removeSupervisor(mosque, m),
                   tooltip: AppStrings.removeSupervisor,
                 ),
               ],
@@ -659,7 +803,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
               children: [
                 Text(
                   AppStrings.nextPrayer,
-                  style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
                 ),
                 Text(
                   '$nameAr $timeFormatted',
@@ -672,7 +819,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                 if (remainingStr.isNotEmpty)
                   Text(
                     'بعد $remainingStr',
-                    style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.9)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
                   ),
               ],
             ),
@@ -693,13 +843,37 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
     );
   }
 
-  Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(child: _buildStatChip('حضور اليوم', '0')),
-        const SizedBox(width: AppDimensions.paddingSM),
-        Expanded(child: _buildStatChip('طلاب المسجد', '—')),
-      ],
+  Widget _buildStatsRow(BuildContext context, MosqueModel? mosque) {
+    if (mosque == null) {
+      return Row(
+        children: [
+          Expanded(child: _buildStatChip('حضور اليوم', '0')),
+          const SizedBox(width: AppDimensions.paddingSM),
+          Expanded(child: _buildStatChip('طلاب المسجد', '—')),
+        ],
+      );
+    }
+    final repo = sl<SupervisorRepository>();
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        repo.getTodayAttendanceCount(mosque.id),
+        repo.getMosqueStudents(mosque.id),
+      ]),
+      builder: (context, snapshot) {
+        final todayCount = snapshot.hasData && snapshot.data != null
+            ? (snapshot.data![0] as int).toString()
+            : '—';
+        final studentsCount = snapshot.hasData && snapshot.data != null
+            ? (snapshot.data![1] as List).length.toString()
+            : '—';
+        return Row(
+          children: [
+            Expanded(child: _buildStatChip('حضور اليوم', todayCount)),
+            const SizedBox(width: AppDimensions.paddingSM),
+            Expanded(child: _buildStatChip('طلاب المسجد', studentsCount)),
+          ],
+        );
+      },
     );
   }
 
@@ -726,7 +900,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.9)),
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
           ),
         ],
       ),
@@ -784,7 +961,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),

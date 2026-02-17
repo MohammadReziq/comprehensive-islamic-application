@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
@@ -19,6 +21,8 @@ class AdminMosqueRequestsScreen extends StatefulWidget {
 }
 
 class _AdminMosqueRequestsScreenState extends State<AdminMosqueRequestsScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +36,19 @@ class _AdminMosqueRequestsScreenState extends State<AdminMosqueRequestsScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        key: _scaffoldKey,
+        drawer: AppDrawer(
+          title: 'طلبات المساجد',
+          subtitle: 'سوبر أدمن',
+          items: [
+            AppDrawerItem(
+              title: 'طلبات المساجد',
+              icon: Icons.mosque,
+              onTap: () => context.go('/admin'),
+            ),
+          ],
+          onLogout: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+        ),
         body: Container(
           width: double.infinity,
           height: double.infinity,
@@ -96,9 +113,17 @@ class _AdminMosqueRequestsScreenState extends State<AdminMosqueRequestsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
-            tooltip: AppStrings.logout,
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            tooltip: 'القائمة',
+          ),
+          const Text(
+            'طلبات المساجد',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(width: 48),
         ],

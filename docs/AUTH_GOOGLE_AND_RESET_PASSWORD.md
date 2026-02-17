@@ -72,7 +72,7 @@
 لتجربة أفضل: أن يظهر اختيار حساب Google **داخل التطبيق** بدل فتح المتصفح:
 
 1. من **Google Cloud Console → Credentials** انسخ **Client ID** من عمود "Web application" (إن لم يكن عندك، أنشئ OAuth 2.0 Client ID من نوع **Web application**).
-2. في المشروع افتح `lib/app/core/network/supabase_client.dart`.
+2. في المشروع افتح `lib/app/core/network/supabase_client.dart`.   
 3. عيّن **Web Client ID** في الكلاس `SupabaseConfig`:
    - `googleWebClientId = 'الـ Client ID الكامل من Google (Web application)'`
    - (اختياري لـ iOS) `googleIosClientId = 'الـ iOS Client ID'` إن أردت استخدام عميل iOS منفصل.

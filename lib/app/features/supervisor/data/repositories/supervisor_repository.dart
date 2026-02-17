@@ -49,6 +49,17 @@ class SupervisorRepository {
         .toList();
   }
 
+  /// عدد سجلات الحضور اليوم لهذا المسجد (للعرض في لوحة المشرف)
+  Future<int> getTodayAttendanceCount(String mosqueId) async {
+    final dateStr = _dateStr(DateTime.now());
+    final res = await supabase
+        .from('attendance')
+        .select('id')
+        .eq('mosque_id', mosqueId)
+        .eq('prayer_date', dateStr);
+    return (res as List).length;
+  }
+
   /// من سجّل حضورهم لصلاة معينة في تاريخ معين (في هذا المسجد)
   Future<Set<String>> getRecordedChildIdsForPrayer({
     required String mosqueId,
