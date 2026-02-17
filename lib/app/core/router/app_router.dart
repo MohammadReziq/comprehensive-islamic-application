@@ -18,6 +18,7 @@ import '../../features/imam/presentation/screens/imam_dashboard_screen.dart';
 import '../../features/supervisor/presentation/screens/supervisor_dashboard_screen.dart';
 import '../../features/supervisor/presentation/screens/supervisor_placeholder_screen.dart';
 import '../../features/supervisor/presentation/screens/students_screen.dart';
+import '../../features/supervisor/presentation/screens/child_profile_screen.dart';
 import '../../features/supervisor/presentation/screens/scanner_screen.dart';
 import '../../features/supervisor/presentation/bloc/scanner_bloc.dart';
 import '../../features/super_admin/presentation/screens/admin_mosque_requests_screen.dart';
@@ -189,6 +190,13 @@ class AppRouter {
         path: '/supervisor/students',
         name: 'supervisorStudents',
         builder: (context, state) => const StudentsScreen(),
+      ),
+      GoRoute(
+        path: '/supervisor/child/:id',
+        name: 'supervisorChildProfile',
+        builder: (context, state) => ChildProfileScreen(
+          childId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/supervisor/corrections',

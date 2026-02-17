@@ -8,6 +8,7 @@ import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/services/prayer_times_service.dart';
+import '../../../../core/services/realtime_service.dart';
 import '../../../../injection_container.dart';
 import '../../../../models/mosque_model.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -16,6 +17,7 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
+import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../data/repositories/supervisor_repository.dart';
 
 /// لوحة المشرف — ملخص اليوم + التحضير والطلاب والتصحيحات والملاحظات
@@ -28,6 +30,11 @@ class SupervisorDashboardScreen extends StatefulWidget {
 
 class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedIndex = 0;
+  /// يُستعمل لإعادة جلب أرقام طلاب المسجد وحضور اليوم عند العودة من التحضير/الطلاب أو عند حدث Realtime
+  int _statsRefreshKey = 0;
+  /// مسجد اللي صار عليه اشتراك Realtime لـ mosque_children (حتى لا نكرر الاشتراك)
+  String? _mosqueChildrenSubscribedForMosqueId;
 
   @override
   void initState() {
@@ -39,6 +46,13 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
         context.read<MosqueBloc>().add(const MosqueLoadMyMosques());
       }
     });
+  }
+
+  @override
+  void dispose() {
+    sl<RealtimeService>().unsubscribeMosqueChildren();
+    _mosqueChildrenSubscribedForMosqueId = null;
+    super.dispose();
   }
 
   @override
@@ -83,12 +97,17 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
             AppDrawerItem(
               title: 'انضم لمسجد',
               icon: Icons.add,
-              onTap: () => context.push('/mosque/join'),
+              onTap: () => context.push('/mosque/join').then((_) {
+                if (mounted) setState(() => _statsRefreshKey++);
+              }),
             ),
           ],
           onLogout: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
         ),
-        body: Container(
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            Container(
           width: double.infinity,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -103,6 +122,23 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                 if (!isSupervisor) return;
                 if (state is MosqueLoaded && state.mosques.isEmpty) {
                   if (context.mounted) context.go('/mosque');
+                  return;
+                }
+                if (state is MosqueLoaded && state.mosques.isNotEmpty) {
+                  try {
+                    final approved = state.mosques
+                        .firstWhere((m) => m.status == MosqueStatus.approved);
+                    if (approved.id != _mosqueChildrenSubscribedForMosqueId) {
+                      sl<RealtimeService>().unsubscribeMosqueChildren();
+                      sl<RealtimeService>().subscribeMosqueChildren(
+                        approved.id,
+                        (_) {
+                          if (mounted) setState(() => _statsRefreshKey++);
+                        },
+                      );
+                      _mosqueChildrenSubscribedForMosqueId = approved.id;
+                    }
+                  } catch (_) {}
                 }
               },
               child: CustomScrollView(
@@ -143,7 +179,9 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                           icon: Icons.qr_code_scanner,
                           title: 'التحضير',
                           subtitle: 'مسح QR أو إدخال رقم الطالب',
-                          onTap: () => context.push('/supervisor/scan'),
+                          onTap: () => context.push('/supervisor/scan').then((_) {
+                            if (mounted) setState(() => _statsRefreshKey++);
+                          }),
                         ),
                         const SizedBox(height: AppDimensions.paddingSM),
                         _buildActionCard(
@@ -151,7 +189,9 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                           icon: Icons.people,
                           title: AppStrings.students,
                           subtitle: 'قائمة طلاب المسجد',
-                          onTap: () => context.push('/supervisor/students'),
+                          onTap: () => context.push('/supervisor/students').then((_) {
+                            if (mounted) setState(() => _statsRefreshKey++);
+                          }),
                         ),
                         const SizedBox(height: AppDimensions.paddingSM),
                         _buildActionCard(
@@ -177,6 +217,19 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
               ),
             ),
           ),
+        ),
+            const ProfileScreen(),
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (i) => setState(() => _selectedIndex = i),
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: Colors.grey,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'لوحة المشرف'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الملف الشخصي'),
+          ],
         ),
       ),
     );
@@ -454,6 +507,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
     }
     final repo = sl<SupervisorRepository>();
     return FutureBuilder<List<dynamic>>(
+      key: ValueKey(_statsRefreshKey),
       future: Future.wait([
         repo.getTodayAttendanceCount(approvedMosque.id),
         repo.getMosqueStudents(approvedMosque.id),

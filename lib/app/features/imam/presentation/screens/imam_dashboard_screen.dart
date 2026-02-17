@@ -16,6 +16,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
+import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../supervisor/data/repositories/supervisor_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
@@ -30,6 +31,9 @@ class ImamDashboardScreen extends StatefulWidget {
 
 class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedIndex = 0;
+  int _statsRefreshKey = 0;
+  String? _mosqueChildrenSubscribedForMosqueId;
 
   List<MosqueMemberModel>? _supervisors;
   bool _loadingSupervisors = false;
@@ -58,6 +62,8 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
   @override
   void dispose() {
     sl<RealtimeService>().unsubscribeMosques();
+    sl<RealtimeService>().unsubscribeMosqueChildren();
+    _mosqueChildrenSubscribedForMosqueId = null;
     super.dispose();
   }
 
@@ -184,6 +190,13 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
             if (mounted) _loadPendingRequests(mosque!.id);
           });
         }
+        if (mosque != null && mosque.id != _mosqueChildrenSubscribedForMosqueId) {
+          _mosqueChildrenSubscribedForMosqueId = mosque.id;
+          sl<RealtimeService>().unsubscribeMosqueChildren();
+          sl<RealtimeService>().subscribeMosqueChildren(mosque.id, (_) {
+            if (mounted) setState(() => _statsRefreshKey++);
+          });
+        }
 
         final initialDataReady =
             mosque != null && _supervisors != null && _pendingRequests != null;
@@ -225,7 +238,10 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
               onLogout: () =>
                   context.read<AuthBloc>().add(const AuthLogoutRequested()),
             ),
-            body: Container(
+            body: IndexedStack(
+              index: _selectedIndex,
+              children: [
+                Container(
               width: double.infinity,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -322,7 +338,11 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                                   icon: Icons.qr_code_scanner,
                                   title: 'التحضير',
                                   subtitle: 'مسح QR أو إدخال رقم الطالب',
-                                  onTap: () => context.push('/supervisor/scan'),
+                                  onTap: () => context
+                                      .push('/supervisor/scan')
+                                      .then((_) {
+                                    if (mounted) setState(() => _statsRefreshKey++);
+                                  }),
                                 ),
                                 const SizedBox(height: AppDimensions.paddingSM),
                                 _buildActionCard(
@@ -330,8 +350,11 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                                   icon: Icons.people,
                                   title: AppStrings.students,
                                   subtitle: 'قائمة طلاب المسجد',
-                                  onTap: () =>
-                                      context.push('/supervisor/students'),
+                                  onTap: () => context
+                                      .push('/supervisor/students')
+                                      .then((_) {
+                                    if (mounted) setState(() => _statsRefreshKey++);
+                                  }),
                                 ),
                                 const SizedBox(height: AppDimensions.paddingSM),
                                 _buildActionCard(
@@ -360,6 +383,19 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                         ],
                       ),
               ),
+            ),
+            const ProfileScreen(),
+              ],
+            ),
+            bottomNavigationBar: BottomNavigationBar(
+              currentIndex: _selectedIndex,
+              onTap: (i) => setState(() => _selectedIndex = i),
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: Colors.grey,
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'لوحة المدير'),
+                BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الملف الشخصي'),
+              ],
             ),
           ),
         );
@@ -867,6 +903,7 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
     }
     final repo = sl<SupervisorRepository>();
     return FutureBuilder<List<dynamic>>(
+      key: ValueKey(_statsRefreshKey),
       future: Future.wait([
         repo.getTodayAttendanceCount(mosque.id),
         repo.getMosqueStudents(mosque.id),

@@ -131,6 +131,17 @@ class SupervisorRepository {
     return ChildModel.fromJson(c);
   }
 
+  /// جلب بيانات طفل بالمعرّف (للإمام/المشرف — RLS تسمح فقط بأطفال مسجدهم)
+  Future<ChildModel?> getChildById(String childId) async {
+    final row = await supabase
+        .from('children')
+        .select()
+        .eq('id', childId)
+        .maybeSingle();
+    if (row == null) return null;
+    return ChildModel.fromJson(row);
+  }
+
   /// طفل برقمه المحلي في المسجد
   Future<ChildModel?> findChildByLocalNumber(int localNumber, String mosqueId) async {
     final row = await supabase

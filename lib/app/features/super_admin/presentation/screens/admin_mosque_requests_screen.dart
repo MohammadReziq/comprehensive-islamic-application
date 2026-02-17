@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
@@ -22,6 +23,7 @@ class AdminMosqueRequestsScreen extends StatefulWidget {
 
 class _AdminMosqueRequestsScreenState extends State<AdminMosqueRequestsScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -49,7 +51,10 @@ class _AdminMosqueRequestsScreenState extends State<AdminMosqueRequestsScreen> {
           ],
           onLogout: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
         ),
-        body: Container(
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            Container(
           width: double.infinity,
           height: double.infinity,
           decoration: const BoxDecoration(
@@ -98,6 +103,19 @@ class _AdminMosqueRequestsScreenState extends State<AdminMosqueRequestsScreen> {
               ],
             ),
           ),
+        ),
+            const ProfileScreen(),
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (i) => setState(() => _selectedIndex = i),
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: Colors.grey,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.mosque), label: 'طلبات المساجد'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الملف الشخصي'),
+          ],
         ),
       ),
     );

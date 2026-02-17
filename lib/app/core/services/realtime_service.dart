@@ -5,6 +5,7 @@ import '../network/supabase_client.dart';
 class RealtimeService {
   RealtimeChannel? _attendanceChannel;
   RealtimeChannel? _mosquesChannel;
+  RealtimeChannel? _mosqueChildrenChannel;
 
   /// الاشتراك في تغييرات الحضور لأطفال معيّنين (لولي الأمر).
   /// عند أي INSERT/UPDATE/DELETE على attendance لـ child_id من القائمة → يستدعى onEvent.
@@ -59,6 +60,32 @@ class RealtimeService {
         .subscribe();
   }
 
+  /// الاشتراك في تغييرات ربط الأطفال بالمسجد (mosque_children).
+  /// عند إضافة/حذف/تعديل ربط طفل بمسجد معيّن → يستدعى onEvent (لتحديث عدد "طلاب المسجد" فوراً).
+  void subscribeMosqueChildren(
+    String mosqueId,
+    void Function(PostgresChangePayload payload) onEvent,
+  ) {
+    _mosqueChildrenChannel?.unsubscribe();
+
+    final channelName =
+        'mosque-children-${DateTime.now().millisecondsSinceEpoch}';
+    _mosqueChildrenChannel = supabase
+        .channel(channelName)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'mosque_children',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'mosque_id',
+            value: mosqueId,
+          ),
+          callback: onEvent,
+        )
+        .subscribe();
+  }
+
   /// إلغاء اشتراك الحضور
   void unsubscribeAttendance() {
     _attendanceChannel?.unsubscribe();
@@ -71,9 +98,16 @@ class RealtimeService {
     _mosquesChannel = null;
   }
 
+  /// إلغاء اشتراك mosque_children
+  void unsubscribeMosqueChildren() {
+    _mosqueChildrenChannel?.unsubscribe();
+    _mosqueChildrenChannel = null;
+  }
+
   /// إلغاء كل الاشتراكات
   void dispose() {
     unsubscribeAttendance();
     unsubscribeMosques();
+    unsubscribeMosqueChildren();
   }
 }

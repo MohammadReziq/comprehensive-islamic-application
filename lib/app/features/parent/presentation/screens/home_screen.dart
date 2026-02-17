@@ -14,6 +14,7 @@ import '../../../../models/attendance_model.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../profile/presentation/screens/profile_screen.dart';
 
 /// الشاشة الرئيسية — ترحيب + حضور اليوم (دورة حياة الحضور) + أطفالي
 class HomeScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedIndex = 0;
 
   List<ChildModel> _children = [];
   List<AttendanceModel> _todayAttendance = [];
@@ -91,7 +93,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
           onLogout: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
         ),
-        body: Container(
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            Container(
           width: double.infinity,
           height: double.infinity,
           decoration: const BoxDecoration(
@@ -313,6 +318,19 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+        ),
+            const ProfileScreen(),
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (i) => setState(() => _selectedIndex = i),
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: Colors.grey,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الملف الشخصي'),
+          ],
         ),
       ),
     );

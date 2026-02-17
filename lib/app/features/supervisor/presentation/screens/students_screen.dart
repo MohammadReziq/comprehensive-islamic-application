@@ -145,6 +145,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               ),
                               title: Text(s.child.name),
                               subtitle: Text('رقم ${s.localNumber} · ${s.child.totalPoints} نقطة'),
+                              onTap: () => context.push('/supervisor/child/${s.child.id}'),
                             ),
                           );
                         },
