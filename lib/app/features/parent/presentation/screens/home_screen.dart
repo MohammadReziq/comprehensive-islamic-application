@@ -91,234 +91,253 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () => context.push('/parent/children'),
             ),
           ],
-          onLogout: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+          onLogout: () =>
+              context.read<AuthBloc>().add(const AuthLogoutRequested()),
         ),
         body: IndexedStack(
           index: _selectedIndex,
           children: [
             Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primaryDark, AppColors.primary],
-              begin: Alignment.topCenter,
-              end: Alignment.center,
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: AppDimensions.paddingSM),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+              width: double.infinity,
+              height: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primaryDark, AppColors.primary],
+                  begin: Alignment.topCenter,
+                  end: Alignment.center,
+                ),
+              ),
+              child: SafeArea(
+                child: Column(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.menu, color: Colors.white),
-                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppDimensions.paddingSM),
-
-                // ─── ترحيب ───
-                BlocBuilder<AuthBloc, AuthState>(
-                  builder: (context, state) {
-                    String userName = 'مستخدم';
-                    String userRole = '';
-                    if (state is AuthAuthenticated && state.userProfile != null) {
-                      userName = state.userProfile!.name;
-                      userRole = state.userProfile!.role.nameAr;
-                    }
-                    return Column(
+                    const SizedBox(height: AppDimensions.paddingSM),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Text('👋', style: TextStyle(fontSize: 40)),
-                          ),
-                        ).animate().scale(
-                              begin: const Offset(0.5, 0.5),
-                              curve: Curves.elasticOut,
-                              duration: 800.ms,
-                            ),
-
-                        const SizedBox(height: AppDimensions.spacingLG),
-
-                        Text(
-                          'مرحباً $userName',
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textOnDark,
-                          ),
-                        ).animate().fadeIn(delay: 300.ms),
-
-                        if (userRole.isNotEmpty) ...[
-                          const SizedBox(height: AppDimensions.spacingXS),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppDimensions.paddingMD,
-                              vertical: AppDimensions.paddingXS,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(AppDimensions.radiusRound),
-                            ),
-                            child: Text(
-                              userRole,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppColors.accent,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ).animate().fadeIn(delay: 500.ms),
-                        ],
-                      ],
-                    );
-                  },
-                ),
-
-                const SizedBox(height: AppDimensions.paddingXL),
-
-                // ─── بطاقة النجاح ───
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: AppDimensions.paddingMD,
-                    ),
-                    padding: const EdgeInsets.all(AppDimensions.paddingLG),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(AppDimensions.radiusXL),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, -5),
+                        IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.white),
+                          onPressed: () =>
+                              _scaffoldKey.currentState?.openDrawer(),
                         ),
                       ],
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            color: AppColors.successLight,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Text('✅', style: TextStyle(fontSize: 48)),
-                          ),
-                        ).animate().fadeIn(delay: 600.ms).scale(
+                    const SizedBox(height: AppDimensions.paddingSM),
+
+                    // ─── ترحيب ───
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        String userName = 'مستخدم';
+                        String userRole = '';
+                        if (state is AuthAuthenticated &&
+                            state.userProfile != null) {
+                          userName = state.userProfile!.name;
+                          userRole = state.userProfile!.role.nameAr;
+                        }
+                        return Column(
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  '👋',
+                                  style: TextStyle(fontSize: 40),
+                                ),
+                              ),
+                            ).animate().scale(
                               begin: const Offset(0.5, 0.5),
                               curve: Curves.elasticOut,
                               duration: 800.ms,
                             ),
 
-                        const SizedBox(height: AppDimensions.spacingXL),
+                            const SizedBox(height: AppDimensions.spacingLG),
 
-                        const Text(
-                          'تابع صلاة أطفالك',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ).animate().fadeIn(delay: 800.ms),
-
-                        const SizedBox(height: AppDimensions.spacingMD),
-
-                        Text(
-                          'أضف أطفالك واربطهم بمسجدهم لترى حضورهم ونقاطهم.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                            height: 1.6,
-                          ),
-                          textAlign: TextAlign.center,
-                        ).animate().fadeIn(delay: 1000.ms),
-
-                        const SizedBox(height: AppDimensions.paddingLG),
-
-                        // ─── حضور اليوم (دورة حياة الحضور) ───
-                        _buildTodayAttendanceSection(),
-
-                        const Spacer(),
-
-                        // ─── أطفالي ───
-                        SizedBox(
-                          width: double.infinity,
-                          height: AppDimensions.buttonHeight,
-                          child: FilledButton.icon(
-                            onPressed: () => context.push('/parent/children'),
-                            icon: const Icon(Icons.child_care),
-                            label: const Text(
-                              'أطفالي',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                            Text(
+                              'مرحباً $userName',
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textOnDark,
                               ),
-                            ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                            ),
+                            ).animate().fadeIn(delay: 300.ms),
+
+                            if (userRole.isNotEmpty) ...[
+                              const SizedBox(height: AppDimensions.spacingXS),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppDimensions.paddingMD,
+                                  vertical: AppDimensions.paddingXS,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppDimensions.radiusRound,
+                                  ),
+                                ),
+                                child: Text(
+                                  userRole,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.accent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ).animate().fadeIn(delay: 500.ms),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: AppDimensions.paddingXL),
+
+                    // ─── بطاقة النجاح ───
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.paddingMD,
+                        ),
+                        padding: const EdgeInsets.all(AppDimensions.paddingLG),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(AppDimensions.radiusXL),
                           ),
-                        ).animate().fadeIn(delay: 1100.ms),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 20,
+                              offset: const Offset(0, -5),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                                  width: 100,
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.successLight,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      '✅',
+                                      style: TextStyle(fontSize: 48),
+                                    ),
+                                  ),
+                                )
+                                .animate()
+                                .fadeIn(delay: 600.ms)
+                                .scale(
+                                  begin: const Offset(0.5, 0.5),
+                                  curve: Curves.elasticOut,
+                                  duration: 800.ms,
+                                ),
 
-                        const SizedBox(height: AppDimensions.paddingMD),
+                            const SizedBox(height: AppDimensions.spacingXL),
 
-                        // ─── زر تسجيل الخروج ───
-                        SizedBox(
-                          width: double.infinity,
-                          height: AppDimensions.buttonHeight,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              context.read<AuthBloc>().add(
-                                    const AuthLogoutRequested(),
-                                  );
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.error,
-                              side: const BorderSide(color: AppColors.error),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppDimensions.radiusMD,
+                            const Text(
+                              'تابع صلاة أطفالك',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ).animate().fadeIn(delay: 800.ms),
+
+                            const SizedBox(height: AppDimensions.spacingMD),
+
+                            Text(
+                              'أضف أطفالك واربطهم بمسجدهم لترى حضورهم ونقاطهم.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textSecondary,
+                                height: 1.6,
+                              ),
+                              textAlign: TextAlign.center,
+                            ).animate().fadeIn(delay: 1000.ms),
+
+                            const SizedBox(height: AppDimensions.paddingLG),
+
+                            // ─── حضور اليوم (دورة حياة الحضور) ───
+                            _buildTodayAttendanceSection(),
+
+                            const Spacer(),
+
+                            // ─── أطفالي ───
+                            SizedBox(
+                              width: double.infinity,
+                              height: AppDimensions.buttonHeight,
+                              child: FilledButton.icon(
+                                onPressed: () =>
+                                    context.push('/parent/children'),
+                                icon: const Icon(Icons.child_care),
+                                label: const Text(
+                                  'أطفالي',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
                                 ),
                               ),
-                            ),
-                            icon: const Icon(Icons.logout),
-                            label: const Text(
-                              AppStrings.logout,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ).animate().fadeIn(delay: 1200.ms),
+                            ).animate().fadeIn(delay: 1100.ms),
 
-                        const SizedBox(height: AppDimensions.paddingLG),
-                      ],
+                            const SizedBox(height: AppDimensions.paddingMD),
+
+                            // ─── زر تسجيل الخروج ───
+                            SizedBox(
+                              width: double.infinity,
+                              height: AppDimensions.buttonHeight,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  context.read<AuthBloc>().add(
+                                    const AuthLogoutRequested(),
+                                  );
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.error,
+                                  side: const BorderSide(
+                                    color: AppColors.error,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppDimensions.radiusMD,
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.logout),
+                                label: const Text(
+                                  AppStrings.logout,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ).animate().fadeIn(delay: 1200.ms),
+
+                            const SizedBox(height: AppDimensions.paddingLG),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
             const ProfileScreen(),
           ],
         ),
@@ -329,7 +348,10 @@ class _HomeScreenState extends State<HomeScreen> {
           unselectedItemColor: Colors.grey,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الملف الشخصي'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: 'الملف الشخصي',
+            ),
           ],
         ),
       ),
@@ -345,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (_children.isEmpty) {
       return Text(
-        'أضف طفلاً واربطه بمسجد لترى حضور اليوم هنا.',
+        'أضف ابناً واربطه بمسجد لترى حضور اليوم هنا.',
         style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
         textAlign: TextAlign.center,
       );
@@ -384,7 +406,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (list.isEmpty)
                   Text(
                     'لا حضور مسجّل اليوم',
-                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
                   )
                 else
                   Text(

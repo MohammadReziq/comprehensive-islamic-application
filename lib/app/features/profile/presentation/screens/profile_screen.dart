@@ -24,7 +24,8 @@ class ProfileScreen extends StatelessWidget {
       textDirection: TextDirection.rtl,
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, authState) {
-          if (authState is! AuthAuthenticated || authState.userProfile == null) {
+          if (authState is! AuthAuthenticated ||
+              authState.userProfile == null) {
             return const Center(child: CircularProgressIndicator());
           }
           final user = authState.userProfile!;
@@ -41,81 +42,90 @@ class ProfileScreen extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(AppDimensions.paddingLG),
               child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: AppDimensions.paddingXL),
-                _buildAvatar(user.name),
-                const SizedBox(height: AppDimensions.paddingMD),
-                Text(
-                  user.name,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimensions.paddingMD,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusRound),
-                  ),
-                  child: Text(
-                    user.role.nameAr,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: AppDimensions.paddingXL),
+                  _buildAvatar(user.name),
+                  const SizedBox(height: AppDimensions.paddingMD),
+                  Text(
+                    user.name,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.accent,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
-                ),
-                if (user.email != null && user.email!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    user.email!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
-                  ),
-                ],
-                if (user.phone != null && user.phone!.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    user.phone!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.9),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.paddingMD,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusRound,
+                      ),
+                    ),
+                    child: Text(
+                      user.role.nameAr,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ),
+                  if (user.email != null && user.email!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      user.email!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
+                  if (user.phone != null && user.phone!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      user.phone!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: AppDimensions.paddingXL),
+                  if (user.role == UserRole.imam ||
+                      user.role == UserRole.supervisor)
+                    _MosqueSection(),
+                  if (user.role == UserRole.parent) _ChildrenSection(),
+                  const SizedBox(height: AppDimensions.paddingXL),
+                  OutlinedButton.icon(
+                    onPressed: () => context.read<AuthBloc>().add(
+                      const AuthLogoutRequested(),
+                    ),
+                    icon: const Icon(
+                      Icons.logout,
+                      size: 20,
+                      color: Colors.white70,
+                    ),
+                    label: const Text(
+                      'تسجيل الخروج',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.white54),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ],
-                const SizedBox(height: AppDimensions.paddingXL),
-                if (user.role == UserRole.imam || user.role == UserRole.supervisor)
-                  _MosqueSection(),
-                if (user.role == UserRole.parent) _ChildrenSection(),
-                const SizedBox(height: AppDimensions.paddingXL),
-                OutlinedButton.icon(
-                  onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
-                  icon: const Icon(Icons.logout, size: 20, color: Colors.white70),
-                  label: const Text(
-                    'تسجيل الخروج',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white54),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ],
-            ),
+              ),
             ),
           );
         },
@@ -173,7 +183,11 @@ class _MosqueSection extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.mosque, color: Colors.white.withValues(alpha: 0.9), size: 22),
+                  Icon(
+                    Icons.mosque,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    size: 22,
+                  ),
                   const SizedBox(width: 8),
                   const Text(
                     'مسجدي',
@@ -232,7 +246,11 @@ class _ChildrenSection extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.people, color: Colors.white.withValues(alpha: 0.9), size: 22),
+                  Icon(
+                    Icons.people,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    size: 22,
+                  ),
                   const SizedBox(width: 8),
                   const Text(
                     'أطفالي',
@@ -245,32 +263,36 @@ class _ChildrenSection extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              ...children.map((c) => Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: AppColors.accent.withValues(alpha: 0.3),
-                          child: Text(
-                            c.name.isNotEmpty ? c.name[0] : '?',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.accent,
-                            ),
+              ...children.map(
+                (c) => Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppColors.accent.withValues(
+                          alpha: 0.3,
+                        ),
+                        child: Text(
+                          c.name.isNotEmpty ? c.name[0] : '?',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.accent,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          '${c.name} · ${c.age} سنة',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.white.withValues(alpha: 0.95),
-                          ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${c.name} · ${c.age} سنة',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.white.withValues(alpha: 0.95),
                         ),
-                      ],
-                    ),
-                  )),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
