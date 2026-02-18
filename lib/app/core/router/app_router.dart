@@ -19,6 +19,8 @@ import '../../features/supervisor/presentation/screens/supervisor_dashboard_scre
 import '../../features/supervisor/presentation/screens/supervisor_placeholder_screen.dart';
 import '../../features/supervisor/presentation/screens/students_screen.dart';
 import '../../features/corrections/presentation/screens/corrections_list_screen.dart';
+import '../../features/corrections/presentation/screens/request_correction_screen.dart';
+import '../../features/corrections/presentation/screens/my_corrections_screen.dart';
 import '../../features/notes/presentation/screens/notes_inbox_screen.dart';
 import '../../features/notes/presentation/screens/send_note_screen.dart';
 import '../../features/competitions/presentation/screens/manage_competition_screen.dart';
@@ -154,6 +156,20 @@ class AppRouter {
         name: 'parentChildCard',
         builder: (context, state) =>
             ChildCardScreen(childId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: '/parent/children/:id/request-correction',
+        name: 'parentRequestCorrection',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final childName = state.extra as String?;
+          return RequestCorrectionScreen(childId: id, childName: childName);
+        },
+      ),
+      GoRoute(
+        path: '/parent/corrections',
+        name: 'parentMyCorrections',
+        builder: (context, state) => const MyCorrectionsScreen(),
       ),
       GoRoute(
         path: '/admin',

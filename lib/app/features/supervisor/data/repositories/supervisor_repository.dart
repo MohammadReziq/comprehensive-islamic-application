@@ -1,5 +1,7 @@
 import '../../../../core/constants/app_enums.dart';
+import '../../../../core/errors/app_failure.dart';
 import '../../../../core/network/supabase_client.dart';
+import '../../../../core/services/attendance_validation_service.dart';
 import '../../../../injection_container.dart';
 import '../../../../models/child_model.dart';
 import '../../../../models/attendance_model.dart';
@@ -85,25 +87,59 @@ class SupervisorRepository {
     required DateTime date,
   }) async {
     final user = await _authRepo.getCurrentUserProfile();
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw const NotLoggedInFailure();
 
+    // ── التحقق من وقت الصلاة ──
+    // جلب بيانات المسجد للإحداثيات ونافذة الحضور
+    final mosqueData = await supabase
+        .from('mosques')
+        .select('lat, lng, attendance_window_minutes')
+        .eq('id', mosqueId)
+        .maybeSingle();
+
+    final double? mLat = (mosqueData?['lat'] as num?)?.toDouble();
+    final double? mLng = (mosqueData?['lng'] as num?)?.toDouble();
+    final int windowMin = (mosqueData?['attendance_window_minutes'] as int?) ?? 60;
+
+    final validation = sl<AttendanceValidationService>().canRecordNow(
+      prayer: prayer,
+      date: date,
+      lat: mLat,
+      lng: mLng,
+      windowMinutes: windowMin,
+    );
+
+    if (!validation.allowed) {
+      if (validation.reason?.contains('لم يحن') == true) {
+        throw const AttendanceBeforeAdhanFailure();
+      }
+      throw const AttendanceWindowClosedFailure();
+    }
+
+    // ── حساب النقاط وتسجيل الحضور ──
     final points = sl<PointsService>().calculateAttendancePoints(
       prayer: prayer,
       locationType: LocationType.mosque,
     );
 
     final dateStr = _dateStr(date);
-    final row = await supabase.from('attendance').insert({
-      'child_id': childId,
-      'mosque_id': mosqueId,
-      'recorded_by_id': user.id,
-      'prayer': prayer.value,
-      'location_type': LocationType.mosque.value,
-      'points_earned': points,
-      'prayer_date': dateStr,
-    }).select().single();
+    try {
+      final row = await supabase.from('attendance').insert({
+        'child_id': childId,
+        'mosque_id': mosqueId,
+        'recorded_by_id': user.id,
+        'prayer': prayer.value,
+        'location_type': LocationType.mosque.value,
+        'points_earned': points,
+        'prayer_date': dateStr,
+      }).select().single();
 
-    return AttendanceModel.fromJson(row);
+      return AttendanceModel.fromJson(row);
+    } on AppFailure {
+      rethrow;
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
   }
 
   /// البحث عن طفل بـ QR في قائمة طلاب المسجد (أو من جدول children)
@@ -161,6 +197,80 @@ class SupervisorRepository {
         .single();
 
     return ChildModel.fromJson(childRow);
+  }
+
+  /// إلغاء حضور خاطئ
+  /// المشرف: يلغي ما سجّله بنفسه خلال 24 ساعة
+  /// الإمام: يلغي أي حضور في مسجده بدون قيد زمني
+  Future<String> cancelAttendance(String attendanceId) async {
+    try {
+      final result = await supabase.rpc(
+        'cancel_attendance',
+        params: {'p_attendance_id': attendanceId},
+      );
+      return result as String;
+    } on AppFailure {
+      rethrow;
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  /// البحث عن طفل بالاسم في قائمة طلاب المسجد
+  Future<List<ChildModel>> findChildByName(String name, String mosqueId) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return [];
+
+    final mc = await supabase
+        .from('mosque_children')
+        .select('child_id')
+        .eq('mosque_id', mosqueId)
+        .eq('is_active', true);
+
+    final childIds = (mc as List).map((e) => e['child_id'] as String).toList();
+    if (childIds.isEmpty) return [];
+
+    final res = await supabase
+        .from('children')
+        .select()
+        .inFilter('id', childIds)
+        .ilike('name', '%$trimmed%');
+
+    return (res as List).map((e) => ChildModel.fromJson(e)).toList();
+  }
+
+  /// إحصائيات يومية للمشرف: تفصيل الحضور لكل صلاة
+  Future<Map<String, dynamic>> getDailyStats(String mosqueId, {DateTime? date}) async {
+    final d = date ?? DateTime.now();
+    final dateStr = _dateStr(d);
+
+    final attendance = await supabase
+        .from('attendance')
+        .select('prayer, child_id')
+        .eq('mosque_id', mosqueId)
+        .eq('prayer_date', dateStr);
+
+    final totalStudents = await supabase
+        .from('mosque_children')
+        .select('id')
+        .eq('mosque_id', mosqueId)
+        .eq('is_active', true);
+
+    final byPrayer = <String, int>{};
+    for (final p in Prayer.values) {
+      byPrayer[p.value] = 0;
+    }
+    for (final row in (attendance as List)) {
+      final p = row['prayer'] as String;
+      byPrayer[p] = (byPrayer[p] ?? 0) + 1;
+    }
+
+    return {
+      'date': dateStr,
+      'total_students': (totalStudents as List).length,
+      'total_attendance': (attendance).length,
+      'by_prayer': byPrayer,
+    };
   }
 
   static String _dateStr(DateTime d) =>

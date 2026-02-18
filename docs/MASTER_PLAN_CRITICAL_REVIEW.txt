@@ -1,0 +1,612 @@
+================================================================================
+نقد لاذع وخطة شاملة — صلاتي حياتي
+================================================================================
+تاريخ: 2026-02-18
+الهدف: تغطية كل ما يحتاجه كل دور بحيث ما بعد هذه الخطة = رفع التطبيق.
+ملاحظة: الشاشات والإشعارات مؤجلة — التركيز على البنية الكاملة.
+================================================================================
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  الجزء الأول: نقد لاذع للدراسة الحالية (STUDY_COMPLETE_WHAT_WE_HAVE)       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. السوبر أدمن — "متحكم بكل شيء" لكن فعلياً لا يتحكم بشيء
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+الدراسة تقول: "كل المطلوب لهذا الدور متوفر" — وهذا خطأ فادح!
+
+ما يملكه فعلياً:
+  ✅ قبول/رفض طلبات مساجد (شاشة واحدة فقط!)
+
+ما ينقصه ليكون "متحكم بكل صغيرة وكبيرة":
+  ❌ لا يرى إحصائيات النظام (عدد المساجد، المستخدمين، الأطفال، نسب الحضور)
+  ❌ لا يرى قائمة كل المساجد المعتمدة ولا يتحكم بها (تعليق، حذف، تعديل)
+  ❌ لا يرى قائمة المستخدمين ولا يتحكم بأدوارهم (ترقية/تخفيض/حظر)
+  ❌ لا يملك صلاحية حذف أو تعليق مسجد معتمد
+  ❌ لا يملك صلاحية تغيير إمام مسجد
+  ❌ لا يرى سجلات النظام (System Logs / Audit Trail)
+  ❌ لا يرى إحصائيات المسابقات على مستوى النظام
+  ❌ لا يتحكم بإعدادات عامة للنظام (نافذة وقت الحضور، الحد الأقصى للمساجد الثانوية)
+  ❌ لا يوجد له Repository خاص — يستخدم MosqueRepository فقط!
+  ❌ ليس لديه BLoC خاص
+  ❌ لا Dashboard حقيقي — شاشة واحدة لطلبات المساجد
+
+الخلاصة: السوبر أدمن حالياً مجرد "موظف استقبال" يقبل ويرفض مساجد.
+         المطلوب: أن يكون "مدير النظام" الحقيقي.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. الإمام — قائد بلا أدوات قيادة كافية
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+الدراسة تقول: "الناقص الوحيد: تحقق وقت الحضور" — وهذا ناقص جداً!
+
+ما ينقصه فعلياً:
+  ❌ لا يتحكم بالمسابقة وحده — الدراسة تسمح للمشرف بالتحكم أيضاً (اقتراحك صحيح!)
+  ❌ لا يرى إحصائيات شاملة لمسجده (معدل الحضور الأسبوعي/الشهري، أفضل/أسوأ طفل)
+  ❌ لا يرى تقارير الحضور حسب الفترة (يومي، أسبوعي، شهري)
+  ❌ لا يملك صلاحية إلغاء حضور خاطئ (لا RPC ولا واجهة)
+  ❌ لا يملك إدارة متقدمة للمشرفين (تعيين صلاحيات محددة لكل مشرف)
+  ❌ لا يملك إعدادات المسجد (تعديل الاسم، العنوان، نافذة وقت الحضور)
+  ❌ لا يرى الملاحظات المرسلة من المشرفين لأولياء الأمور (إشراف على التواصل)
+  ❌ لا يرى سجل طلبات التصحيح المعالجة (أرشيف)
+  ❌ لا يملك إعلانات (الجدول موجود لكن لا Repository ولا موديل ولا BLoC)
+  ❌ لا يملك تدفق مخصص — يستخدم نفس SupervisorRepository
+  ❌ لا يوجد ImamRepository منفصل
+
+خطأ في قرار المسابقة (اقتراحك):
+  ← الدراسة تسمح للمشرف بإنشاء/تفعيل المسابقات — والصواب:
+  ✓ الإمام وحده من ينشئ ويبدأ وينهي المسابقة
+  ✓ المشرف يرى المسابقة والترتيب فقط (للاطلاع)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. المشرف — ينقصه أدوات ميدانية حقيقية
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ما يملك:
+  ✅ تحضير (QR/رقم/بحث)
+  ✅ عرض طلاب المسجد
+  ✅ طلبات التصحيح (عرض + موافقة/رفض)
+  ✅ إرسال ملاحظات
+  ✅ عرض المسابقات والترتيب
+
+ما ينقصه:
+  ❌ لا يرى ملخص يومي لأدائه (كم طفل حضّر اليوم، أي صلوات)
+  ❌ لا يرى "الملاحظات التي أرسلها" في مكان واضح (الدالة getMySentNotes موجودة لكن لا شاشة)
+  ❌ لا يملك إلغاء حضور خاطئ سجّله بنفسه
+  ❌ لا يرى تقارير حضور الطلاب الأسبوعية/الشهرية
+  ❌ لا يرى إعلانات مسجده (لا AnnouncementsRepository)
+  ❌ لا يملك "بحث سريع عن طفل" بالاسم (الحالي: QR أو رقم محلي فقط)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. ولي الأمر — الشريك المهمّش
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ما يملك:
+  ✅ عرض أطفاله وإضافة طفل وربطه بمسجد
+  ✅ حضور اليوم (مع Realtime)
+  ✅ صندوق الملاحظات
+
+ما ينقصه:
+  ❌ لا شاشة/زر لإنشاء طلب تصحيح (الريبو والبلوك جاهزان!)
+  ❌ لا عرض لطلبات التصحيح التي أرسلها وحالتها (الدالة getMyRequests موجودة!)
+  ❌ لا شاشة "المسابقة النشطة" (ترتيب أطفاله في المسابقة الحالية)
+  ❌ لا تقارير حضور مفصلة لأطفاله (أسبوعي، شهري، حسب الصلاة)
+  ❌ لا عرض للنقاط والمستوى والشارات (PointsService جاهز لكن لا واجهة!)
+  ❌ لا عرض لتفاصيل الطفل المتقدمة (سجل الحضور الكامل، السلسلة، أفضل سلسلة)
+  ❌ لا يرى إعلانات مسجد أطفاله
+  ❌ لا يرى من سجّل حضور ابنه (اسم المشرف)
+  ❌ لا يعرف أي مسجد أساسي وأي ثانوي (الحقل موجود في DB لكن لا واجهة)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. ثغرات بنيوية عامة في الكود
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+أ) لا يوجد AttendanceValidationService:
+   - recordAttendance يسجل الحضور بلا أي تحقق من وقت الصلاة!
+   - يمكن تسجيل حضور الفجر الساعة 11 مساءً!
+
+ب) لا فصل بين صلاحيات الإمام والمشرف في Repository:
+   - CompetitionRepository يسمح لأي مستدعٍ بـ create/activate/deactivate
+   - لا تحقق من role المستخدم في الكود (يعتمد فقط على RLS)
+   - الاعتماد الكلي على RLS خطير إذا تغيرت السياسات
+
+ج) Gamification feature فارغ تماماً:
+   - data/ و presentation/ موجودان لكن فارغان!
+   - PointsService محسوب لكن لا رابط بالواجهة
+
+د) RealtimeService ناقص:
+   - يغطي: attendance, mosques, mosque_children فقط
+   - لا يغطي: correction_requests, notes, competitions
+
+هـ) لا اختبارات وحدة (Unit Tests):
+   - الملف الوحيد: test/widget_test.dart (الافتراضي من Flutter!)
+   - لا اختبار لأي Repository أو Service أو BLoC
+
+و) OfflineSyncService و ConnectivityService:
+   - موجودان لكن غير مربوطين فعلياً بـ recordAttendance
+
+ز) لا Error Handling موحد:
+   - بعض الريبوهات تستخدم AppFailure والبعض يرمي Exception عام
+   - رسائل الخطأ غير متسقة
+
+ح) لا Pagination:
+   - كل القوائم تجلب كل البيانات دفعة واحدة
+   - مع نمو البيانات سيكون هناك مشاكل أداء
+
+ط) لا Caching:
+   - كل طلب يذهب للسيرفر مباشرة
+   - لا تخزين مؤقت لبيانات لا تتغير كثيراً (مثل قائمة الطلاب)
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  الجزء الثاني: الخطة الشاملة — كل ما يحتاجه كل دور                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+================================================================================
+المرحلة 1: إصلاحات حرجة (يجب إنجازها قبل أي شيء آخر)
+================================================================================
+
+───────────────────────────────────────────────
+1.1  AttendanceValidationService (جديد)
+───────────────────────────────────────────────
+  ملف: lib/app/core/services/attendance_validation_service.dart
+
+  المطلوب:
+  • دالة canRecordNow(Prayer prayer, DateTime date, String? mosqueId)
+    → يرجع (bool allowed, String? reason)
+  • القواعد:
+    - الوقت الحالي >= وقت أذان الصلاة
+    - الوقت الحالي <= وقت الأذان + نافذة (ساعة افتراضياً، قابلة للإعداد)
+    - مصدر أوقات الصلاة: PrayerTimesService بإحداثيات المسجد (إن وجدت)
+  • ربطها في SupervisorRepository.recordAttendance قبل INSERT
+  • تسجيلها في injection_container.dart
+
+───────────────────────────────────────────────
+1.2  فصل صلاحيات المسابقة (الإمام فقط)
+───────────────────────────────────────────────
+  تعديل: CompetitionRepository أو إضافة تحقق من الدور
+
+  المطلوب:
+  • create → فقط للإمام (owner في mosque_members)
+  • activate → فقط للإمام
+  • deactivate → فقط للإمام
+  • getAllForMosque / getActive / getLeaderboard → للإمام والمشرف (قراءة)
+  • تحديث RLS في DB إن لزم
+
+───────────────────────────────────────────────
+1.3  إلغاء حضور خاطئ
+───────────────────────────────────────────────
+  المطلوب:
+  • RPC في DB: cancel_attendance(attendance_id) مع:
+    - تحقق أن المستدعي هو recorded_by أو owner المسجد
+    - نافذة زمنية (مثلاً 24 ساعة من التسجيل)
+    - حذف السجل → Trigger 020 يعيد حساب النقاط/السلسلة
+  • دالة في SupervisorRepository: cancelAttendance(String attendanceId)
+  • ScannerBloc event جديد: CancelAttendance
+
+───────────────────────────────────────────────
+1.4  أوقات الصلاة حسب المسجد
+───────────────────────────────────────────────
+  تعديل: PrayerTimesService
+
+  المطلوب:
+  • دالة getTimesForMosque(String mosqueId) تستخدم lat/lng من جدول mosques
+  • fallback: الموقع الحالي أو مكة المكرمة
+  • MosqueModel يجب أن يحمل lat, lng, timezone (الحقول موجودة في DB)
+  • تحديث MosqueModel.fromJson ليقرأ هذه الحقول
+
+================================================================================
+المرحلة 2: بنية السوبر أدمن الكاملة
+================================================================================
+
+───────────────────────────────────────────────
+2.1  AdminRepository (جديد بالكامل)
+───────────────────────────────────────────────
+  ملف: lib/app/features/super_admin/data/repositories/admin_repository.dart
+
+  الدوال المطلوبة:
+  • getSystemStats() → عدد المساجد (معتمدة/معلقة)، عدد المستخدمين حسب الدور،
+    عدد الأطفال، إجمالي سجلات الحضور، عدد المسابقات النشطة
+  • getAllMosques({MosqueStatus? filter, int page, int limit})
+    → قائمة كل المساجد مع بيانات الإمام وعدد الأعضاء والطلاب
+  • getMosqueDetails(String mosqueId)
+    → تفاصيل كاملة: الإمام، المشرفون، عدد الطلاب، المسابقات، إحصائيات حضور
+  • suspendMosque(String mosqueId) → تعليق مسجد معتمد
+  • deleteMosque(String mosqueId) → حذف مسجد (soft delete يفضل)
+  • getAllUsers({UserRole? filter, String? search, int page, int limit})
+    → قائمة مستخدمين مع بحث
+  • updateUserRole(String userId, UserRole newRole) → تغيير دور مستخدم
+  • banUser(String userId) → حظر مستخدم
+  • unbanUser(String userId) → رفع الحظر
+  • changeImam(String mosqueId, String newImamId) → نقل ملكية مسجد
+  • getSystemSettings() → إعدادات عامة (نافذة الحضور، حد المساجد الثانوية)
+  • updateSystemSettings(Map settings) → تحديث إعدادات
+
+───────────────────────────────────────────────
+2.2  AdminBloc (جديد)
+───────────────────────────────────────────────
+  ملف: lib/app/features/super_admin/presentation/bloc/admin_bloc.dart
+
+  Events: LoadStats, LoadMosques, LoadUsers, SuspendMosque, DeleteMosque,
+          UpdateUserRole, BanUser, ChangeImam, LoadSettings, UpdateSettings
+  States: AdminInitial, AdminLoading, AdminStatsLoaded, AdminMosquesLoaded,
+          AdminUsersLoaded, AdminSettingsLoaded, AdminActionSuccess, AdminError
+
+───────────────────────────────────────────────
+2.3  موديلات جديدة للسوبر أدمن
+───────────────────────────────────────────────
+  • SystemStatsModel: mosqueCount, userCount, childCount, attendanceCount, etc.
+  • SystemSettingsModel: attendanceWindowMinutes, maxSecondaryMosques, etc.
+
+───────────────────────────────────────────────
+2.4  Migrations للسوبر أدمن
+───────────────────────────────────────────────
+  • جدول system_settings: key, value, updated_at (أو JSON في mosques_config)
+  • RLS: فقط super_admin يقرأ ويكتب
+  • RPC: get_system_stats() يرجع JSON بالإحصائيات
+  • إضافة حقل is_banned أو status في users (إن لم يكن موجوداً)
+  • سياسات RLS جديدة تسمح لـ super_admin بقراءة/تعديل أي مسجد أو مستخدم
+
+================================================================================
+المرحلة 3: بنية الإمام الكاملة
+================================================================================
+
+───────────────────────────────────────────────
+3.1  ImamRepository (جديد — منفصل عن Supervisor)
+───────────────────────────────────────────────
+  ملف: lib/app/features/imam/data/repositories/imam_repository.dart
+
+  الدوال المطلوبة:
+  • getMosqueStats(String mosqueId)
+    → إحصائيات: عدد الطلاب، حضور اليوم، معدل الحضور الأسبوعي/الشهري،
+    أفضل طفل، أسوأ طفل، نسبة الحضور حسب الصلاة
+  • getAttendanceReport(String mosqueId, {DateRange, Prayer? filter})
+    → تقرير حضور مفصل مع فلترة
+  • getMosqueSettings(String mosqueId) → إعدادات المسجد
+  • updateMosqueSettings(String mosqueId, {String? name, String? address,
+    double? lat, double? lng, int? attendanceWindowMinutes})
+  • getSupervisorsPerformance(String mosqueId)
+    → أداء كل مشرف: عدد تحضيرات، عدد ملاحظات أرسلها
+  • getProcessedCorrections(String mosqueId)
+    → أرشيف طلبات التصحيح المعالجة (approved + rejected)
+  • getSentNotesBySupervisors(String mosqueId)
+    → الملاحظات المرسلة من مشرفي المسجد (إشراف على التواصل)
+  • cancelAttendance(String attendanceId)
+    → إلغاء حضور (بصلاحيات الإمام بدون قيد الـ 24 ساعة)
+
+───────────────────────────────────────────────
+3.2  ImamBloc (جديد)
+───────────────────────────────────────────────
+  ملف: lib/app/features/imam/presentation/bloc/imam_bloc.dart
+
+  Events: LoadMosqueStats, LoadAttendanceReport, UpdateMosqueSettings,
+          LoadSupervisorsPerformance, LoadProcessedCorrections, CancelAttendance
+  States: مقابلة لكل Event
+
+───────────────────────────────────────────────
+3.3  الإعلانات (Announcements) — مكتمل البنية
+───────────────────────────────────────────────
+  الجدول والRLS موجودان. المطلوب:
+
+  • AnnouncementModel (جديد):
+    ملف: lib/app/models/announcement_model.dart
+    حقول: id, mosqueId, senderId, title, body, createdAt, senderName?
+
+  • AnnouncementRepository (جديد):
+    ملف: lib/app/features/announcements/data/repositories/announcement_repository.dart
+    دوال: createAnnouncement, getForMosque, updateAnnouncement, deleteAnnouncement
+
+  • AnnouncementBloc (جديد):
+    ملف: lib/app/features/announcements/presentation/bloc/announcement_bloc.dart
+
+  • Migration: إضافة سياسات UPDATE/DELETE للإمام على announcements
+
+================================================================================
+المرحلة 4: تعزيز بنية المشرف
+================================================================================
+
+───────────────────────────────────────────────
+4.1  تحسين SupervisorRepository
+───────────────────────────────────────────────
+  إضافة دوال:
+  • getMyDailyStats(String mosqueId)
+    → عدد الأطفال الذين حضّرهم اليوم، حسب الصلاة
+  • getWeeklyAttendanceForStudent(String childId)
+    → حضور طالب خلال الأسبوع (لملف الطالب المحسّن)
+  • findChildByName(String name, String mosqueId)
+    → بحث بالاسم (بالإضافة للQR والرقم المحلي)
+  • cancelMyAttendance(String attendanceId)
+    → إلغاء حضور سجّله بنفسه (خلال 24 ساعة)
+
+───────────────────────────────────────────────
+4.2  ربط الإعلانات بالمشرف (قراءة فقط)
+───────────────────────────────────────────────
+  • AnnouncementRepository.getForMosque متاح أيضاً للمشرف (RLS)
+
+================================================================================
+المرحلة 5: تعزيز بنية ولي الأمر
+================================================================================
+
+───────────────────────────────────────────────
+5.1  تحسين ChildRepository
+───────────────────────────────────────────────
+  إضافة دوال:
+  • getChildFullProfile(String childId)
+    → بيانات كاملة: اسم، نقاط، مستوى (من PointsService)، سلسلة حالية،
+    أفضل سلسلة، شارات، المسجد الأساسي والثانوي
+  • getChildAttendanceHistory(String childId, {int limit, int offset})
+    → سجل حضور مفصل مع pagination (الصلاة، التاريخ، المسجد، اسم المسجّل)
+  • getChildWeeklyReport(String childId)
+    → تقرير أسبوعي: أي صلوات حضرها وأيها فاتته
+  • getChildMonthlyReport(String childId)
+    → تقرير شهري
+  • getChildPrayerStats(String childId)
+    → إحصائيات حسب الصلاة: نسبة حضور الفجر، الظهر... إلخ
+  • getChildBadges(String childId)
+    → شارات الطفل من جدول badges
+  • getActiveCompetitionForChild(String childId)
+    → المسابقة النشطة لمسجد الطفل + ترتيب الطفل فيها
+  • getMosqueDetails(String mosqueId)
+    → تفاصيل مسجد الطفل (الاسم، عنوان، إمام)
+
+───────────────────────────────────────────────
+5.2  ربط طلبات التصحيح بولي الأمر (واجهة)
+───────────────────────────────────────────────
+  المطلوب من البنية (بدون شاشات):
+  • CorrectionBloc يدعم أحداث: CreateRequest, LoadMyRequests
+  • حالات: MyRequestsLoaded, RequestCreated, RequestCreateFailed
+
+  (ملاحظة: الريبو createRequest و getMyRequests موجودان وجاهزان!)
+
+───────────────────────────────────────────────
+5.3  Gamification — ربط البنية
+───────────────────────────────────────────────
+  المطلوب:
+  • GamificationRepository (جديد):
+    ملف: lib/app/features/gamification/data/repositories/gamification_repository.dart
+    دوال:
+    - getChildLevel(int totalPoints) → ChildLevel (من PointsService)
+    - getChildBadges(String childId) → List<Badge>
+    - getChildRewards(String childId) → List<Reward>
+    - getLeaderboardForMosque(String mosqueId) → ترتيب عام
+
+  • GamificationBloc (جديد):
+    ملف: lib/app/features/gamification/presentation/bloc/gamification_bloc.dart
+
+  • Badge Model, Reward Model (إن لم تكن موجودة في other_models)
+
+================================================================================
+المرحلة 6: Realtime — استكمال القنوات الناقصة
+================================================================================
+
+  تعديل: lib/app/core/services/realtime_service.dart
+
+  إضافة:
+  • subscribeCorrectionRequests(String mosqueId, callback)
+    → للإمام/المشرف: طلب تصحيح جديد يظهر فوراً
+  • subscribeNotesForParent(List<String> childIds, callback)
+    → لولي الأمر: ملاحظة جديدة تظهر فوراً
+  • subscribeCompetitions(String mosqueId, callback)
+    → تحديث المسابقة (تفعيل/إيقاف) يظهر فوراً
+  • subscribeAnnouncements(String mosqueId, callback)
+    → إعلان جديد
+
+  مطلوب في DB: التأكد من أن هذه الجداول مُفعّلة في Supabase Realtime publication
+
+================================================================================
+المرحلة 7: تحسينات نوعية (قبل الرفع)
+================================================================================
+
+───────────────────────────────────────────────
+7.1  Error Handling موحد
+───────────────────────────────────────────────
+  • توحيد استخدام AppFailure في كل Repositories
+  • إنشاء AppFailure subtypes لكل حالة:
+    - AttendanceWindowClosedFailure
+    - AttendanceBeforeAdhanFailure
+    - MosqueNotApprovedFailure
+    - ChildNotInMosqueFailure
+    - UnauthorizedActionFailure
+  • mapping واضح من PostgresError إلى AppFailure محدد
+
+───────────────────────────────────────────────
+7.2  Pagination في القوائم الكبيرة
+───────────────────────────────────────────────
+  • CorrectionRepository.getPendingForMosque: إضافة page/limit
+  • NotesRepository.getNotesForMyChildren: إضافة page/limit
+  • AdminRepository: كل القوائم مع pagination
+  • CompetitionRepository.getLeaderboard: limit للأعلى 50 مثلاً
+
+───────────────────────────────────────────────
+7.3  Caching بسيط
+───────────────────────────────────────────────
+  • تخزين مؤقت لقائمة طلاب المسجد (تتغير نادراً)
+  • تخزين مؤقت لإعدادات المسجد
+  • invalidation عند Realtime event
+
+───────────────────────────────────────────────
+7.4  Offline Support (الأساسي)
+───────────────────────────────────────────────
+  • ربط OfflineSyncService بـ recordAttendance فعلياً:
+    - عند عدم الاتصال: تخزين محلي في sqflite
+    - عند العودة: مزامنة تلقائية
+  • عرض حالة المزامنة للمشرف
+
+───────────────────────────────────────────────
+7.5  تحقق الأدوار في الكود (Defense in Depth)
+───────────────────────────────────────────────
+  • لا نعتمد فقط على RLS
+  • في كل Repository operation حساس: تحقق من role المستخدم
+  • أمثلة:
+    - CompetitionRepository.create → التحقق من role == imam/owner
+    - AdminRepository → التحقق من role == super_admin
+    - CorrectionRepository.approveRequest → التحقق من membership في المسجد
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  الجزء الثالث: خريطة الأدوار الكاملة بعد الخطة                            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+السوبر أدمن:
+├── إحصائيات النظام (dashboard)
+├── إدارة المساجد: عرض الكل، قبول/رفض/تعليق/حذف، تغيير إمام
+├── إدارة المستخدمين: عرض الكل، بحث، تعديل دور، حظر/رفع حظر
+├── إعدادات النظام: نافذة الحضور، حد المساجد الثانوية
+└── سجلات وتقارير عامة
+
+الإمام:
+├── إدارة المسجد: إعدادات، أكواد، عنوان، موقع
+├── إدارة المشرفين: عرض، إزالة، أداء كل مشرف
+├── طلبات الانضمام: قبول/رفض
+├── التحضير: تسجيل حضور (مع تحقق الوقت)، إلغاء حضور
+├── الطلاب: قائمة، ملف مفصل، تقارير حضور
+├── المسابقات: إنشاء، تفعيل، إيقاف، عرض الترتيب (الإمام فقط!)
+├── طلبات التصحيح: عرض المعلقة + الأرشيف، موافقة/رفض
+├── الملاحظات: إرسال + عرض ملاحظات المشرفين (إشراف)
+├── الإعلانات: إنشاء، تعديل، حذف
+├── إحصائيات المسجد: يومي/أسبوعي/شهري
+└── تقارير: حسب الفترة، حسب الصلاة، حسب الطالب
+
+المشرف:
+├── التحضير: تسجيل حضور (مع تحقق الوقت)، إلغاء حضور (خاص به خلال 24 ساعة)
+├── الطلاب: قائمة، بحث بالاسم، ملف الطالب
+├── طلبات التصحيح: عرض المعلقة، موافقة/رفض
+├── الملاحظات: إرسال + عرض "ملاحظاتي المرسلة"
+├── المسابقات: عرض المسابقة النشطة + الترتيب (قراءة فقط!)
+├── الإعلانات: قراءة إعلانات المسجد (قراءة فقط)
+└── ملخص يومي: أداء اليوم
+
+ولي الأمر:
+├── أطفالي: إضافة، تعديل، ربط/فك بمسجد
+├── بطاقة الطفل: QR، رقم محلي، نقاط، مستوى، سلسلة، شارات
+├── حضور اليوم: مع Realtime + اسم المسجّل
+├── تقارير الحضور: يومي/أسبوعي/شهري لكل طفل
+├── طلبات التصحيح: إنشاء + عرض حالة طلباتي
+├── صندوق الملاحظات: قراءة + تمييز كمقروءة
+├── المسابقة النشطة: ترتيب أطفالي في المسابقة الحالية
+├── إعلانات المسجد: قراءة
+└── Gamification: مستوى الطفل، شارات، جوائز
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  الجزء الرابع: Migrations المطلوبة (DB)                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+024 — السوبر أدمن:
+  • جدول system_settings (key TEXT PK, value JSONB, updated_at TIMESTAMPTZ)
+  • RLS: super_admin فقط
+  • RPC: get_system_stats() → JSON
+  • إضافة is_banned BOOLEAN DEFAULT false في users (إن لم يكن)
+  • سياسات RLS جديدة: super_admin يقرأ/يعدل أي مسجد/مستخدم
+
+025 — إلغاء حضور:
+  • RPC: cancel_attendance(p_attendance_id UUID)
+    - تحقق من الصلاحيات (recorded_by أو owner المسجد)
+    - نافذة زمنية اختيارية
+    - حذف السجل (trigger 020 يعيد الحساب تلقائياً)
+
+026 — الإعلانات تحسينات:
+  • UPDATE policy على announcements للإمام
+  • DELETE policy على announcements للإمام
+
+027 — Realtime للجداول الناقصة:
+  • تفعيل Realtime publication لـ correction_requests, notes, competitions, announcements
+
+028 — إعدادات المسجد:
+  • إضافة attendance_window_minutes INT DEFAULT 60 في mosques
+  • التأكد من وجود lat, lng, timezone في mosques (من 022)
+
+029 — بحث الطلاب بالاسم:
+  • Index على children(name) للبحث السريع (GIN trigram أو ILIKE)
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  الجزء الخامس: ملفات جديدة مطلوبة (Flutter)                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+ملفات جديدة:
+  1. lib/app/core/services/attendance_validation_service.dart
+  2. lib/app/features/super_admin/data/repositories/admin_repository.dart
+  3. lib/app/features/super_admin/presentation/bloc/admin_bloc.dart
+  4. lib/app/features/super_admin/presentation/bloc/admin_event.dart
+  5. lib/app/features/super_admin/presentation/bloc/admin_state.dart
+  6. lib/app/features/imam/data/repositories/imam_repository.dart
+  7. lib/app/features/imam/presentation/bloc/imam_bloc.dart
+  8. lib/app/features/imam/presentation/bloc/imam_event.dart
+  9. lib/app/features/imam/presentation/bloc/imam_state.dart
+  10. lib/app/features/announcements/data/repositories/announcement_repository.dart
+  11. lib/app/features/announcements/presentation/bloc/announcement_bloc.dart
+  12. lib/app/features/announcements/presentation/bloc/announcement_event.dart
+  13. lib/app/features/announcements/presentation/bloc/announcement_state.dart
+  14. lib/app/features/gamification/data/repositories/gamification_repository.dart
+  15. lib/app/features/gamification/presentation/bloc/gamification_bloc.dart
+  16. lib/app/features/gamification/presentation/bloc/gamification_event.dart
+  17. lib/app/features/gamification/presentation/bloc/gamification_state.dart
+  18. lib/app/models/announcement_model.dart
+  19. lib/app/models/system_stats_model.dart
+
+ملفات تُعدّل:
+  1. injection_container.dart → تسجيل جميع الـ Repositories والـ BLoCs الجديدة
+  2. realtime_service.dart → إضافة قنوات corrections, notes, competitions, announcements
+  3. supervisor_repository.dart → إضافة findByName, cancelMyAttendance, getDailyStats
+  4. child_repository.dart → إضافة getFullProfile, getHistory, getReports, getBadges
+  5. competition_repository.dart → إضافة تحقق من دور الإمام
+  6. app_router.dart → إضافة مسارات جديدة
+  7. mosque_model.dart → إضافة lat, lng, timezone, attendanceWindowMinutes
+  8. prayer_times_service.dart → إضافة getTimesForMosque
+  9. app_failure.dart → إضافة أنواع خطأ جديدة
+  10. correction_bloc.dart → إضافة أحداث CreateRequest, LoadMyRequests
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  الجزء السادس: ترتيب التنفيذ المقترح                                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+الترتيب حسب الأولوية والتبعيات:
+
+━ الموجة 1 (حرج — يحول دون الاستخدام الحقيقي):
+  [1] AttendanceValidationService + ربطها ← أول شيء!
+  [2] أوقات صلاة حسب المسجد + تحديث MosqueModel
+  [3] إلغاء حضور خاطئ RPC + دالة في الريبو
+  [4] فصل صلاحيات المسابقة (الإمام فقط)
+
+━ الموجة 2 (أدوار ناقصة — التطبيق لا يعمل بدونها):
+  [5] ربط طلب التصحيح بولي الأمر (BLoC events + حالات)
+  [6] ImamRepository + ImamBloc
+  [7] AdminRepository + AdminBloc + migrations السوبر أدمن
+  [8] AnnouncementModel + AnnouncementRepository + AnnouncementBloc
+
+━ الموجة 3 (تكامل — التطبيق يعمل لكن ناقص):
+  [9] Gamification: Repository + BLoC + ربط PointsService
+  [10] Realtime: قنوات corrections, notes, competitions, announcements
+  [11] تحسين SupervisorRepository (findByName, dailyStats, cancelAttendance)
+  [12] تحسين ChildRepository (fullProfile, history, reports, badges)
+
+━ الموجة 4 (جودة — قبل الرفع):
+  [13] Error Handling موحد
+  [14] Pagination
+  [15] Caching أساسي
+  [16] Offline support أساسي
+  [17] تحقق الأدوار في الكود (defense in depth)
+
+━ مؤجّل (بعد الرفع):
+  • الإشعارات (FCM) — حسب طلبك
+  • الشاشات — حسب طلبك
+  • Unit Tests شاملة
+  • مسجد أساسي + ثانوي (واجهة الربط)
+
+================================================================================
+                              نهاية الخطة
+================================================================================
+
+ملاحظة أخيرة:
+هذه الخطة تغطي كل ما يحتاجه كل دور على مستوى البنية التحتية
+(Repositories, BLoCs, Services, Models, Migrations).
+بعد إنجازها يكون التطبيق "جاهز بنيوياً" ويبقى فقط:
+  • بناء الشاشات (UI)
+  • ربط الإشعارات (FCM)
+  • الاختبار والنشر
+
+كل repository وكل BLoC وكل migration مذكورة هنا بالتفصيل
+بحيث يمكن تنفيذها بالترتيب المقترح دون أي غموض.

@@ -95,6 +95,11 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.mail_outline,
               onTap: () => context.push('/parent/notes'),
             ),
+            AppDrawerItem(
+              title: 'طلبات التصحيح',
+              icon: Icons.edit_calendar,
+              onTap: () => context.push('/parent/corrections'),
+            ),
           ],
           onLogout: () =>
               context.read<AuthBloc>().add(const AuthLogoutRequested()),

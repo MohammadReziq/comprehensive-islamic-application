@@ -27,6 +27,9 @@ class CompetitionRepository {
       final user = await _authRepo.getCurrentUserProfile();
       if (user == null) throw const NotLoggedInFailure();
 
+      // ── تحقق: فقط الإمام (owner) ينشئ مسابقات ──
+      await _requireOwnerRole(mosqueId, user.id);
+
       final row = await supabase.from('competitions').insert({
         'mosque_id':   mosqueId,
         'name_ar':     nameAr,
@@ -50,10 +53,22 @@ class CompetitionRepository {
 
   Future<void> activate(String competitionId) async {
     try {
+      // جلب mosque_id من المسابقة والتحقق من صلاحية الإمام
+      final comp = await supabase
+          .from('competitions')
+          .select('mosque_id')
+          .eq('id', competitionId)
+          .single();
+      final user = await _authRepo.getCurrentUserProfile();
+      if (user == null) throw const NotLoggedInFailure();
+      await _requireOwnerRole(comp['mosque_id'] as String, user.id);
+
       await supabase.rpc(
         'activate_competition',
         params: {'p_competition_id': competitionId},
       );
+    } on AppFailure {
+      rethrow;
     } catch (e) {
       throw mapPostgresError(e);
     }
@@ -65,10 +80,22 @@ class CompetitionRepository {
 
   Future<void> deactivate(String competitionId) async {
     try {
+      // تحقق من صلاحية الإمام
+      final comp = await supabase
+          .from('competitions')
+          .select('mosque_id')
+          .eq('id', competitionId)
+          .single();
+      final user = await _authRepo.getCurrentUserProfile();
+      if (user == null) throw const NotLoggedInFailure();
+      await _requireOwnerRole(comp['mosque_id'] as String, user.id);
+
       await supabase
           .from('competitions')
           .update({'is_active': false})
           .eq('id', competitionId);
+    } on AppFailure {
+      rethrow;
     } catch (e) {
       throw mapPostgresError(e);
     }
@@ -154,6 +181,22 @@ class CompetitionRepository {
           .toList();
     } catch (e) {
       throw mapPostgresError(e);
+    }
+  }
+
+  /// تحقق: المستخدم لازم يكون owner (إمام) في هذا المسجد
+  Future<void> _requireOwnerRole(String mosqueId, String userId) async {
+    final membership = await supabase
+        .from('mosque_members')
+        .select('role')
+        .eq('mosque_id', mosqueId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (membership == null || membership['role'] != 'owner') {
+      throw const UnauthorizedActionFailure(
+        'فقط الإمام يمكنه إدارة المسابقات',
+      );
     }
   }
 }

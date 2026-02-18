@@ -13,6 +13,7 @@ class MosqueModel extends Equatable {
   final double? lng;
   final MosqueStatus status;
   final Map<String, dynamic>? prayerConfig;
+  final int attendanceWindowMinutes;
   final DateTime createdAt;
 
   const MosqueModel({
@@ -26,6 +27,7 @@ class MosqueModel extends Equatable {
     this.lng,
     this.status = MosqueStatus.pending,
     this.prayerConfig,
+    this.attendanceWindowMinutes = 60,
     required this.createdAt,
   });
 
@@ -41,6 +43,7 @@ class MosqueModel extends Equatable {
       lng: (json['lng'] as num?)?.toDouble(),
       status: MosqueStatus.fromString(json['status'] as String? ?? 'pending'),
       prayerConfig: json['prayer_config'] as Map<String, dynamic>?,
+      attendanceWindowMinutes: (json['attendance_window_minutes'] as int?) ?? 60,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -57,6 +60,7 @@ class MosqueModel extends Equatable {
       'lng': lng,
       'status': status.value,
       'prayer_config': prayerConfig,
+      'attendance_window_minutes': attendanceWindowMinutes,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -72,6 +76,7 @@ class MosqueModel extends Equatable {
     double? lng,
     MosqueStatus? status,
     Map<String, dynamic>? prayerConfig,
+    int? attendanceWindowMinutes,
     DateTime? createdAt,
   }) {
     return MosqueModel(
@@ -85,6 +90,7 @@ class MosqueModel extends Equatable {
       lng: lng ?? this.lng,
       status: status ?? this.status,
       prayerConfig: prayerConfig ?? this.prayerConfig,
+      attendanceWindowMinutes: attendanceWindowMinutes ?? this.attendanceWindowMinutes,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -92,6 +98,6 @@ class MosqueModel extends Equatable {
   @override
   List<Object?> get props => [
         id, ownerId, name, code, inviteCode,
-        address, lat, lng, status, prayerConfig, createdAt,
+        address, lat, lng, status, prayerConfig, attendanceWindowMinutes, createdAt,
       ];
 }

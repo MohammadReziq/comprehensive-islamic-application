@@ -5,6 +5,7 @@ import 'core/services/offline_sync_service.dart';
 import 'core/services/prayer_times_service.dart';
 import 'core/services/points_service.dart';
 import 'core/services/realtime_service.dart';
+import 'core/services/attendance_validation_service.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/mosque/data/repositories/mosque_repository.dart';
@@ -19,6 +20,12 @@ import 'features/notes/data/repositories/notes_repository.dart';
 import 'features/notes/presentation/bloc/notes_bloc.dart';
 import 'features/competitions/data/repositories/competition_repository.dart';
 import 'features/competitions/presentation/bloc/competition_bloc.dart';
+import 'features/imam/data/repositories/imam_repository.dart';
+import 'features/imam/presentation/bloc/imam_bloc.dart';
+import 'features/super_admin/data/repositories/admin_repository.dart';
+import 'features/super_admin/presentation/bloc/admin_bloc.dart';
+import 'features/announcements/data/repositories/announcement_repository.dart';
+import 'features/announcements/presentation/bloc/announcement_bloc.dart';
 import 'package:salati_hayati/app/core/router/app_router.dart';
 
 /// حاوية حقن التبعيات
@@ -33,6 +40,8 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => PrayerTimesService());
   sl.registerLazySingleton(() => PointsService());
   sl.registerLazySingleton(() => RealtimeService());
+  sl.registerLazySingleton(
+      () => AttendanceValidationService(sl<PrayerTimesService>()));
 
   // ─── تهيئة الخدمات الأساسية ───
   await sl<ConnectivityService>().init();
@@ -47,6 +56,10 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => NotesRepository(sl<AuthRepository>()));
   sl.registerLazySingleton(
       () => CompetitionRepository(sl<AuthRepository>()));
+  sl.registerLazySingleton(() => ImamRepository(sl<AuthRepository>()));
+  sl.registerLazySingleton(() => AdminRepository(sl<AuthRepository>()));
+  sl.registerLazySingleton(
+      () => AnnouncementRepository(sl<AuthRepository>()));
 
   // ─── BLoCs / Cubits ───
   sl.registerLazySingleton(() => AuthBloc(sl<AuthRepository>()));
@@ -56,7 +69,12 @@ Future<void> initDependencies() async {
   sl.registerFactory(() => CorrectionBloc(sl<CorrectionRepository>()));
   sl.registerFactory(() => NotesBloc(sl<NotesRepository>()));
   sl.registerFactory(() => CompetitionBloc(sl<CompetitionRepository>()));
+  sl.registerFactory(() => ImamBloc(sl<ImamRepository>()));
+  sl.registerFactory(() => AdminBloc(sl<AdminRepository>()));
+  sl.registerFactory(
+      () => AnnouncementBloc(sl<AnnouncementRepository>()));
 
   // ─── Router ───
   sl.registerLazySingleton(() => AppRouter(authBloc: sl<AuthBloc>()));
 }
+

@@ -64,6 +64,18 @@ class CancellationWindowExpiredFailure extends AppFailure {
       : super('انتهت مهلة الإلغاء (24 ساعة)');
 }
 
+/// لم يحن وقت الصلاة بعد (قبل الأذان)
+class AttendanceBeforeAdhanFailure extends AppFailure {
+  const AttendanceBeforeAdhanFailure()
+      : super('لم يحن وقت هذه الصلاة بعد');
+}
+
+/// ليس لديك صلاحية لهذا الإجراء
+class UnauthorizedActionFailure extends AppFailure {
+  const UnauthorizedActionFailure([String message = 'ليس لديك صلاحية لهذا الإجراء'])
+      : super(message);
+}
+
 /// تحويل PostgresException → AppFailure
 AppFailure mapPostgresError(Object e) {
   final msg = e.toString().toLowerCase();

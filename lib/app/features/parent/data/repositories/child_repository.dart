@@ -122,6 +122,95 @@ class ChildRepository {
     return (res as List).map((e) => AttendanceModel.fromJson(e)).toList();
   }
 
+  /// ملف الطفل الشامل — الطفل + مساجده + نقاطه + سلسلته
+  Future<Map<String, dynamic>> getFullChildProfile(String childId) async {
+    final child = await getMyChild(childId);
+    if (child == null) throw Exception('الطفل غير موجود');
+
+    // مساجد الطفل
+    final mosqueIds = await getChildMosqueIds(childId);
+
+    // إجمالي النقاط
+    final attendance = await supabase
+        .from('attendance')
+        .select('points_earned')
+        .eq('child_id', childId);
+    int totalPoints = 0;
+    for (final row in (attendance as List)) {
+      totalPoints += (row['points_earned'] as num?)?.toInt() ?? 0;
+    }
+
+    // إجمالي أيام الحضور
+    final totalDays = (attendance)
+        .map((e) => e['prayer_date'] as String)
+        .toSet()
+        .length;
+
+    return {
+      'child': child,
+      'mosque_ids': mosqueIds,
+      'total_points': totalPoints,
+      'total_days': totalDays,
+      'level': (totalPoints ~/ 100) + 1,
+    };
+  }
+
+  /// سجل حضور الطفل — مع ترقيم
+  Future<List<AttendanceModel>> getAttendanceHistory(
+    String childId, {
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final res = await supabase
+        .from('attendance')
+        .select()
+        .eq('child_id', childId)
+        .order('prayer_date', ascending: false)
+        .order('prayer', ascending: true)
+        .range(offset, offset + limit - 1);
+
+    return (res as List).map((e) => AttendanceModel.fromJson(e)).toList();
+  }
+
+  /// تقرير أسبوعي/شهري للطفل
+  Future<Map<String, dynamic>> getChildReport(
+    String childId, {
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final res = await supabase
+        .from('attendance')
+        .select('prayer_date, prayer, points_earned')
+        .eq('child_id', childId)
+        .gte('prayer_date', _dateStr(fromDate))
+        .lte('prayer_date', _dateStr(toDate));
+
+    int totalPoints = 0;
+    final byPrayer = <String, int>{};
+    final uniqueDays = <String>{};
+
+    for (final row in (res as List)) {
+      final pts = (row['points_earned'] as num?)?.toInt() ?? 0;
+      totalPoints += pts;
+      final prayer = row['prayer'] as String;
+      byPrayer[prayer] = (byPrayer[prayer] ?? 0) + 1;
+      uniqueDays.add(row['prayer_date'] as String);
+    }
+
+    final totalDays = toDate.difference(fromDate).inDays + 1;
+    final attendedDays = uniqueDays.length;
+    final attendanceRate = totalDays > 0 ? (attendedDays / totalDays * 100) : 0.0;
+
+    return {
+      'total_prayers': (res).length,
+      'total_points': totalPoints,
+      'attended_days': attendedDays,
+      'total_days': totalDays,
+      'attendance_rate': attendanceRate.round(),
+      'by_prayer': byPrayer,
+    };
+  }
+
   static String _dateStr(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

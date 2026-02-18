@@ -196,6 +196,17 @@ class MosqueRepository {
     return list.any((m) => m.status == MosqueStatus.approved);
   }
 
+  /// جلب مساجد بعدة معرفات (مثلاً مساجد الطفل لشاشة طلب التصحيح)
+  Future<List<MosqueModel>> getMosquesByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final list = await supabase
+        .from('mosques')
+        .select()
+        .inFilter('id', ids)
+        .order('name');
+    return (list as List).map((e) => MosqueModel.fromJson(e)).toList();
+  }
+
   /// مسجد معتمد بكوده (لربط الأطفال من ولي الأمر)
   Future<MosqueModel?> getApprovedMosqueByCode(String code) async {
     final trimmed = code.trim().toUpperCase();
@@ -226,5 +237,39 @@ class MosqueRepository {
         .from('mosques')
         .update({'status': status.value})
         .eq('id', mosqueId);
+  }
+
+  /// تحديث موقع المسجد (للإمام) — يُستخدم لحساب أوقات الصلاة
+  Future<void> updateMosqueLocation(
+    String mosqueId, {
+    required double lat,
+    required double lng,
+  }) async {
+    await supabase.from('mosques').update({
+      'lat': lat,
+      'lng': lng,
+    }).eq('id', mosqueId);
+  }
+
+  /// تحديث إعدادات المسجد (للإمام)
+  Future<void> updateMosqueSettings(
+    String mosqueId, {
+    String? name,
+    String? address,
+    double? lat,
+    double? lng,
+    int? attendanceWindowMinutes,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (name != null) updates['name'] = name;
+    if (address != null) updates['address'] = address;
+    if (lat != null) updates['lat'] = lat;
+    if (lng != null) updates['lng'] = lng;
+    if (attendanceWindowMinutes != null) {
+      updates['attendance_window_minutes'] = attendanceWindowMinutes;
+    }
+    if (updates.isEmpty) return;
+
+    await supabase.from('mosques').update(updates).eq('id', mosqueId);
   }
 }

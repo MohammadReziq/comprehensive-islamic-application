@@ -125,6 +125,19 @@ class _ChildCardScreenState extends State<ChildCardScreen> {
                                 color: Colors.grey.shade600,
                               ),
                             ),
+                            const SizedBox(height: AppDimensions.paddingXL),
+                            OutlinedButton.icon(
+                              onPressed: () => context.push(
+                                '/parent/children/${_child!.id}/request-correction',
+                                extra: _child!.name,
+                              ),
+                              icon: const Icon(Icons.edit_calendar, size: 20),
+                              label: const Text('طلب تصحيح حضور'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 12, horizontal: 20),
+                              ),
+                            ),
                           ],
                         ),
                       ),
