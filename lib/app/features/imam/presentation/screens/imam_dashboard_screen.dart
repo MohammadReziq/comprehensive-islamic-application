@@ -227,12 +227,29 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                 AppDrawerItem(
                   title: AppStrings.correctionRequest,
                   icon: Icons.edit_note,
-                  onTap: () => context.push('/supervisor/corrections'),
+                  onTap: () {
+                    if (mosque != null) {
+                      context.push('/imam/corrections/${mosque!.id}');
+                    }
+                  },
                 ),
                 AppDrawerItem(
                   title: 'الملاحظات',
                   icon: Icons.note_alt_outlined,
-                  onTap: () => context.push('/supervisor/notes'),
+                  onTap: () {
+                    if (mosque != null) {
+                      context.push('/supervisor/notes/send/${mosque!.id}');
+                    }
+                  },
+                ),
+                AppDrawerItem(
+                  title: 'المسابقات',
+                  icon: Icons.emoji_events,
+                  onTap: () {
+                    if (mosque != null) {
+                      context.push('/imam/competitions/${mosque!.id}');
+                    }
+                  },
                 ),
               ],
               onLogout: () =>
@@ -362,8 +379,11 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                                   icon: Icons.edit_note,
                                   title: AppStrings.correctionRequest,
                                   subtitle: 'طلبات التصحيح من أولياء الأمور',
-                                  onTap: () =>
-                                      context.push('/supervisor/corrections'),
+                                  onTap: () {
+                                    if (mosque != null) {
+                                      context.push('/imam/corrections/${mosque!.id}');
+                                    }
+                                  },
                                 ),
                                 const SizedBox(height: AppDimensions.paddingSM),
                                 _buildActionCard(
@@ -371,8 +391,23 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
                                   icon: Icons.note_alt_outlined,
                                   title: 'الملاحظات',
                                   subtitle: 'ملاحظات للطلاب',
-                                  onTap: () =>
-                                      context.push('/supervisor/notes'),
+                                  onTap: () {
+                                    if (mosque != null) {
+                                      context.push('/supervisor/notes/send/${mosque!.id}');
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: AppDimensions.paddingSM),
+                                _buildActionCard(
+                                  context,
+                                  icon: Icons.emoji_events,
+                                  title: 'المسابقات',
+                                  subtitle: 'إدارة المسابقات والترتيب',
+                                  onTap: () {
+                                    if (mosque != null) {
+                                      context.push('/imam/competitions/${mosque!.id}');
+                                    }
+                                  },
                                 ),
                                 const SizedBox(
                                   height: AppDimensions.paddingXXL,

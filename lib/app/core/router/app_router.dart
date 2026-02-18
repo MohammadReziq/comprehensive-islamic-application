@@ -18,6 +18,13 @@ import '../../features/imam/presentation/screens/imam_dashboard_screen.dart';
 import '../../features/supervisor/presentation/screens/supervisor_dashboard_screen.dart';
 import '../../features/supervisor/presentation/screens/supervisor_placeholder_screen.dart';
 import '../../features/supervisor/presentation/screens/students_screen.dart';
+import '../../features/corrections/presentation/screens/corrections_list_screen.dart';
+import '../../features/notes/presentation/screens/notes_inbox_screen.dart';
+import '../../features/notes/presentation/screens/send_note_screen.dart';
+import '../../features/competitions/presentation/screens/manage_competition_screen.dart';
+import '../../features/supervisor/data/repositories/supervisor_repository.dart';
+import '../../features/supervisor/data/models/mosque_student_model.dart';
+import '../../features/parent/data/repositories/child_repository.dart';
 import '../../features/supervisor/presentation/screens/child_profile_screen.dart';
 import '../../features/supervisor/presentation/screens/scanner_screen.dart';
 import '../../features/supervisor/presentation/bloc/scanner_bloc.dart';
@@ -200,15 +207,88 @@ class AppRouter {
       ),
       GoRoute(
         path: '/supervisor/corrections',
+        redirect: (_, __) => '/supervisor/dashboard',
+      ),
+      GoRoute(
+        path: '/supervisor/corrections/:mosqueId',
         name: 'supervisorCorrections',
-        builder: (context, state) =>
-            const SupervisorPlaceholderScreen(title: 'طلبات التصحيح'),
+        builder: (context, state) {
+          final mosqueId = state.pathParameters['mosqueId']!;
+          return CorrectionsListScreen(mosqueId: mosqueId);
+        },
+      ),
+      GoRoute(
+        path: '/imam/corrections/:mosqueId',
+        name: 'imamCorrections',
+        builder: (context, state) {
+          final mosqueId = state.pathParameters['mosqueId']!;
+          return CorrectionsListScreen(mosqueId: mosqueId);
+        },
+      ),
+      GoRoute(
+        path: '/supervisor/notes/send/:mosqueId',
+        name: 'supervisorNotesSend',
+        builder: (context, state) {
+          final mosqueId = state.pathParameters['mosqueId']!;
+          return FutureBuilder<List<MosqueStudentModel>>(
+            future: sl<SupervisorRepository>().getMosqueStudents(mosqueId),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final children = snapshot.data!.map((s) => s.child).toList();
+              return SendNoteScreen(children: children, mosqueId: mosqueId);
+            },
+          );
+        },
       ),
       GoRoute(
         path: '/supervisor/notes',
         name: 'supervisorNotes',
         builder: (context, state) =>
             const SupervisorPlaceholderScreen(title: 'الملاحظات'),
+      ),
+      GoRoute(
+        path: '/imam/competitions/:mosqueId',
+        name: 'imamCompetitions',
+        builder: (context, state) {
+          final mosqueId = state.pathParameters['mosqueId']!;
+          return ManageCompetitionScreen(mosqueId: mosqueId);
+        },
+      ),
+      GoRoute(
+        path: '/supervisor/competitions/:mosqueId',
+        name: 'supervisorCompetitions',
+        builder: (context, state) {
+          final mosqueId = state.pathParameters['mosqueId']!;
+          return ManageCompetitionScreen(mosqueId: mosqueId);
+        },
+      ),
+      GoRoute(
+        path: '/parent/notes',
+        name: 'parentNotes',
+        builder: (context, state) {
+          return FutureBuilder(
+            future: sl<ChildRepository>().getMyChildren(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final childIds =
+                  snapshot.data!.map((c) => c.id).toList();
+              if (childIds.isEmpty) {
+                return const Scaffold(
+                  body: Center(child: Text('أضف أطفالاً أولاً')),
+                );
+              }
+              return NotesInboxScreen(childIds: childIds);
+            },
+          );
+        },
       ),
     ],
   );

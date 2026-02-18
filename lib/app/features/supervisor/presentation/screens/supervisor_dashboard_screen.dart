@@ -87,12 +87,28 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
             AppDrawerItem(
               title: AppStrings.correctionRequest,
               icon: Icons.edit_note,
-              onTap: () => context.push('/supervisor/corrections'),
+              onTap: () {
+                if (approvedMosque != null) {
+                  context.push('/supervisor/corrections/${approvedMosque!.id}');
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('حدد المسجد أولاً')),
+                  );
+                }
+              },
             ),
             AppDrawerItem(
               title: 'الملاحظات',
               icon: Icons.note_alt_outlined,
-              onTap: () => context.push('/supervisor/notes'),
+              onTap: () {
+                if (approvedMosque != null) {
+                  context.push('/supervisor/notes/send/${approvedMosque!.id}');
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('حدد المسجد أولاً')),
+                  );
+                }
+              },
             ),
             AppDrawerItem(
               title: 'انضم لمسجد',
@@ -199,7 +215,17 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                           icon: Icons.edit_note,
                           title: AppStrings.correctionRequest,
                           subtitle: 'طلبات التصحيح من أولياء الأمور',
-                          onTap: () => context.push('/supervisor/corrections'),
+                          onTap: () {
+                            if (approvedMosque != null) {
+                              context.push('/supervisor/corrections/${approvedMosque!.id}').then((_) {
+                                if (mounted) setState(() => _statsRefreshKey++);
+                              });
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('حدد المسجد أولاً')),
+                              );
+                            }
+                          },
                         ),
                         const SizedBox(height: AppDimensions.paddingSM),
                         _buildActionCard(
@@ -207,7 +233,15 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                           icon: Icons.note_alt_outlined,
                           title: 'الملاحظات',
                           subtitle: 'ملاحظات للطلاب',
-                          onTap: () => context.push('/supervisor/notes'),
+                          onTap: () {
+                            if (approvedMosque != null) {
+                              context.push('/supervisor/notes/send/${approvedMosque!.id}');
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('حدد المسجد أولاً')),
+                              );
+                            }
+                          },
                         ),
                         const SizedBox(height: AppDimensions.paddingXXL),
                       ]),

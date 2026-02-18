@@ -1,0 +1,159 @@
+// lib/app/features/competitions/data/repositories/competition_repository.dart
+
+import '../../../../core/errors/app_failure.dart';
+import '../../../../core/network/supabase_client.dart';
+import '../../../../models/competition_model.dart';
+import '../../../auth/data/repositories/auth_repository.dart';
+
+class CompetitionRepository {
+  CompetitionRepository(this._authRepo);
+
+  final AuthRepository _authRepo;
+
+  static String _dateStr(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  // ─────────────────────────────────────────────────────────
+  // إمام: إنشاء مسابقة (غير نشطة تلقائياً)
+  // ─────────────────────────────────────────────────────────
+
+  Future<CompetitionModel> create({
+    required String mosqueId,
+    required String nameAr,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final user = await _authRepo.getCurrentUserProfile();
+      if (user == null) throw const NotLoggedInFailure();
+
+      final row = await supabase.from('competitions').insert({
+        'mosque_id':   mosqueId,
+        'name_ar':     nameAr,
+        'start_date':  _dateStr(startDate),
+        'end_date':    _dateStr(endDate),
+        'is_active':   false,
+        'created_by':  user.id,
+      }).select().single();
+
+      return CompetitionModel.fromJson(row);
+    } on AppFailure {
+      rethrow;
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // إمام: تفعيل مسابقة (عبر RPC تُوقف النشطة أولاً)
+  // ─────────────────────────────────────────────────────────
+
+  Future<void> activate(String competitionId) async {
+    try {
+      await supabase.rpc(
+        'activate_competition',
+        params: {'p_competition_id': competitionId},
+      );
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // إمام: إيقاف مسابقة
+  // ─────────────────────────────────────────────────────────
+
+  Future<void> deactivate(String competitionId) async {
+    try {
+      await supabase
+          .from('competitions')
+          .update({'is_active': false})
+          .eq('id', competitionId);
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // المسابقة النشطة للمسجد
+  // ─────────────────────────────────────────────────────────
+
+  Future<CompetitionModel?> getActive(String mosqueId) async {
+    try {
+      final row = await supabase
+          .from('competitions')
+          .select()
+          .eq('mosque_id', mosqueId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+      return row != null ? CompetitionModel.fromJson(row) : null;
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // كل مسابقات المسجد
+  // ─────────────────────────────────────────────────────────
+
+  Future<List<CompetitionModel>> getAllForMosque(String mosqueId) async {
+    try {
+      final res = await supabase
+          .from('competitions')
+          .select()
+          .eq('mosque_id', mosqueId)
+          .order('created_at', ascending: false);
+
+      return (res as List).map((e) => CompetitionModel.fromJson(e)).toList();
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // ترتيب الأطفال في مسابقة (Leaderboard)
+  // ─────────────────────────────────────────────────────────
+
+  Future<List<LeaderboardEntry>> getLeaderboard(
+      String competitionId) async {
+    try {
+      // نجمع الحضور المرتبط بالمسابقة ونحسب النقاط لكل طفل
+      final res = await supabase
+          .from('attendance')
+          .select('child_id, points_earned, children(name)')
+          .eq('competition_id', competitionId);
+
+      // تجميع النقاط لكل طفل
+      final Map<String, Map<String, dynamic>> byChild = {};
+      for (final row in (res as List)) {
+        final childId = row['child_id'] as String;
+        final points = (row['points_earned'] as num?)?.toInt() ?? 0;
+        final name = (row['children'] as Map?)?['name'] as String? ?? 'غير معروف';
+        if (!byChild.containsKey(childId)) {
+          byChild[childId] = {
+            'child_id':        childId,
+            'child_name':      name,
+            'total_points':    0,
+            'attendance_count': 0,
+          };
+        }
+        byChild[childId]!['total_points'] =
+            (byChild[childId]!['total_points'] as int) + points;
+        byChild[childId]!['attendance_count'] =
+            (byChild[childId]!['attendance_count'] as int) + 1;
+      }
+
+      // ترتيب تنازلي حسب النقاط
+      final sorted = byChild.values.toList()
+        ..sort((a, b) =>
+            (b['total_points'] as int).compareTo(a['total_points'] as int));
+
+      return sorted.asMap().entries
+          .map((e) => LeaderboardEntry.fromJson(e.value, e.key + 1))
+          .toList();
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+}
