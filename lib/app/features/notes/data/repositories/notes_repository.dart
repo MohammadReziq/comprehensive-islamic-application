@@ -48,9 +48,10 @@ class NotesRepository {
     try {
       if (childIds.isEmpty) return [];
 
+      // جلب الملاحظات مع اسم الطفل من جدول children (JOIN)
       final res = await supabase
           .from('notes')
-          .select()
+          .select('*, children(name)')
           .inFilter('child_id', childIds)
           .order('created_at', ascending: false);
 

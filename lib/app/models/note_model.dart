@@ -26,6 +26,15 @@ class NoteModel {
   });
 
   factory NoteModel.fromJson(Map<String, dynamic> json) {
+    // اسم الطفل: من JOIN مع children أو من الحقل المباشر
+    String? childName;
+    final childrenData = json['children'];
+    if (childrenData is Map<String, dynamic> && childrenData['name'] != null) {
+      childName = childrenData['name'] as String;
+    } else {
+      childName = json['child_name'] as String?;
+    }
+
     return NoteModel(
       id:         json['id'] as String,
       childId:    json['child_id'] as String,
@@ -34,7 +43,7 @@ class NoteModel {
       message:    json['message'] as String,
       isRead:     json['is_read'] as bool? ?? false,
       createdAt:  DateTime.parse(json['created_at'] as String),
-      childName:  json['child_name'] as String?,
+      childName:  childName,
       senderName: json['sender_name'] as String?,
     );
   }

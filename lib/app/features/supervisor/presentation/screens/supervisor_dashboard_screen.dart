@@ -111,6 +111,19 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
               },
             ),
             AppDrawerItem(
+              title: 'المسابقات',
+              icon: Icons.emoji_events,
+              onTap: () {
+                if (approvedMosque != null) {
+                  context.push('/supervisor/competitions/${approvedMosque!.id}');
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('حدد المسجد أولاً')),
+                  );
+                }
+              },
+            ),
+            AppDrawerItem(
               title: 'انضم لمسجد',
               icon: Icons.add,
               onTap: () => context.push('/mosque/join').then((_) {
@@ -236,6 +249,24 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                           onTap: () {
                             if (approvedMosque != null) {
                               context.push('/supervisor/notes/send/${approvedMosque!.id}');
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('حدد المسجد أولاً')),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: AppDimensions.paddingSM),
+                        _buildActionCard(
+                          context,
+                          icon: Icons.emoji_events,
+                          title: 'المسابقات',
+                          subtitle: 'المسابقة النشطة والترتيب',
+                          onTap: () {
+                            if (approvedMosque != null) {
+                              context.push('/supervisor/competitions/${approvedMosque!.id}').then((_) {
+                                if (mounted) setState(() => _statsRefreshKey++);
+                              });
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('حدد المسجد أولاً')),
