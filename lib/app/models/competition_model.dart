@@ -34,6 +34,19 @@ class CompetitionModel {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'mosque_id': mosqueId,
+      'name_ar': nameAr,
+      'start_date': startDate.toIso8601String().split('T').first,
+      'end_date': endDate.toIso8601String().split('T').first,
+      'is_active': isActive,
+      'created_by': createdBy,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
   bool get isOngoing {
     final now = DateTime.now();
     return isActive &&

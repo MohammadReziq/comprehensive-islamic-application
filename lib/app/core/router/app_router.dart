@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_screen.dart';
 import '../../core/constants/app_enums.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
@@ -11,10 +12,19 @@ import '../../features/parent/presentation/screens/home_screen.dart';
 import '../../features/parent/presentation/screens/children_screen.dart';
 import '../../features/parent/presentation/screens/add_child_screen.dart';
 import '../../features/parent/presentation/screens/child_card_screen.dart';
+import '../../features/parent/presentation/screens/child_view_screen.dart';
 import '../../features/mosque/presentation/screens/mosque_gate_screen.dart';
 import '../../features/mosque/presentation/screens/create_mosque_screen.dart';
 import '../../features/mosque/presentation/screens/join_mosque_screen.dart';
 import '../../features/imam/presentation/screens/imam_dashboard_screen.dart';
+import '../../features/imam/presentation/screens/imam_corrections_screen.dart';
+import '../../features/imam/presentation/screens/imam_competitions_screen.dart';
+import '../../features/imam/presentation/screens/imam_mosque_settings_screen.dart';
+import '../../features/imam/presentation/screens/imam_attendance_report_screen.dart';
+import '../../features/imam/presentation/screens/imam_supervisors_performance_screen.dart';
+import '../../features/imam/presentation/screens/prayer_points_settings_screen.dart';
+import '../../features/imam/presentation/bloc/imam_bloc.dart';
+import '../../models/mosque_model.dart';
 import '../../features/supervisor/presentation/screens/supervisor_dashboard_screen.dart';
 import '../../features/supervisor/presentation/screens/supervisor_placeholder_screen.dart';
 import '../../features/supervisor/presentation/screens/students_screen.dart';
@@ -30,7 +40,6 @@ import '../../features/parent/data/repositories/child_repository.dart';
 import '../../features/supervisor/presentation/screens/child_profile_screen.dart';
 import '../../features/supervisor/presentation/screens/scanner_screen.dart';
 import '../../features/supervisor/presentation/bloc/scanner_bloc.dart';
-import '../../features/super_admin/presentation/screens/admin_mosque_requests_screen.dart';
 import '../../injection_container.dart';
 
 /// إعداد التنقل في التطبيق
@@ -63,6 +72,7 @@ class AppRouter {
           if (profile == null) return null;
           final role = profile.role;
           if (role == UserRole.superAdmin) return '/admin';
+          if (role == UserRole.child) return '/child-view';
           if (role == UserRole.imam || role == UserRole.supervisor)
             return '/mosque';
           return '/home';
@@ -89,28 +99,45 @@ class AppRouter {
 
         final role = profile.role;
         final isSuperAdmin = role == UserRole.superAdmin;
+        final isChild = role == UserRole.child;
         final isImamOrSupervisor =
             role == UserRole.imam || role == UserRole.supervisor;
         final isOnAdmin = state.matchedLocation.startsWith('/admin');
+        final isOnChildView = state.matchedLocation == '/child-view';
         final isOnMosque =
             state.matchedLocation.startsWith('/mosque') ||
             state.matchedLocation.startsWith('/supervisor') ||
             state.matchedLocation.startsWith('/imam');
         final isOnHome = state.matchedLocation == '/home';
 
+        // منع غير السوبر أدمن من الوصول لـ /admin — توجيهه حسب دوره
+        if (isOnAdmin && !isSuperAdmin) {
+          if (isChild) return '/child-view';
+          if (isImamOrSupervisor) return '/mosque';
+          return '/home';
+        }
         // السوبر أدمن → صفحة إدارة طلبات المساجد فقط
         if (isSuperAdmin && !isOnAdmin) return '/admin';
+        // الابن → شاشة عرض الابن فقط
+        if (isChild && !isOnChildView) return '/child-view';
         // الإمام أو المشرف → بوابة المسجد / لوحة الإمام / لوحة المشرف
         if (isImamOrSupervisor && !isOnMosque) return '/mosque';
         // توجيه الأهل إذا لم يكونوا في صفحتهم
-        if (!isSuperAdmin && !isImamOrSupervisor && (isOnAuth || isOnSplash))
-          return '/home';
-        // منع الأهل من دخول صفحات المسجد والإدارة
         if (!isSuperAdmin &&
             !isImamOrSupervisor &&
-            (isOnMosque || isOnAdmin) &&
+            !isChild &&
+            (isOnAuth || isOnSplash))
+          return '/home';
+        // منع الأهل من دخول صفحات المسجد والإدارة وواجهة الابن
+        if (!isSuperAdmin &&
+            !isImamOrSupervisor &&
+            !isChild &&
+            (isOnMosque || isOnAdmin || isOnChildView) &&
             !isOnHome)
           return '/home';
+        // منع الابن من دخول صفحات ولي الأمر/المسجد/الإدارة
+        if (isChild && (isOnMosque || isOnAdmin || isOnHome))
+          return '/child-view';
       }
 
       return null;
@@ -140,6 +167,11 @@ class AppRouter {
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/child-view',
+        name: 'childView',
+        builder: (context, state) => const ChildViewScreen(),
       ),
       GoRoute(
         path: '/parent/children',
@@ -174,7 +206,7 @@ class AppRouter {
       GoRoute(
         path: '/admin',
         name: 'admin',
-        builder: (context, state) => const AdminMosqueRequestsScreen(),
+        builder: (context, state) => const AdminScreen(),
       ),
       GoRoute(
         path: '/mosque',
@@ -217,9 +249,8 @@ class AppRouter {
       GoRoute(
         path: '/supervisor/child/:id',
         name: 'supervisorChildProfile',
-        builder: (context, state) => ChildProfileScreen(
-          childId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            ChildProfileScreen(childId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/supervisor/corrections',
@@ -236,10 +267,9 @@ class AppRouter {
       GoRoute(
         path: '/imam/corrections/:mosqueId',
         name: 'imamCorrections',
-        builder: (context, state) {
-          final mosqueId = state.pathParameters['mosqueId']!;
-          return CorrectionsListScreen(mosqueId: mosqueId);
-        },
+        builder: (context, state) => ImamCorrectionsScreen(
+          mosqueId: state.pathParameters['mosqueId']!,
+        ),
       ),
       GoRoute(
         path: '/supervisor/notes/send/:mosqueId',
@@ -269,10 +299,52 @@ class AppRouter {
       GoRoute(
         path: '/imam/competitions/:mosqueId',
         name: 'imamCompetitions',
+        builder: (context, state) => ImamCompetitionsScreen(
+          mosqueId: state.pathParameters['mosqueId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/imam/mosque/:mosqueId/prayer-points',
+        name: 'imamPrayerPoints',
         builder: (context, state) {
           final mosqueId = state.pathParameters['mosqueId']!;
-          return ManageCompetitionScreen(mosqueId: mosqueId);
+          final mosqueName = state.extra as String?;
+          return BlocProvider(
+            create: (_) => sl<ImamBloc>(),
+            child: PrayerPointsSettingsScreen(
+              mosqueId: mosqueId,
+              mosqueName: mosqueName is String ? mosqueName : null,
+            ),
+          );
         },
+      ),
+      GoRoute(
+        path: '/imam/mosque/:mosqueId/settings',
+        name: 'imamMosqueSettings',
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<ImamBloc>(),
+          child: ImamMosqueSettingsScreen(
+            mosqueId: state.pathParameters['mosqueId']!,
+            mosque: state.extra as MosqueModel,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/imam/mosque/:mosqueId/attendance-report',
+        name: 'imamAttendanceReport',
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<ImamBloc>(),
+          child: ImamAttendanceReportScreen(
+            mosqueId: state.pathParameters['mosqueId']!,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/imam/mosque/:mosqueId/supervisors-performance',
+        name: 'imamSupervisorsPerformance',
+        builder: (context, state) => ImamSupervisorsPerformanceScreen(
+          mosqueId: state.pathParameters['mosqueId']!,
+        ),
       ),
       GoRoute(
         path: '/supervisor/competitions/:mosqueId',
@@ -294,8 +366,7 @@ class AppRouter {
                   body: Center(child: CircularProgressIndicator()),
                 );
               }
-              final childIds =
-                  snapshot.data!.map((c) => c.id).toList();
+              final childIds = snapshot.data!.map((c) => c.id).toList();
               if (childIds.isEmpty) {
                 return const Scaffold(
                   body: Center(child: Text('أضف أطفالاً أولاً')),

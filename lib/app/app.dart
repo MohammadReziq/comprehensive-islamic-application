@@ -7,6 +7,7 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/mosque/presentation/bloc/mosque_bloc.dart';
 import 'features/parent/presentation/bloc/children_bloc.dart';
+import 'features/super_admin/presentation/bloc/admin_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'injection_container.dart';
 
@@ -23,6 +24,7 @@ class SalatiHayatiApp extends StatelessWidget {
         ),
         BlocProvider<MosqueBloc>.value(value: sl<MosqueBloc>()),
         BlocProvider<ChildrenBloc>(create: (_) => sl<ChildrenBloc>()),
+        BlocProvider<AdminBloc>(create: (_) => sl<AdminBloc>()),
       ],
       child: MaterialApp.router(
         title: AppStrings.appName,

@@ -5,12 +5,32 @@ import '../../../../models/attendance_model.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
 
+/// نتيجة إضافة طفل — مع بيانات الدخول للابن إن تم إنشاء الحساب
+class AddChildResult {
+  final ChildModel child;
+  final String? email;
+  final String? password;
+
+  const AddChildResult(this.child, {this.email, this.password});
+}
+
 /// مستودع الأطفال - إضافة، جلب، ربط بمسجد
 class ChildRepository {
   ChildRepository(this._authRepo, this._mosqueRepo);
 
   final AuthRepository _authRepo;
   final MosqueRepository _mosqueRepo;
+
+  /// الطفل المرتبط بحساب تسجيل الدخول (للدور child) — RLS تسمح بالقراءة إن كان userId = المستخدم الحالي
+  Future<ChildModel?> getChildByLoginUserId(String userId) async {
+    final row = await supabase
+        .from('children')
+        .select()
+        .eq('login_user_id', userId)
+        .maybeSingle();
+    if (row == null) return null;
+    return ChildModel.fromJson(row);
+  }
 
   /// طفل واحد (إن كان من أطفالي)
   Future<ChildModel?> getMyChild(String childId) async {
@@ -39,10 +59,12 @@ class ChildRepository {
     return (res as List).map((e) => ChildModel.fromJson(e)).toList();
   }
 
-  /// إضافة طفل
-  Future<ChildModel> addChild({
+  /// إضافة طفل. إن وُجدت [email] و [password] يُنشَأ حساب للابن عبر Edge Function وتُرجع بيانات الدخول.
+  Future<AddChildResult> addChild({
     required String name,
     required int age,
+    String? email,
+    String? password,
   }) async {
     final user = await _authRepo.getCurrentUserProfile();
     if (user == null) throw Exception('يجب تسجيل الدخول');
@@ -52,7 +74,27 @@ class ChildRepository {
       'name': name,
       'age': age,
     }).select().single();
-    return ChildModel.fromJson(row);
+    final child = ChildModel.fromJson(row);
+
+    if (email != null && email.isNotEmpty && password != null && password.isNotEmpty) {
+      try {
+        final res = await supabase.functions.invoke(
+          'create_child_account',
+          body: {'child_id': child.id, 'email': email, 'password': password},
+        );
+        if (res.status == 200 && res.data != null) {
+          final data = res.data as Map<String, dynamic>?;
+          return AddChildResult(
+            child,
+            email: data?['email'] as String? ?? email,
+            password: data?['password'] as String? ?? password,
+          );
+        }
+      } catch (_) {
+        // الطفل مُدرج؛ إرجاع النتيجة بدون credentials
+      }
+    }
+    return AddChildResult(child);
   }
 
   /// ربط طفل بمسجد (بكود المسجد)
@@ -99,6 +141,21 @@ class ChildRepository {
         .eq('child_id', childId)
         .eq('is_active', true);
     return (res as List).map((e) => e['mosque_id'] as String).toList();
+  }
+
+  /// حضور طفل واحد في تاريخ معيّن (للابن أو ولي الأمر — RLS يسمح للابن بحضوره فقط)
+  Future<List<AttendanceModel>> getAttendanceForChildOnDate(
+    String childId,
+    DateTime date,
+  ) async {
+    final dateStr = _dateStr(date);
+    final res = await supabase
+        .from('attendance')
+        .select()
+        .eq('child_id', childId)
+        .eq('prayer_date', dateStr)
+        .order('prayer', ascending: true);
+    return (res as List).map((e) => AttendanceModel.fromJson(e)).toList();
   }
 
   /// حضور أطفالي لتاريخ معيّن (لولي الأمر — دورة حياة الحضور)

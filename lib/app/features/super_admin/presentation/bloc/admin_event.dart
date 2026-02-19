@@ -63,3 +63,11 @@ class ChangeImam extends AdminEvent {
   @override
   List<Object?> get props => [mosqueId, newOwnerId];
 }
+
+/// حظر مستخدم
+class BanUser extends AdminEvent {
+  final String userId;
+  const BanUser(this.userId);
+  @override
+  List<Object?> get props => [userId];
+}

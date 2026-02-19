@@ -4,8 +4,8 @@ import '../constants/app_enums.dart';
 class PointsService {
   // ─── ثوابت النقاط ───
 
-  /// نقاط صلاة الجماعة
-  static const int mosquePrayerPoints = 10;
+  /// نقاط صلاة الجماعة الافتراضية (عند عدم تمرير نقاط المسجد)
+  static const int defaultMosquePrayerPoints = 10;
 
   /// نقاط صلاة الفجر في المنزل
   static const int homeFajrPoints = 5;
@@ -24,16 +24,19 @@ class PointsService {
 
   // ─── حساب النقاط ───
 
-  /// حساب نقاط حضور واحد
+  /// حساب نقاط حضور واحد.
+  /// [mosquePrayerPoints]: نقاط كل صلاة في المسجد (من إعدادات الإمام)؛ إن وُجدت تُستخدم للجماعة، وإلا الافتراضي 10.
   int calculateAttendancePoints({
     required Prayer prayer,
     required LocationType locationType,
+    Map<Prayer, int>? mosquePrayerPoints,
   }) {
     if (locationType == LocationType.mosque) {
-      return mosquePrayerPoints;
+      final pts = mosquePrayerPoints?[prayer];
+      return (pts != null) ? pts : defaultMosquePrayerPoints;
     }
 
-    // صلاة منزلية
+    // صلاة منزلية: فجر 5، غير فجر 3
     if (prayer == Prayer.fajr) {
       return homeFajrPoints;
     }

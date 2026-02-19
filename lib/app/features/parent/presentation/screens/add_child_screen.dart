@@ -21,11 +21,15 @@ class _AddChildScreenState extends State<AddChildScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
     _nameController.dispose();
     _ageController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -38,10 +42,14 @@ class _AddChildScreenState extends State<AddChildScreen> {
         );
         return;
       }
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
       context.read<ChildrenBloc>().add(
             ChildrenAdd(
               name: _nameController.text.trim(),
               age: age,
+              email: email.isEmpty ? null : email,
+              password: password.isEmpty ? null : password,
             ),
           );
     }
@@ -72,7 +80,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
                 ),
               );
             }
-            if (state is ChildrenLoaded) {
+            if (state is ChildrenLoaded || state is ChildrenLoadedWithCredentials) {
               context.pop();
             }
           },
@@ -106,6 +114,22 @@ class _AddChildScreenState extends State<AddChildScreen> {
                       if (n == null || n < 1 || n > 19) return 'العمر بين 1 و 19';
                       return null;
                     },
+                  ),
+                  const SizedBox(height: AppDimensions.paddingMD),
+                  AppTextField(
+                    controller: _emailController,
+                    label: 'بريد الابن (اختياري — لحساب دخول له)',
+                    hint: 'example@email.com',
+                    keyboardType: TextInputType.emailAddress,
+                    prefixIcon: Icons.email,
+                  ),
+                  const SizedBox(height: AppDimensions.paddingMD),
+                  AppTextField(
+                    controller: _passwordController,
+                    label: 'كلمة سر الابن (اختياري)',
+                    hint: '••••••••',
+                    obscureText: true,
+                    prefixIcon: Icons.lock,
                   ),
                   const SizedBox(height: AppDimensions.paddingXXL),
                   AppButton(

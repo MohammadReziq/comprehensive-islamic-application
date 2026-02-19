@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
-import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/services/prayer_times_service.dart';
@@ -12,8 +11,6 @@ import '../../../../core/services/realtime_service.dart';
 import '../../../../injection_container.dart';
 import '../../../../models/mosque_model.dart';
 import '../../../../models/other_models.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
@@ -178,19 +175,22 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
         }
         if (mosque != null && _supervisors == null && !_loadingSupervisors) {
           _loadingSupervisors = true;
+          final mosqueId = mosque.id;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _loadSupervisors(mosque!.id);
+            if (mounted) _loadSupervisors(mosqueId);
           });
         }
         if (mosque != null &&
             _pendingRequests == null &&
             !_loadingPendingRequests) {
           _loadingPendingRequests = true;
+          final mosqueId = mosque.id;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _loadPendingRequests(mosque!.id);
+            if (mounted) _loadPendingRequests(mosqueId);
           });
         }
-        if (mosque != null && mosque.id != _mosqueChildrenSubscribedForMosqueId) {
+        if (mosque != null &&
+            mosque.id != _mosqueChildrenSubscribedForMosqueId) {
           _mosqueChildrenSubscribedForMosqueId = mosque.id;
           sl<RealtimeService>().unsubscribeMosqueChildren();
           sl<RealtimeService>().subscribeMosqueChildren(mosque.id, (_) {
@@ -205,221 +205,67 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
           textDirection: TextDirection.rtl,
           child: Scaffold(
             key: _scaffoldKey,
-            drawer: AppDrawer(
-              title: 'لوحة مدير المسجد',
-              subtitle: 'إمام',
-              items: [
-                AppDrawerItem(
-                  title: 'لوحة المدير',
-                  icon: Icons.dashboard,
-                  onTap: () => context.go('/imam/dashboard'),
-                ),
-                AppDrawerItem(
-                  title: 'التحضير',
-                  icon: Icons.qr_code_scanner,
-                  onTap: () => context.push('/supervisor/scan'),
-                ),
-                AppDrawerItem(
-                  title: AppStrings.students,
-                  icon: Icons.people,
-                  onTap: () => context.push('/supervisor/students'),
-                ),
-                AppDrawerItem(
-                  title: AppStrings.correctionRequest,
-                  icon: Icons.edit_note,
-                  onTap: () {
-                    if (mosque != null) {
-                      context.push('/imam/corrections/${mosque!.id}');
-                    }
-                  },
-                ),
-                AppDrawerItem(
-                  title: 'الملاحظات',
-                  icon: Icons.note_alt_outlined,
-                  onTap: () {
-                    if (mosque != null) {
-                      context.push('/supervisor/notes/send/${mosque!.id}');
-                    }
-                  },
-                ),
-                AppDrawerItem(
-                  title: 'المسابقات',
-                  icon: Icons.emoji_events,
-                  onTap: () {
-                    if (mosque != null) {
-                      context.push('/imam/competitions/${mosque!.id}');
-                    }
-                  },
-                ),
-              ],
-              onLogout: () =>
-                  context.read<AuthBloc>().add(const AuthLogoutRequested()),
-            ),
+
             body: IndexedStack(
               index: _selectedIndex,
               children: [
                 Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primaryDark, AppColors.primary],
-                  begin: Alignment.topCenter,
-                  end: Alignment.center,
-                ),
-              ),
-              child: SafeArea(
-                child: !initialDataReady
-                    ? const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(color: Colors.white),
-                            SizedBox(height: 16),
-                            Text(
-                              'جاري التحميل...',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primaryDark, AppColors.primary],
+                      begin: Alignment.topCenter,
+                      end: Alignment.center,
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: !initialDataReady
+                        ? const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(color: Colors.white),
+                                SizedBox(height: 16),
+                                Text(
+                                  'جاري التحميل...',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      )
-                    : CustomScrollView(
-                        slivers: [
-                          SliverToBoxAdapter(
+                          )
+                        : SingleChildScrollView(
                             child: Padding(
                               padding: const EdgeInsets.all(
                                 AppDimensions.paddingLG,
                               ),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _buildAppBar(context),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingXL,
-                                  ),
-                                  _buildMosqueCard(context, mosque),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingXL,
-                                  ),
-                                  _buildSectionTitle('طلبات الانضمام'),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingSM,
-                                  ),
-                                  _buildPendingJoinRequestsContent(
+                                  const SizedBox(height: AppDimensions.paddingMD),
+                                  _buildTopSection(
                                     context,
                                     mosque,
+                                    nextPrayer,
+                                  ),
+                                  const SizedBox(height: AppDimensions.paddingLG),
+                                  _buildActionsGrid(
+                                    context,
+                                    mosque,
+                                    nextPrayer,
                                   ),
                                   const SizedBox(
-                                    height: AppDimensions.paddingXL,
-                                  ),
-                                  _buildSectionTitle(AppStrings.supervisors),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingSM,
-                                  ),
-                                  _buildSupervisorsContent(context, mosque),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingXL,
-                                  ),
-                                  _buildNextPrayerCard(nextPrayer),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingXL,
-                                  ),
-                                  _buildSectionTitle(
-                                    AppStrings.todayAttendance,
-                                  ),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingSM,
-                                  ),
-                                  _buildStatsRow(context, mosque),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingXL,
-                                  ),
-                                  _buildSectionTitle('الإجراءات'),
-                                  const SizedBox(
-                                    height: AppDimensions.paddingMD,
+                                    height: AppDimensions.paddingXXL,
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          SliverPadding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppDimensions.paddingLG,
-                            ),
-                            sliver: SliverList(
-                              delegate: SliverChildListDelegate([
-                                _buildActionCard(
-                                  context,
-                                  icon: Icons.qr_code_scanner,
-                                  title: 'التحضير',
-                                  subtitle: 'مسح QR أو إدخال رقم الطالب',
-                                  onTap: () => context
-                                      .push('/supervisor/scan')
-                                      .then((_) {
-                                    if (mounted) setState(() => _statsRefreshKey++);
-                                  }),
-                                ),
-                                const SizedBox(height: AppDimensions.paddingSM),
-                                _buildActionCard(
-                                  context,
-                                  icon: Icons.people,
-                                  title: AppStrings.students,
-                                  subtitle: 'قائمة طلاب المسجد',
-                                  onTap: () => context
-                                      .push('/supervisor/students')
-                                      .then((_) {
-                                    if (mounted) setState(() => _statsRefreshKey++);
-                                  }),
-                                ),
-                                const SizedBox(height: AppDimensions.paddingSM),
-                                _buildActionCard(
-                                  context,
-                                  icon: Icons.edit_note,
-                                  title: AppStrings.correctionRequest,
-                                  subtitle: 'طلبات التصحيح من أولياء الأمور',
-                                  onTap: () {
-                                    if (mosque != null) {
-                                      context.push('/imam/corrections/${mosque!.id}');
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: AppDimensions.paddingSM),
-                                _buildActionCard(
-                                  context,
-                                  icon: Icons.note_alt_outlined,
-                                  title: 'الملاحظات',
-                                  subtitle: 'ملاحظات للطلاب',
-                                  onTap: () {
-                                    if (mosque != null) {
-                                      context.push('/supervisor/notes/send/${mosque!.id}');
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: AppDimensions.paddingSM),
-                                _buildActionCard(
-                                  context,
-                                  icon: Icons.emoji_events,
-                                  title: 'المسابقات',
-                                  subtitle: 'إدارة المسابقات والترتيب',
-                                  onTap: () {
-                                    if (mosque != null) {
-                                      context.push('/imam/competitions/${mosque!.id}');
-                                    }
-                                  },
-                                ),
-                                const SizedBox(
-                                  height: AppDimensions.paddingXXL,
-                                ),
-                              ]),
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-            const ProfileScreen(),
+                  ),
+                ),
+                const ProfileScreen(),
               ],
             ),
             bottomNavigationBar: BottomNavigationBar(
@@ -428,8 +274,14 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
               selectedItemColor: AppColors.primary,
               unselectedItemColor: Colors.grey,
               items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'لوحة المدير'),
-                BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الملف الشخصي'),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.dashboard),
+                  label: 'لوحة المدير',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: 'الملف الشخصي',
+                ),
               ],
             ),
           ),
@@ -438,14 +290,481 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen> {
     );
   }
 
+  Widget _buildGridTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppDimensions.paddingMD,
+            horizontal: AppDimensions.paddingSM,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: AppColors.primary, size: 28),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCodesDialog(BuildContext context, MosqueModel mosque) {
+    void copyAndShow(String value, String label) {
+      Clipboard.setData(ClipboardData(text: value));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تم نسخ $label'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(mosque.name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              title: const Text('كود المسجد'),
+              subtitle: Text(mosque.code),
+              trailing: IconButton(
+                icon: const Icon(Icons.copy),
+                onPressed: () => copyAndShow(mosque.code, 'كود المسجد'),
+              ),
+            ),
+            ListTile(
+              title: const Text('كود الدعوة'),
+              subtitle: Text(mosque.inviteCode),
+              trailing: IconButton(
+                icon: const Icon(Icons.copy),
+                onPressed: () => copyAndShow(mosque.inviteCode, 'كود الدعوة'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNextPrayerDialog(BuildContext context, dynamic nextPrayer) {
+    final nameAr = nextPrayer?.nameAr ?? '—';
+    final timeFormatted = nextPrayer?.timeFormatted ?? '—';
+    final remaining = nextPrayer?.remaining;
+    final remainingStr = remaining != null
+        ? 'بعد ${remaining.inMinutes} د'
+        : '';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('الصلاة القادمة'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$nameAr — $timeFormatted',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            if (remainingStr.isNotEmpty)
+              Text(remainingStr, style: const TextStyle(color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopSection(
+    BuildContext context,
+    MosqueModel mosque,
+    dynamic nextPrayer,
+  ) {
+    final nextName = nextPrayer?.nameAr ?? '—';
+    final nextTime = nextPrayer?.timeFormatted ?? '';
+    final pendingCount = (_pendingRequests?.length ?? 0).toString();
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTopTile(
+            context,
+            icon: Icons.schedule,
+            title: 'الصلاة القادمة',
+            subtitle: '$nextName $nextTime',
+            onTap: () => _showNextPrayerDialog(context, nextPrayer),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTopTile(
+            context,
+            icon: Icons.person_add,
+            title: 'طلبات الانضمام',
+            subtitle: pendingCount != '0' ? '$pendingCount طلب' : 'لا توجد',
+            onTap: () => _showJoinRequestsSheet(context, mosque),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTopTile(
+            context,
+            icon: Icons.link,
+            title: 'كود الدعوة',
+            subtitle: mosque.inviteCode,
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: mosque.inviteCode));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('تم نسخ كود الدعوة'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTopTile(
+            context,
+            icon: Icons.mosque,
+            title: mosque.name,
+            subtitle: 'كود: ${mosque.code}',
+            onTap: () => _showCodesDialog(context, mosque),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppDimensions.paddingSM,
+            horizontal: AppDimensions.paddingXS,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: AppColors.primary, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionsGrid(
+    BuildContext context,
+    MosqueModel? mosque,
+    dynamic nextPrayer,
+  ) {
+    if (mosque == null) return const SizedBox.shrink();
+    final rows = <Widget>[
+      Row(
+        children: [
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.people_outline,
+              title: 'المشرفون',
+              onTap: () => _showSupervisorsSheet(context, mosque),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.qr_code_scanner,
+              title: 'التحضير',
+              onTap: () => context.push('/supervisor/scan').then((_) {
+                if (mounted) setState(() => _statsRefreshKey++);
+              }),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.people,
+              title: AppStrings.students,
+              onTap: () => context.push('/supervisor/students').then((_) {
+                if (mounted) setState(() => _statsRefreshKey++);
+              }),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.edit_note,
+              title: 'طلب تصحيح',
+              onTap: () => context.push('/imam/corrections/${mosque.id}'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.note_alt_outlined,
+              title: 'الملاحظات',
+              onTap: () => context.push('/supervisor/notes/send/${mosque.id}'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.emoji_events,
+              title: 'المسابقات',
+              onTap: () => context.push('/imam/competitions/${mosque.id}'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.star_outline,
+              title: 'نقاط الصلاة',
+              onTap: () => context.push(
+                '/imam/mosque/${mosque.id}/prayer-points',
+                extra: mosque.name,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.settings_outlined,
+              title: 'إعدادات المسجد',
+              onTap: () => context.push(
+                '/imam/mosque/${mosque.id}/settings',
+                extra: mosque,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.bar_chart_outlined,
+              title: 'تقرير الحضور',
+              onTap: () =>
+                  context.push('/imam/mosque/${mosque.id}/attendance-report'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: _buildGridTile(
+              context,
+              icon: Icons.people_outline,
+              title: 'أداء المشرفين',
+              onTap: () => context.push(
+                '/imam/mosque/${mosque.id}/supervisors-performance',
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(child: SizedBox.shrink()),
+          const SizedBox(width: 8),
+          const Expanded(child: SizedBox.shrink()),
+          const SizedBox(width: 8),
+          const Expanded(child: SizedBox.shrink()),
+        ],
+      ),
+    ];
+    return Column(mainAxisSize: MainAxisSize.min, children: rows);
+  }
+
+  void _showJoinRequestsSheet(BuildContext context, MosqueModel mosque) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.primaryDark,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewPadding.bottom),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (_, scrollController) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Text(
+                'طلبات الانضمام',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(AppDimensions.paddingMD),
+                  child: _buildPendingJoinRequestsContent(ctx, mosque),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSupervisorsSheet(BuildContext context, MosqueModel mosque) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.primaryDark,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewPadding.bottom),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (_, scrollController) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Text(
+                'المشرفون',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(AppDimensions.paddingMD),
+                  child: _buildSupervisorsContent(ctx, mosque),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAppBar(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
         const Text(
           'لوحة مدير المسجد',
           style: TextStyle(

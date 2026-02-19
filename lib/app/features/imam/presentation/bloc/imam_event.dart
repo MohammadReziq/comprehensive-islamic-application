@@ -1,6 +1,7 @@
 // lib/app/features/imam/presentation/bloc/imam_event.dart
 
 import 'package:equatable/equatable.dart';
+import '../../../../core/constants/app_enums.dart';
 
 abstract class ImamEvent extends Equatable {
   const ImamEvent();
@@ -56,6 +57,15 @@ class UpdateMosqueSettings extends ImamEvent {
   });
   @override
   List<Object?> get props => [mosqueId, name, address, lat, lng, attendanceWindowMinutes];
+}
+
+/// تحديث نقاط الصلوات للمسجد (الإمام فقط)
+class UpdateMosquePrayerPoints extends ImamEvent {
+  final String mosqueId;
+  final Map<Prayer, int> points;
+  const UpdateMosquePrayerPoints(this.mosqueId, this.points);
+  @override
+  List<Object?> get props => [mosqueId, points];
 }
 
 /// إلغاء حضور

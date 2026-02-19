@@ -1,5 +1,6 @@
 // lib/app/features/imam/data/repositories/imam_repository.dart
 
+import '../../../../core/constants/app_enums.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/network/supabase_client.dart';
 import '../../../../models/mosque_model.dart';
@@ -147,10 +148,51 @@ class ImamRepository {
           .select('*, children(name)')
           .eq('mosque_id', mosqueId)
           .neq('status', 'pending')
-          .order('updated_at', ascending: false)
+          .order('reviewed_at', ascending: false)
           .limit(limit);
 
       return (res as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─── نقاط الصلوات (الإمام يتحكم) ───
+
+  /// جلب نقاط كل صلاة للمسجد من prayer_config؛ افتراضي 10 إن لم تُحدد
+  Future<Map<Prayer, int>> getPrayerPointsForMosque(String mosqueId) async {
+    try {
+      final row = await supabase
+          .from('mosques')
+          .select('prayer_config')
+          .eq('id', mosqueId)
+          .maybeSingle();
+      final config = row?['prayer_config'] as Map<String, dynamic>?;
+      final result = <Prayer, int>{};
+      for (final p in Prayer.values) {
+        final v = config?[p.value];
+        result[p] = (v is num) ? v.toInt() : 10;
+      }
+      return result;
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  /// تحديث نقاط الصلوات للمسجد (الإمام فقط)
+  Future<void> updateMosquePrayerPoints(
+    String mosqueId,
+    Map<Prayer, int> points,
+  ) async {
+    try {
+      final config = <String, int>{};
+      for (final e in points.entries) {
+        config[e.key.value] = e.value;
+      }
+      await supabase
+          .from('mosques')
+          .update({'prayer_config': config})
+          .eq('id', mosqueId);
     } catch (e) {
       throw mapPostgresError(e);
     }

@@ -7,6 +7,7 @@ class ChildrenBloc extends Bloc<ChildrenEvent, ChildrenState> {
   ChildrenBloc(this._repo) : super(const ChildrenInitial()) {
     on<ChildrenLoad>(_onLoad);
     on<ChildrenAdd>(_onAdd);
+    on<ChildrenCredentialsShown>(_onCredentialsShown);
   }
 
   final ChildRepository _repo;
@@ -23,11 +24,30 @@ class ChildrenBloc extends Bloc<ChildrenEvent, ChildrenState> {
 
   Future<void> _onAdd(ChildrenAdd e, Emitter<ChildrenState> emit) async {
     try {
-      await _repo.addChild(name: e.name, age: e.age);
-      add(const ChildrenLoad());
+      final result = await _repo.addChild(
+        name: e.name,
+        age: e.age,
+        email: e.email,
+        password: e.password,
+      );
+      if (result.email != null && result.password != null) {
+        emit(ChildrenLoadedWithCredentials(
+          await _repo.getMyChildren(),
+          email: result.email!,
+          password: result.password!,
+        ));
+      } else {
+        add(const ChildrenLoad());
+      }
     } catch (err) {
       emit(ChildrenError(err.toString().replaceFirst('Exception: ', '')));
     }
   }
 
+  void _onCredentialsShown(ChildrenCredentialsShown e, Emitter<ChildrenState> emit) {
+    final state = this.state;
+    if (state is ChildrenLoadedWithCredentials) {
+      emit(ChildrenLoaded(state.children));
+    }
+  }
 }

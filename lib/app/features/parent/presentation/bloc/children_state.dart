@@ -25,6 +25,19 @@ class ChildrenLoaded extends ChildrenState {
   List<Object?> get props => [children];
 }
 
+/// بعد إضافة طفل مع إنشاء حساب — عرض credentials مرة واحدة ثم الانتقال لـ ChildrenLoaded
+class ChildrenLoadedWithCredentials extends ChildrenState {
+  const ChildrenLoadedWithCredentials(this.children,
+      {required this.email, required this.password});
+
+  final List<ChildModel> children;
+  final String email;
+  final String password;
+
+  @override
+  List<Object?> get props => [children, email, password];
+}
+
 class ChildrenError extends ChildrenState {
   const ChildrenError(this.message);
 

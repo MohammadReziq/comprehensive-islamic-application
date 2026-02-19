@@ -15,6 +15,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     on<LoadAllUsers>(_onLoadUsers);
     on<UpdateUserRole>(_onUpdateRole);
     on<ChangeImam>(_onChangeImam);
+    on<BanUser>(_onBanUser);
   }
 
   final AdminRepository _repo;
@@ -48,6 +49,8 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     try {
       await _repo.suspendMosque(event.mosqueId);
       emit(const AdminActionSuccess('تم تعليق المسجد'));
+      final mosques = await _repo.getAllMosques(status: null);
+      emit(MosquesLoaded(mosques));
     } on AppFailure catch (f) {
       emit(AdminError(f.messageAr));
     } catch (e) {
@@ -60,6 +63,8 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     try {
       await _repo.reactivateMosque(event.mosqueId);
       emit(const AdminActionSuccess('تم إعادة تفعيل المسجد'));
+      final mosques = await _repo.getAllMosques(status: null);
+      emit(MosquesLoaded(mosques));
     } on AppFailure catch (f) {
       emit(AdminError(f.messageAr));
     } catch (e) {
@@ -96,6 +101,18 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     try {
       await _repo.changeImam(event.mosqueId, event.newOwnerId);
       emit(const AdminActionSuccess('تم تغيير إمام المسجد'));
+    } on AppFailure catch (f) {
+      emit(AdminError(f.messageAr));
+    } catch (e) {
+      emit(const AdminError('حدث خطأ غير متوقع'));
+    }
+  }
+
+  Future<void> _onBanUser(BanUser event, Emitter emit) async {
+    emit(AdminLoading());
+    try {
+      await _repo.banUser(event.userId);
+      emit(const AdminActionSuccess('تم حظر المستخدم'));
     } on AppFailure catch (f) {
       emit(AdminError(f.messageAr));
     } catch (e) {

@@ -5,7 +5,8 @@ enum UserRole {
   superAdmin('super_admin', 'مدير النظام'),
   imam('imam', 'إمام (مدير المسجد)'),
   supervisor('supervisor', 'مشرف'),
-  parent('parent', 'ولي أمر');
+  parent('parent', 'ولي أمر'),
+  child('child', 'ابن');
 
   const UserRole(this.value, this.nameAr);
   final String value;

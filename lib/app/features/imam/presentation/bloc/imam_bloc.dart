@@ -12,6 +12,7 @@ class ImamBloc extends Bloc<ImamEvent, ImamState> {
     on<LoadAttendanceReport>(_onLoadReport);
     on<LoadSupervisorsPerformance>(_onLoadPerformance);
     on<UpdateMosqueSettings>(_onUpdateSettings);
+    on<UpdateMosquePrayerPoints>(_onUpdatePrayerPoints);
     on<CancelAttendanceByImam>(_onCancelAttendance);
   }
 
@@ -71,6 +72,19 @@ class ImamBloc extends Bloc<ImamEvent, ImamState> {
         attendanceWindowMinutes: event.attendanceWindowMinutes,
       );
       emit(MosqueSettingsUpdated(mosque));
+    } on AppFailure catch (f) {
+      emit(ImamError(f.messageAr));
+    } catch (e) {
+      emit(const ImamError('حدث خطأ غير متوقع'));
+    }
+  }
+
+  Future<void> _onUpdatePrayerPoints(
+      UpdateMosquePrayerPoints event, Emitter emit) async {
+    emit(ImamLoading());
+    try {
+      await _repo.updateMosquePrayerPoints(event.mosqueId, event.points);
+      emit(const ImamActionSuccess('تم تحديث نقاط الصلوات'));
     } on AppFailure catch (f) {
       emit(ImamError(f.messageAr));
     } catch (e) {

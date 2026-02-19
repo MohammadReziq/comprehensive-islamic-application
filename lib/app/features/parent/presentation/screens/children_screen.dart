@@ -58,6 +58,15 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
                 ),
               );
             }
+            if (state is ChildrenLoadedWithCredentials) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _showChildCredentialsDialog(
+                  context,
+                  state.email,
+                  state.password,
+                );
+              });
+            }
           },
           builder: (context, state) {
             if (state is ChildrenInitial || state is ChildrenLoading) {
@@ -81,9 +90,14 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
                 ),
               );
             }
-            if (state is! ChildrenLoaded) return const SizedBox.shrink();
+            if (state is! ChildrenLoaded && state is! ChildrenLoadedWithCredentials) {
+              return const SizedBox.shrink();
+            }
+            final children = state is ChildrenLoaded
+                ? state.children
+                : (state as ChildrenLoadedWithCredentials).children;
 
-            if (state.children.isEmpty) {
+            if (children.isEmpty) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -107,9 +121,9 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
 
             return ListView.builder(
               padding: const EdgeInsets.all(AppDimensions.paddingMD),
-              itemCount: state.children.length,
+              itemCount: children.length,
               itemBuilder: (context, i) {
-                final child = state.children[i];
+                final child = children[i];
                 return _ChildCard(
                   child: child,
                   onTap: () => context.push('/parent/children/${child.id}/card'),
@@ -118,6 +132,51 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
               },
             );
           },
+        ),
+      ),
+    );
+  }
+
+  void _showChildCredentialsDialog(
+    BuildContext context,
+    String email,
+    String password,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('بيانات دخول ابنك'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('البريد: $email'),
+                const SizedBox(height: 8),
+                Text('كلمة المرور: $password'),
+                const SizedBox(height: 16),
+                Text(
+                  'احفظها في مكان آمن لاستخدامها عند دخول ابنك.',
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () {
+                context.read<ChildrenBloc>().add(const ChildrenCredentialsShown());
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('تم'),
+            ),
+          ],
         ),
       ),
     );

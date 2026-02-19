@@ -46,3 +46,10 @@ app.*.map.json
 
 # Firebase / API keys - generate locally with: dart run flutterfire_cli:flutterfire configure
 lib/firebase_options.dart
+
+# Supabase / env (لا ترفع المفاتيح)
+.env
+supabase/.env
+
+# Node (Supabase CLI - لا ترفع node_modules)
+node_modules/

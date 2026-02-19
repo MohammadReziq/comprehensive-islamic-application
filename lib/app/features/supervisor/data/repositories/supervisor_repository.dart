@@ -89,17 +89,19 @@ class SupervisorRepository {
     final user = await _authRepo.getCurrentUserProfile();
     if (user == null) throw const NotLoggedInFailure();
 
-    // ── التحقق من وقت الصلاة ──
-    // جلب بيانات المسجد للإحداثيات ونافذة الحضور
+    // ── التحقق من وقت الصلاة وجلب نقاط الصلوات ──
     final mosqueData = await supabase
         .from('mosques')
-        .select('lat, lng, attendance_window_minutes')
+        .select('lat, lng, attendance_window_minutes, prayer_config')
         .eq('id', mosqueId)
         .maybeSingle();
 
     final double? mLat = (mosqueData?['lat'] as num?)?.toDouble();
     final double? mLng = (mosqueData?['lng'] as num?)?.toDouble();
     final int windowMin = (mosqueData?['attendance_window_minutes'] as int?) ?? 60;
+    final Map<Prayer, int>? mosquePrayerPoints = _prayerConfigToMap(
+      mosqueData?['prayer_config'] as Map<String, dynamic>?,
+    );
 
     final validation = sl<AttendanceValidationService>().canRecordNow(
       prayer: prayer,
@@ -120,6 +122,7 @@ class SupervisorRepository {
     final points = sl<PointsService>().calculateAttendancePoints(
       prayer: prayer,
       locationType: LocationType.mosque,
+      mosquePrayerPoints: mosquePrayerPoints,
     );
 
     final dateStr = _dateStr(date);
@@ -275,4 +278,15 @@ class SupervisorRepository {
 
   static String _dateStr(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// تحويل prayer_config من DB إلى خريطة نقاط لكل صلاة؛ الناقص = 10
+  static Map<Prayer, int>? _prayerConfigToMap(Map<String, dynamic>? config) {
+    if (config == null || config.isEmpty) return null;
+    final result = <Prayer, int>{};
+    for (final p in Prayer.values) {
+      final v = config[p.value];
+      result[p] = (v is num) ? v.toInt() : 10;
+    }
+    return result;
+  }
 }
