@@ -31,6 +31,7 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen>
   int _selectedIndex = 0;
   int _statsRefreshKey = 0;
   String? _mosqueChildrenSubscribedForMosqueId;
+  String? _prayerTimingsLoadedForMosqueId;
 
   List<MosqueMemberModel>? _supervisors;
   bool _loadingSupervisors = false;
@@ -177,7 +178,6 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final nextPrayer = sl<PrayerTimesService>().getNextPrayer();
     return BlocBuilder<MosqueBloc, MosqueState>(
       builder: (context, state) {
         MosqueModel? mosque;
@@ -188,6 +188,15 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen>
             );
           } catch (_) {}
         }
+        final lat = mosque?.lat ?? PrayerTimesService.defaultLat;
+        final lng = mosque?.lng ?? PrayerTimesService.defaultLng;
+        if (mosque != null && mosque.id != _prayerTimingsLoadedForMosqueId) {
+          _prayerTimingsLoadedForMosqueId = mosque.id;
+          sl<PrayerTimesService>().loadTimingsFor(lat, lng).then((_) {
+            if (mounted) setState(() {});
+          });
+        }
+        final nextPrayer = sl<PrayerTimesService>().getNextPrayer(lat, lng);
         if (mosque != null && _supervisors == null && !_loadingSupervisors) {
           _loadingSupervisors = true;
           final id = mosque.id;

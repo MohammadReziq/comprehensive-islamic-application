@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/widgets/map_picker_screen.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../models/mosque_model.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -184,7 +186,8 @@ class _AdminMosquesTabState extends State<AdminMosquesTab> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: _filters.map((f) {
+          children: [
+            ..._filters.map((f) {
             final isSelected = _selectedStatus == f.key;
             return Padding(
               padding: const EdgeInsets.only(left: AppDimensions.spacingSM),
@@ -229,7 +232,31 @@ class _AdminMosquesTabState extends State<AdminMosquesTab> {
                 ),
               ),
             );
-          }).toList(),
+          }),
+            const SizedBox(width: AppDimensions.spacingSM),
+            Material(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(AppDimensions.radiusRound),
+              child: InkWell(
+                onTap: () => context.push('/admin/mosques-map'),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusRound),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimensions.paddingMD,
+                    vertical: AppDimensions.spacingSM,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.map_rounded, size: 20, color: AppColors.primary),
+                      SizedBox(width: AppDimensions.spacingXS),
+                      Text('عرض على الخريطة', style: TextStyle(color: AppColors.primary)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -618,6 +645,46 @@ class _MosqueBottomSheet extends StatelessWidget {
                 : 'موقوف 🔴',
           ),
           const SizedBox(height: AppDimensions.spacingSM),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimensions.paddingMD,
+              0,
+              AppDimensions.paddingMD,
+              AppDimensions.spacingSM,
+            ),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final result = await showMapPickerDialog(
+                  context,
+                  initialLat: mosque.lat,
+                  initialLng: mosque.lng,
+                  title: 'تحديد موقع المسجد على الخريطة',
+                );
+                if (!context.mounted) return;
+                if (result != null) {
+                  context.read<AdminBloc>().add(UpdateMosqueLocation(
+                    mosqueId: mosque.id,
+                    lat: result.lat,
+                    lng: result.lng,
+                  ));
+                  Navigator.pop(context);
+                }
+              },
+              icon: const Icon(Icons.map_rounded),
+              label: const Text('تحديد موقع المسجد على الخريطة'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(
+                  double.infinity,
+                  AppDimensions.buttonHeightSM,
+                ),
+                side: const BorderSide(color: AppColors.primary),
+                foregroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppDimensions.paddingMD,

@@ -55,6 +55,20 @@ class UpdateUserRole extends AdminEvent {
   List<Object?> get props => [userId, newRole];
 }
 
+/// تحديث موقع المسجد على الخريطة
+class UpdateMosqueLocation extends AdminEvent {
+  final String mosqueId;
+  final double lat;
+  final double lng;
+  const UpdateMosqueLocation({
+    required this.mosqueId,
+    required this.lat,
+    required this.lng,
+  });
+  @override
+  List<Object?> get props => [mosqueId, lat, lng];
+}
+
 /// تغيير إمام مسجد
 class ChangeImam extends AdminEvent {
   final String mosqueId;

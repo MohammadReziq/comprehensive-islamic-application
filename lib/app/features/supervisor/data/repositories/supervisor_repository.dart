@@ -92,10 +92,12 @@ class SupervisorRepository {
     // ── التحقق من وقت الصلاة وجلب نقاط الصلوات ──
     final mosqueData = await supabase
         .from('mosques')
-        .select('lat, lng, attendance_window_minutes, prayer_config')
+        .select('owner_id, lat, lng, attendance_window_minutes, prayer_config')
         .eq('id', mosqueId)
         .maybeSingle();
 
+    final String? ownerId = mosqueData?['owner_id'] as String?;
+    final bool isImam = (ownerId != null && user.id == ownerId);
     final double? mLat = (mosqueData?['lat'] as num?)?.toDouble();
     final double? mLng = (mosqueData?['lng'] as num?)?.toDouble();
     final int windowMin = (mosqueData?['attendance_window_minutes'] as int?) ?? 60;
@@ -103,12 +105,13 @@ class SupervisorRepository {
       mosqueData?['prayer_config'] as Map<String, dynamic>?,
     );
 
-    final validation = sl<AttendanceValidationService>().canRecordNow(
+    final validation = await sl<AttendanceValidationService>().canRecordNow(
       prayer: prayer,
       date: date,
       lat: mLat,
       lng: mLng,
       windowMinutes: windowMin,
+      isImam: isImam,
     );
 
     if (!validation.allowed) {

@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../injection_container.dart';
 import '../../../../core/services/prayer_times_service.dart';
+import '../../../../core/services/attendance_validation_service.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
 import '../../../../core/constants/app_enums.dart';
@@ -39,13 +40,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final approved = mosqueState.mosques.where((m) => m.status == MosqueStatus.approved).firstOrNull;
     if (approved == null) return;
 
-    final nextPrayer = sl<PrayerTimesService>().getNextPrayer();
-    final date = DateTime.now();
-    context.read<ScannerBloc>().add(ScannerLoad(
-          mosqueId: approved.id,
-          prayer: nextPrayer.prayer,
-          date: date,
-        ));
+    final lat = approved.lat ?? PrayerTimesService.defaultLat;
+    final lng = approved.lng ?? PrayerTimesService.defaultLng;
+    sl<PrayerTimesService>().loadTimingsFor(lat, lng).then((_) {
+      if (!context.mounted) return;
+      final nextPrayer = sl<PrayerTimesService>().getNextPrayer(lat, lng);
+      final date = DateTime.now();
+      context.read<ScannerBloc>().add(ScannerLoad(
+            mosqueId: approved.id,
+            prayer: nextPrayer.prayer,
+            date: date,
+          ));
+    });
   }
 
   @override
@@ -115,6 +121,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             return Column(
               children: [
                 _buildPrayerChip(state.prayer.nameAr),
+                _buildRecordingWindowBanner(context, state),
                 _TabBar(
                   currentIndex: _selectedTab,
                   tabs: const [
@@ -157,6 +164,58 @@ class _ScannerScreenState extends State<ScannerScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildRecordingWindowBanner(BuildContext context, ScannerReady state) {
+    final mosqueState = context.read<MosqueBloc>().state;
+    if (mosqueState is! MosqueLoaded) return const SizedBox.shrink();
+    final mosque = mosqueState.mosques.where((m) => m.status == MosqueStatus.approved).firstOrNull;
+    if (mosque == null) return const SizedBox.shrink();
+
+    final windowMin = mosque.attendanceWindowMinutes;
+    return FutureBuilder<RecordingWindowStatus>(
+      future: sl<AttendanceValidationService>().getRecordingWindowStatus(
+        prayer: state.prayer,
+        date: state.date,
+        lat: mosque.lat,
+        lng: mosque.lng,
+        windowMinutes: windowMin,
+      ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+        final status = snapshot.data!;
+        final isAllowed = status.allowed;
+        final isExpired = status.remainingMinutes == 0;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          color: isAllowed
+              ? AppColors.successLight
+              : (isExpired ? AppColors.errorLight : AppColors.warningLight),
+          child: Row(
+            children: [
+              Icon(
+                isAllowed ? Icons.timer_outlined : (isExpired ? Icons.block : Icons.info_outline),
+                size: 20,
+                color: isAllowed ? AppColors.success : (isExpired ? AppColors.error : AppColors.warning),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  status.message,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isAllowed ? AppColors.success : (isExpired ? AppColors.error : Colors.black87),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

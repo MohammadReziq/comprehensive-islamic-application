@@ -49,6 +49,11 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<ChildrenBloc>().add(const ChildrenLoad());
     });
+    sl<PrayerTimesService>()
+        .loadTimingsFor(PrayerTimesService.defaultLat, PrayerTimesService.defaultLng)
+        .then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -166,7 +171,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final nextPrayer = sl<PrayerTimesService>().getNextPrayer();
+    final nextPrayer = sl<PrayerTimesService>().getNextPrayer(
+      PrayerTimesService.defaultLat,
+      PrayerTimesService.defaultLng,
+    );
 
     return BlocConsumer<ChildrenBloc, ChildrenState>(
       listener: (context, state) {

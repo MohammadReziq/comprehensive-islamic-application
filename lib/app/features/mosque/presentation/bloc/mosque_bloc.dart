@@ -29,7 +29,7 @@ class MosqueBloc extends Bloc<MosqueEvent, MosqueState> {
   Future<void> _onCreate(MosqueCreate e, Emitter<MosqueState> emit) async {
     emit(const MosqueLoading());
     try {
-      await _repo.createMosque(name: e.name, address: e.address);
+      await _repo.createMosque(name: e.name, address: e.address, lat: e.lat, lng: e.lng);
       final list = await _repo.getMyMosques();
       emit(MosqueLoaded(list));
     } catch (err) {

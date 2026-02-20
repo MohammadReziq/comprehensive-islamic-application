@@ -94,6 +94,18 @@ class AdminRepository {
     }
   }
 
+  /// تحديث موقع المسجد على الخريطة
+  Future<void> updateMosqueLocation(String mosqueId, double lat, double lng) async {
+    try {
+      await supabase
+          .from('mosques')
+          .update({'lat': lat, 'lng': lng})
+          .eq('id', mosqueId);
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
   // ─── إدارة المستخدمين ───
 
   /// كل المستخدمين مع أدوارهم

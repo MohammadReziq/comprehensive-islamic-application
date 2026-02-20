@@ -12,15 +12,22 @@ class MosqueLoadMyMosques extends MosqueEvent {
   const MosqueLoadMyMosques();
 }
 
-/// إنشاء مسجد جديد
+/// إنشاء مسجد جديد — الموقع على الخريطة إلزامي
 class MosqueCreate extends MosqueEvent {
-  const MosqueCreate({required this.name, this.address});
+  const MosqueCreate({
+    required this.name,
+    this.address,
+    required this.lat,
+    required this.lng,
+  });
 
   final String name;
   final String? address;
+  final double lat;
+  final double lng;
 
   @override
-  List<Object?> get props => [name, address];
+  List<Object?> get props => [name, address, lat, lng];
 }
 
 /// الانضمام بكود الدعوة

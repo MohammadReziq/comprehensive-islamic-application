@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_screen.dart';
+import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_mosques_map_screen.dart';
 import '../../core/constants/app_enums.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
@@ -211,6 +212,11 @@ class AppRouter {
         path: '/admin',
         name: 'admin',
         builder: (context, state) => const AdminScreen(),
+      ),
+      GoRoute(
+        path: '/admin/mosques-map',
+        name: 'adminMosquesMap',
+        builder: (context, state) => const AdminMosquesMapScreen(),
       ),
       GoRoute(
         path: '/mosque',

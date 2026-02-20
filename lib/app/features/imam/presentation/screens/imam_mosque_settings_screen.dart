@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/map_picker_screen.dart'; // showMapPickerDialog, MapPickerResult
 import '../../../../injection_container.dart';
 import '../../../../models/mosque_model.dart';
 import '../../presentation/bloc/imam_bloc.dart';
@@ -162,6 +163,34 @@ class _ImamMosqueSettingsScreenState extends State<ImamMosqueSettingsScreen> {
                       label: 'العنوان',
                       hint: 'عنوان المسجد (اختياري)',
                       prefixIcon: Icons.location_on_outlined,
+                    ),
+                    const SizedBox(height: AppDimensions.paddingMD),
+
+                    // موقع المسجد على الخريطة (حوار مربّع + موقعك الحالي)
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final result = await showMapPickerDialog(
+                          context,
+                          title: 'تحديد موقع المسجد',
+                          initialLat: widget.mosque.lat,
+                          initialLng: widget.mosque.lng,
+                        );
+                        if (!mounted || result == null) return;
+                        context.read<ImamBloc>().add(
+                          UpdateMosqueSettings(
+                            mosqueId: widget.mosqueId,
+                            lat: result.lat,
+                            lng: result.lng,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.map_outlined),
+                      label: Text(
+                        widget.mosque.lat != null && widget.mosque.lng != null
+                            ? 'تعديل موقع المسجد على الخريطة'
+                            : 'تحديد موقع المسجد على الخريطة',
+                        style: GoogleFonts.cairo(),
+                      ),
                     ),
                     const SizedBox(height: AppDimensions.paddingMD),
 

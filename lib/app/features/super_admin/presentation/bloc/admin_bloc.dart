@@ -10,6 +10,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
   AdminBloc(this._repo) : super(AdminInitial()) {
     on<LoadSystemStats>(_onLoadStats);
     on<LoadAllMosques>(_onLoadMosques);
+    on<UpdateMosqueLocation>(_onUpdateMosqueLocation);
     on<SuspendMosque>(_onSuspend);
     on<ReactivateMosque>(_onReactivate);
     on<LoadAllUsers>(_onLoadUsers);
@@ -36,6 +37,20 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     emit(AdminLoading());
     try {
       final mosques = await _repo.getAllMosques(status: event.status);
+      emit(MosquesLoaded(mosques));
+    } on AppFailure catch (f) {
+      emit(AdminError(f.messageAr));
+    } catch (e) {
+      emit(const AdminError('حدث خطأ غير متوقع'));
+    }
+  }
+
+  Future<void> _onUpdateMosqueLocation(UpdateMosqueLocation event, Emitter emit) async {
+    emit(AdminLoading());
+    try {
+      await _repo.updateMosqueLocation(event.mosqueId, event.lat, event.lng);
+      emit(const AdminActionSuccess('تم تحديث موقع المسجد على الخريطة'));
+      final mosques = await _repo.getAllMosques(status: null);
       emit(MosquesLoaded(mosques));
     } on AppFailure catch (f) {
       emit(AdminError(f.messageAr));

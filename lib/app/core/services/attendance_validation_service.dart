@@ -1,4 +1,3 @@
-import 'package:adhan/adhan.dart' hide Prayer;
 import '../constants/app_enums.dart';
 import 'prayer_times_service.dart';
 
@@ -16,93 +15,128 @@ class AttendanceValidationResult {
   const AttendanceValidationResult.denied(String this.reason) : allowed = false;
 }
 
-/// خدمة التحقق من وقت تسجيل الحضور
-///
-/// القواعد:
-/// 1. الوقت الحالي >= وقت أذان الصلاة
-/// 2. الوقت الحالي <= وقت الأذان + نافذة (افتراضي 60 دقيقة)
-/// 3. إذا لم تتوفر إحداثيات المسجد → يستخدم مكة المكرمة كموقع افتراضي
+/// خدمة التحقق من وقت تسجيل الحضور (باستخدام أوقات Aladhan API)
 class AttendanceValidationService {
   final PrayerTimesService _prayerTimesService;
 
   AttendanceValidationService(this._prayerTimesService);
 
-  /// إحداثيات مكة المكرمة (الافتراضية)
-  static const double _defaultLat = 21.4225;
-  static const double _defaultLng = 39.8262;
+  static const double _defaultLat = 31.9454;
+  static const double _defaultLng = 35.9284;
 
-  /// التحقق من إمكانية تسجيل الحضور الآن
-  ///
-  /// [prayer] الصلاة المراد تسجيلها
-  /// [date] تاريخ الصلاة
-  /// [lat] خط عرض المسجد (اختياري)
-  /// [lng] خط طول المسجد (اختياري)
-  /// [windowMinutes] نافذة الحضور بالدقائق (افتراضي 60)
-  AttendanceValidationResult canRecordNow({
+  /// التحقق من إمكانية تسجيل الحضور الآن.
+  /// [isImam]: إن كان true (مالك المسجد) لا يُطبَّق حدّ الساعة — يُسمح بالتسجيل بعد الأذان بدون قيد.
+  /// المشرف فقط مقيد بنافذة الحضور (ساعة بعد الأذان).
+  Future<AttendanceValidationResult> canRecordNow({
     required Prayer prayer,
     required DateTime date,
     double? lat,
     double? lng,
     int windowMinutes = 60,
-  }) {
+    bool isImam = false,
+  }) async {
     final now = DateTime.now();
-
-    // إذا كان التاريخ مختلف عن اليوم → لا نتحقق (طلب تصحيح)
     final today = DateTime(now.year, now.month, now.day);
     final requestDate = DateTime(date.year, date.month, date.day);
     if (requestDate != today) {
-      // تسجيل لتاريخ غير اليوم → يتم عبر طلب التصحيح فقط
       return const AttendanceValidationResult.denied(
         'لا يمكن تسجيل حضور ليوم غير اليوم — استخدم طلب التصحيح',
       );
     }
 
-    // حساب أوقات الصلاة بإحداثيات المسجد
     final useLat = lat ?? _defaultLat;
     final useLng = lng ?? _defaultLng;
 
-    final coordinates = Coordinates(useLat, useLng);
-    final dateComponents = DateComponents.from(date);
-    final params = CalculationMethod.umm_al_qura.getParameters();
-    final prayerTimes = PrayerTimes(coordinates, dateComponents, params);
+    final adhanTime = await _prayerTimesService.getAdhanTime(
+      lat: useLat,
+      lng: useLng,
+      prayer: prayer,
+      date: date,
+    );
 
-    // الحصول على وقت أذان الصلاة المحددة
-    final adhanTime = _getAdhanTime(prayer, prayerTimes);
     if (adhanTime == null) {
       return const AttendanceValidationResult.allowed();
     }
 
-    // التحقق: هل حان الوقت؟
     if (now.isBefore(adhanTime)) {
-      return const AttendanceValidationResult.denied(
-        'لم يحن وقت هذه الصلاة بعد',
-      );
+      return const AttendanceValidationResult.denied('لم يحن وقت هذه الصلاة بعد');
     }
 
-    // التحقق: هل انتهت النافذة؟
+    if (isImam) {
+      return const AttendanceValidationResult.allowed();
+    }
+
     final windowEnd = adhanTime.add(Duration(minutes: windowMinutes));
     if (now.isAfter(windowEnd)) {
-      return const AttendanceValidationResult.denied(
-        'انتهت مهلة تسجيل الحضور لهذه الصلاة',
-      );
+      return const AttendanceValidationResult.denied('انتهت مهلة تسجيل الحضور لهذه الصلاة');
     }
 
     return const AttendanceValidationResult.allowed();
   }
 
-  /// الحصول على وقت أذان صلاة معينة
-  DateTime? _getAdhanTime(Prayer prayer, PrayerTimes times) {
-    switch (prayer) {
-      case Prayer.fajr:
-        return times.fajr;
-      case Prayer.dhuhr:
-        return times.dhuhr;
-      case Prayer.asr:
-        return times.asr;
-      case Prayer.maghrib:
-        return times.maghrib;
-      case Prayer.isha:
-        return times.isha;
+  /// حالة نافذة التسجيل للمشرف: متبقي X دقيقة أو انتهت المهلة (ساعة بعد الأذان).
+  Future<RecordingWindowStatus> getRecordingWindowStatus({
+    required Prayer prayer,
+    required DateTime date,
+    double? lat,
+    double? lng,
+    int windowMinutes = 60,
+  }) async {
+    final now = DateTime.now();
+    final useLat = lat ?? _defaultLat;
+    final useLng = lng ?? _defaultLng;
+
+    final adhanTime = await _prayerTimesService.getAdhanTime(
+      lat: useLat,
+      lng: useLng,
+      prayer: prayer,
+      date: date,
+    );
+
+    if (adhanTime == null) {
+      return RecordingWindowStatus(
+        allowed: false,
+        remainingMinutes: null,
+        message: 'جاري جلب المواقيت...',
+      );
     }
+
+    if (now.isBefore(adhanTime)) {
+      final mins = adhanTime.difference(now).inMinutes;
+      return RecordingWindowStatus(
+        allowed: false,
+        remainingMinutes: null,
+        message: 'لم يحن وقت الصلاة بعد (بعد $mins دقيقة)',
+      );
+    }
+
+    final windowEnd = adhanTime.add(Duration(minutes: windowMinutes));
+    if (now.isAfter(windowEnd)) {
+      return RecordingWindowStatus(
+        allowed: false,
+        remainingMinutes: 0,
+        message: 'انتهت مهلة التسجيل (ساعة واحدة بعد الأذان)',
+      );
+    }
+
+    final remaining = windowEnd.difference(now).inMinutes;
+    return RecordingWindowStatus(
+      allowed: true,
+      remainingMinutes: remaining,
+      message: 'متبقي $remaining دقيقة لتسجيل الحضور',
+    );
   }
+}
+
+/// حالة نافذة تسجيل الحضور (للمشرف)
+class RecordingWindowStatus {
+  final bool allowed;
+  final int? remainingMinutes;
+  final String message;
+
+  RecordingWindowStatus({
+    required this.allowed,
+    this.remainingMinutes,
+    required this.message,
+  });
 }

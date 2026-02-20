@@ -18,10 +18,12 @@ class MosqueRepository {
     return List.generate(length, (_) => _codeChars[_random.nextInt(_codeChars.length)]).join();
   }
 
-  /// إنشاء مسجد جديد (المستخدم الحالي = المالك)
+  /// إنشاء مسجد جديد (المستخدم الحالي = المالك) — الموقع إلزامي
   Future<MosqueModel> createMosque({
     required String name,
     String? address,
+    required double lat,
+    required double lng,
   }) async {
     final user = await _authRepo.getCurrentUserProfile();
     if (user == null) throw Exception('يجب تسجيل الدخول');
@@ -39,6 +41,8 @@ class MosqueRepository {
           'code': code,
           'invite_code': inviteCode,
           'address': address,
+          'lat': lat,
+          'lng': lng,
           'status': 'pending',
         }).select().single();
         final mosque = MosqueModel.fromJson(res);
