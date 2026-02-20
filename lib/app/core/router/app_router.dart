@@ -29,6 +29,7 @@ import '../../features/supervisor/presentation/screens/supervisor_dashboard_scre
 import '../../features/supervisor/presentation/screens/supervisor_placeholder_screen.dart';
 import '../../features/supervisor/presentation/screens/students_screen.dart';
 import '../../features/corrections/presentation/screens/corrections_list_screen.dart';
+import '../../features/corrections/presentation/bloc/correction_bloc.dart';
 import '../../features/corrections/presentation/screens/request_correction_screen.dart';
 import '../../features/corrections/presentation/screens/my_corrections_screen.dart';
 import '../../features/notes/presentation/screens/notes_inbox_screen.dart';
@@ -195,7 +196,10 @@ class AppRouter {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           final childName = state.extra as String?;
-          return RequestCorrectionScreen(childId: id, childName: childName);
+          return BlocProvider(
+            create: (_) => sl<CorrectionBloc>(),
+            child: RequestCorrectionScreen(childId: id, childName: childName),
+          );
         },
       ),
       GoRoute(

@@ -94,11 +94,9 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => sl<CorrectionBloc>(),
-      child: Directionality(
-        textDirection: TextDirection.rtl,
-        child: Scaffold(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
           appBar: AppBar(
             title: const Text('طلب تصحيح حضور'),
             backgroundColor: AppColors.primaryDark,
@@ -295,7 +293,6 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
                       },
                     ),
         ),
-      ),
     );
   }
 }

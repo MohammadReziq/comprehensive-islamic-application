@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
-import '../../../../core/constants/app_dimensions.dart';
+import '../../../../core/constants/app_responsive.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -12,7 +12,7 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
-/// شاشة تسجيل الدخول
+/// 📁 lib/app/features/auth/presentation/screens/login_screen.dart
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -59,6 +59,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final r = AppResponsive(context);
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -66,8 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
           listener: (context, state) {
             if (state is AuthAuthenticated) {
               final role = state.userProfile?.role;
-              if (role == null) return; // منع التوجيه إذا لم تكتمل البيانات
-
+              if (role == null) return;
               if (role == UserRole.superAdmin) {
                 context.go('/admin');
               } else if (role == UserRole.imam || role == UserRole.supervisor) {
@@ -82,37 +83,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   backgroundColor: AppColors.error,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                    borderRadius: BorderRadius.circular(r.radiusMD),
                   ),
                 ),
               );
             } else if (state is AuthResetPasswordSent) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text(
+                const SnackBar(
+                  content: Text(
                     'تم إرسال رمز إلى بريدك. أدخل الرمز في النافذة.',
                   ),
                   backgroundColor: AppColors.primary,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-                  ),
                 ),
               );
             } else if (state is AuthPasswordResetSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text(
-                    'تم تغيير كلمة المرور بنجاح. سجّل دخولك بكلمة السر الجديدة.',
-                  ),
+                const SnackBar(
+                  content: Text('تم تغيير كلمة المرور بنجاح.'),
                   backgroundColor: AppColors.primary,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-                  ),
                 ),
               );
-              context.read<AuthBloc>().add(const AuthResetPasswordFlowFinished());
+              context.read<AuthBloc>().add(
+                const AuthResetPasswordFlowFinished(),
+              );
             }
           },
           child: Container(
@@ -127,12 +122,17 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             child: SafeArea(
               child: SingleChildScrollView(
+                // padding سفلي يضمن ظهور الكل حتى على الشاشات القصيرة
+                padding: EdgeInsets.only(bottom: r.vlg),
                 child: Column(
                   children: [
-                    const SizedBox(height: AppDimensions.paddingXXL),
+                    SizedBox(height: r.isShortPhone ? r.vmd : r.vxl),
 
-                    // ─── Header ───
-                    const Text('🕌', style: TextStyle(fontSize: 56))
+                    // ─── الأيقونة ───
+                    Text(
+                          '🕌',
+                          style: TextStyle(fontSize: r.isShortPhone ? 40 : 56),
+                        )
                         .animate()
                         .fadeIn(duration: 600.ms)
                         .scale(
@@ -141,46 +141,40 @@ class _LoginScreenState extends State<LoginScreen> {
                           duration: 800.ms,
                         ),
 
-                    const SizedBox(height: AppDimensions.spacingMD),
+                    SizedBox(height: r.vsm),
 
                     Text(
                       AppStrings.appName,
-                      style: const TextStyle(
-                        fontSize: 28,
+                      style: TextStyle(
+                        fontSize: r.textXXL,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textOnDark,
                       ),
                     ).animate().fadeIn(delay: 200.ms),
 
-                    const SizedBox(height: AppDimensions.spacingSM),
+                    SizedBox(height: r.vxs),
 
                     Text(
                       AppStrings.login,
                       style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: r.textMD,
+                        color: Colors.white.withOpacity(0.8),
                       ),
                     ).animate().fadeIn(delay: 300.ms),
 
-                    const SizedBox(height: AppDimensions.paddingXL),
+                    SizedBox(height: r.isShortPhone ? r.vmd : r.vxl),
 
                     // ─── Form Card ───
                     Container(
                           width: double.infinity,
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: AppDimensions.paddingMD,
-                          ),
-                          padding: const EdgeInsets.all(
-                            AppDimensions.paddingLG,
-                          ),
+                          margin: EdgeInsets.symmetric(horizontal: r.md),
+                          padding: EdgeInsets.all(r.lg),
                           decoration: BoxDecoration(
                             color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(
-                              AppDimensions.radiusXL,
-                            ),
+                            borderRadius: BorderRadius.circular(r.radiusXL),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
+                                color: Colors.black.withOpacity(0.1),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
@@ -191,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // ─── البريد الإلكتروني ───
+                                // الإيميل
                                 AppTextField(
                                   controller: _emailController,
                                   label: AppStrings.email,
@@ -199,20 +193,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                   prefixIcon: Icons.email_outlined,
                                   keyboardType: TextInputType.emailAddress,
                                   textDirection: TextDirection.ltr,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty)
                                       return AppStrings.errorFieldRequired;
-                                    }
-                                    if (!value.contains('@')) {
+                                    if (!v.contains('@'))
                                       return AppStrings.errorInvalidEmail;
-                                    }
                                     return null;
                                   },
                                 ),
 
-                                const SizedBox(height: AppDimensions.spacingLG),
+                                SizedBox(height: r.vmd),
 
-                                // ─── كلمة المرور ───
+                                // كلمة المرور
                                 AppTextField(
                                   controller: _passwordController,
                                   label: AppStrings.password,
@@ -227,71 +219,69 @@ class _LoginScreenState extends State<LoginScreen> {
                                           : Icons.visibility_outlined,
                                       color: AppColors.textHint,
                                     ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscurePassword = !_obscurePassword;
-                                      });
-                                    },
+                                    onPressed: () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    ),
                                   ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty)
                                       return AppStrings.errorFieldRequired;
-                                    }
-                                    if (value.length < 6) {
+                                    if (v.length < 6)
                                       return AppStrings.errorWeakPassword;
-                                    }
                                     return null;
                                   },
                                 ),
 
-                                const SizedBox(height: AppDimensions.spacingSM),
-
-                                // ─── نسيت كلمة المرور ───
+                                // نسيت كلمة المرور
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: TextButton(
                                     onPressed: _showForgotPasswordDialog,
-                                    child: const Text(
+                                    child: Text(
                                       AppStrings.forgotPassword,
                                       style: TextStyle(
                                         color: AppColors.primaryLight,
-                                        fontSize: 13,
+                                        fontSize: r.textSM,
                                       ),
                                     ),
                                   ),
                                 ),
 
-                                const SizedBox(height: AppDimensions.spacingLG),
+                                SizedBox(height: r.vsm),
 
-                                // ─── زر تسجيل الدخول ───
+                                // زر تسجيل الدخول
                                 BlocBuilder<AuthBloc, AuthState>(
                                   builder: (context, state) {
                                     final isLoading = state is AuthLoading;
-                                    return AppButton(
-                                      text: AppStrings.login,
-                                      onPressed: isLoading ? null : _onLogin,
-                                      isLoading: isLoading,
+                                    return SizedBox(
+                                      height: r.buttonHeight,
+                                      child: AppButton(
+                                        text: AppStrings.login,
+                                        onPressed: isLoading ? null : _onLogin,
+                                        isLoading: isLoading,
+                                      ),
                                     );
                                   },
                                 ),
 
-                                const SizedBox(height: AppDimensions.spacingLG),
+                                SizedBox(height: r.vmd),
 
-                                // ─── خط فاصل ───
+                                // فاصل
                                 Row(
                                   children: [
                                     const Expanded(
                                       child: Divider(color: AppColors.border),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: AppDimensions.paddingMD,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: r.md,
                                       ),
                                       child: Text(
                                         AppStrings.orLoginWith,
                                         style: TextStyle(
                                           color: AppColors.textHint,
-                                          fontSize: 13,
+                                          fontSize: r.textSM,
                                         ),
                                       ),
                                     ),
@@ -301,39 +291,40 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ],
                                 ),
 
-                                const SizedBox(height: AppDimensions.spacingLG),
+                                SizedBox(height: r.vmd),
 
-                                // ─── زر Google ───
-                                OutlinedButton.icon(
-                                  onPressed: () {
-                                    context.read<AuthBloc>().add(const AuthLoginWithGoogleRequested());
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: AppDimensions.paddingMD,
-                                    ),
-                                    side: const BorderSide(
-                                      color: AppColors.border,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        AppDimensions.radiusMD,
+                                // زر Google
+                                SizedBox(
+                                  height: r.buttonHeight,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () =>
+                                        context.read<AuthBloc>().add(
+                                          const AuthLoginWithGoogleRequested(),
+                                        ),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(
+                                        color: AppColors.border,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          r.radiusMD,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  icon: const Text(
-                                    'G',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.error,
+                                    icon: Text(
+                                      'G',
+                                      style: TextStyle(
+                                        fontSize: r.textLG,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.error,
+                                      ),
                                     ),
-                                  ),
-                                  label: const Text(
-                                    AppStrings.loginWithGoogle,
-                                    style: TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 15,
+                                    label: Text(
+                                      AppStrings.loginWithGoogle,
+                                      style: TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: r.textMD,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -345,32 +336,32 @@ class _LoginScreenState extends State<LoginScreen> {
                         .fadeIn(delay: 400.ms, duration: 600.ms)
                         .slideY(begin: 0.1, curve: Curves.easeOut),
 
-                    const SizedBox(height: AppDimensions.spacingXL),
+                    SizedBox(height: r.vlg),
 
-                    // ─── رابط إنشاء حساب ───
+                    // رابط إنشاء حساب
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           AppStrings.dontHaveAccount,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: r.textSM,
                           ),
                         ),
                         TextButton(
                           onPressed: () => context.push('/register'),
-                          child: const Text(
+                          child: Text(
                             AppStrings.register,
                             style: TextStyle(
                               color: AppColors.accent,
                               fontWeight: FontWeight.bold,
+                              fontSize: r.textSM,
                             ),
                           ),
                         ),
                       ],
                     ).animate().fadeIn(delay: 600.ms),
-
-                    const SizedBox(height: AppDimensions.paddingLG),
                   ],
                 ),
               ),
@@ -382,7 +373,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-/// حوار نسيت كلمة المرور — خطوات: إيميل → رمز OTP → كلمة سر جديدة
+// ════════════════════════════════════════════════════════════
+/// حوار نسيت كلمة المرور
+// ════════════════════════════════════════════════════════════
 class _ForgotPasswordDialogContent extends StatefulWidget {
   final String initialEmail;
   final VoidCallback onClose;
@@ -393,177 +386,171 @@ class _ForgotPasswordDialogContent extends StatefulWidget {
   });
 
   @override
-  State<_ForgotPasswordDialogContent> createState() => _ForgotPasswordDialogContentState();
+  State<_ForgotPasswordDialogContent> createState() =>
+      _ForgotPasswordDialogContentState();
 }
 
-class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogContent> {
+class _ForgotPasswordDialogContentState
+    extends State<_ForgotPasswordDialogContent> {
   int _step = 1;
   String _email = '';
-  final _emailController = TextEditingController();
-  final _otpController = TextEditingController();
-  final _newPasswordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _otpCtrl = TextEditingController();
+  final _newPassCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _emailController.text = widget.initialEmail;
+    _emailCtrl.text = widget.initialEmail;
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _otpController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
+    _emailCtrl.dispose();
+    _otpCtrl.dispose();
+    _newPassCtrl.dispose();
+    _confirmCtrl.dispose();
     super.dispose();
   }
 
-  Widget _buildContent(BuildContext context) {
+  Widget _buildStep(BuildContext context) {
     switch (_step) {
       case 1:
         return Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AppTextField(
-              controller: _emailController,
+              controller: _emailCtrl,
               label: AppStrings.email,
               hint: 'example@email.com',
               prefixIcon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               textDirection: TextDirection.ltr,
             ),
-            const SizedBox(height: AppDimensions.spacingMD),
+            const SizedBox(height: 12),
             BlocBuilder<AuthBloc, AuthState>(
-              buildWhen: (a, b) => a is AuthLoading || b is AuthLoading,
-              builder: (context, state) {
-                return FilledButton(
-                  onPressed: state is AuthLoading
-                      ? null
-                      : () {
-                          final email = _emailController.text.trim();
-                          if (email.isEmpty) return;
-                          setState(() => _email = email);
-                          context.read<AuthBloc>().add(AuthResetPasswordRequested(email: email));
-                        },
-                  child: state is AuthLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('إرسال الرمز'),
-                );
-              },
+              builder: (ctx, state) => FilledButton(
+                onPressed: state is AuthLoading
+                    ? null
+                    : () {
+                        final e = _emailCtrl.text.trim();
+                        if (e.isEmpty) return;
+                        setState(() => _email = e);
+                        ctx.read<AuthBloc>().add(
+                          AuthResetPasswordRequested(email: e),
+                        );
+                      },
+                child: state is AuthLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('إرسال الرمز'),
+              ),
             ),
           ],
         );
       case 2:
         return Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               'أدخل الرمز المُرسل إلى $_email',
-              style: TextStyle(fontSize: 13, color: AppColors.textHint),
+              style: const TextStyle(fontSize: 13, color: AppColors.textHint),
             ),
-            const SizedBox(height: AppDimensions.spacingMD),
+            const SizedBox(height: 12),
             AppTextField(
-              controller: _otpController,
+              controller: _otpCtrl,
               label: 'الرمز',
               hint: '123456',
               prefixIcon: Icons.pin_outlined,
               keyboardType: TextInputType.number,
               textDirection: TextDirection.ltr,
             ),
-            const SizedBox(height: AppDimensions.spacingMD),
+            const SizedBox(height: 12),
             BlocBuilder<AuthBloc, AuthState>(
-              buildWhen: (a, b) => a is AuthLoading || b is AuthLoading,
-              builder: (context, state) {
-                return FilledButton(
-                  onPressed: state is AuthLoading
-                      ? null
-                      : () {
-                          final token = _otpController.text.trim();
-                          if (token.length < 6) return;
-                          context.read<AuthBloc>().add(
-                                AuthVerifyResetOtpRequested(email: _email, token: token),
-                              );
-                        },
-                  child: state is AuthLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('تحقق'),
-                );
-              },
+              builder: (ctx, state) => FilledButton(
+                onPressed: state is AuthLoading
+                    ? null
+                    : () {
+                        final t = _otpCtrl.text.trim();
+                        if (t.length < 6) return;
+                        ctx.read<AuthBloc>().add(
+                          AuthVerifyResetOtpRequested(email: _email, token: t),
+                        );
+                      },
+                child: state is AuthLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('تحقق'),
+              ),
             ),
           ],
         );
       case 3:
         return Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AppTextField(
-              controller: _newPasswordController,
+              controller: _newPassCtrl,
               label: 'كلمة المرور الجديدة',
               hint: '••••••••',
               prefixIcon: Icons.lock_outline,
               obscureText: true,
               textDirection: TextDirection.ltr,
             ),
-            const SizedBox(height: AppDimensions.spacingMD),
+            const SizedBox(height: 12),
             AppTextField(
-              controller: _confirmPasswordController,
+              controller: _confirmCtrl,
               label: 'تأكيد كلمة المرور',
               hint: '••••••••',
               prefixIcon: Icons.lock_outline,
               obscureText: true,
               textDirection: TextDirection.ltr,
             ),
-            const SizedBox(height: AppDimensions.spacingMD),
+            const SizedBox(height: 12),
             BlocBuilder<AuthBloc, AuthState>(
-              buildWhen: (a, b) => a is AuthLoading || b is AuthLoading,
-              builder: (context, state) {
-                return FilledButton(
-                  onPressed: state is AuthLoading
-                      ? null
-                      : () {
-                          final pass = _newPasswordController.text;
-                          final confirm = _confirmPasswordController.text;
-                          if (pass.length < 6) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('كلمة المرور 6 أحرف على الأقل'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            return;
-                          }
-                          if (pass != confirm) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('كلمتا المرور غير متطابقتين'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            return;
-                          }
-                          context.read<AuthBloc>().add(AuthSetNewPasswordRequested(newPassword: pass));
-                        },
-                  child: state is AuthLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('حفظ كلمة المرور'),
-                );
-              },
+              builder: (ctx, state) => FilledButton(
+                onPressed: state is AuthLoading
+                    ? null
+                    : () {
+                        final p = _newPassCtrl.text;
+                        final c = _confirmCtrl.text;
+                        if (p.length < 6) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('كلمة المرور 6 أحرف على الأقل'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+                        if (p != c) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('كلمتا المرور غير متطابقتين'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+                        ctx.read<AuthBloc>().add(
+                          AuthSetNewPasswordRequested(newPassword: p),
+                        );
+                      },
+                child: state is AuthLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('حفظ كلمة المرور'),
+              ),
             ),
           ],
         );
@@ -575,14 +562,11 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthResetPasswordSent) {
-          setState(() => _step = 2);
-        } else if (state is AuthResetOtpVerified) {
-          setState(() => _step = 3);
-        } else if (state is AuthPasswordResetSuccess) {
-          widget.onClose();
-        } else if (state is AuthError && _step > 0) {
+      listener: (ctx, state) {
+        if (state is AuthResetPasswordSent) setState(() => _step = 2);
+        if (state is AuthResetOtpVerified) setState(() => _step = 3);
+        if (state is AuthPasswordResetSuccess) widget.onClose();
+        if (state is AuthError && _step > 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
@@ -597,15 +581,12 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
           _step == 1
               ? AppStrings.resetPassword
               : _step == 2
-                  ? 'أدخل الرمز'
-                  : 'كلمة المرور الجديدة',
+              ? 'أدخل الرمز'
+              : 'كلمة المرور الجديدة',
         ),
-        content: SingleChildScrollView(child: _buildContent(context)),
+        content: SingleChildScrollView(child: _buildStep(context)),
         actions: [
-          TextButton(
-            onPressed: widget.onClose,
-            child: const Text('إلغاء'),
-          ),
+          TextButton(onPressed: widget.onClose, child: const Text('إلغاء')),
         ],
       ),
     );
