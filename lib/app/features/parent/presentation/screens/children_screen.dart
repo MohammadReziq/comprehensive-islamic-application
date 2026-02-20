@@ -2,292 +2,251 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../injection_container.dart';
-import '../../data/repositories/child_repository.dart';
-import '../../../../core/constants/app_dimensions.dart';
-import '../../../../models/child_model.dart';
 import '../bloc/children_bloc.dart';
 import '../bloc/children_event.dart';
 import '../bloc/children_state.dart';
+import '../../../../models/child_model.dart';
 
-/// شاشة أطفالي
-class ChildrenScreen extends StatefulWidget {
+/// 📁 lib/app/features/parent/presentation/screens/children_screen.dart
+class ChildrenScreen extends StatelessWidget {
   const ChildrenScreen({super.key});
-
-  @override
-  State<ChildrenScreen> createState() => _ChildrenScreenState();
-}
-
-class _ChildrenScreenState extends State<ChildrenScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChildrenBloc>().add(const ChildrenLoad());
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('أطفالي'),
-          backgroundColor: AppColors.primaryDark,
-          foregroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => context.push('/parent/children/add'),
-            ),
-          ],
-        ),
-        body: BlocConsumer<ChildrenBloc, ChildrenState>(
-          listener: (context, state) {
-            if (state is ChildrenError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: AppColors.error,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            }
-            if (state is ChildrenLoadedWithCredentials) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _showChildCredentialsDialog(
-                  context,
-                  state.email,
-                  state.password,
-                );
-              });
-            }
-          },
+        backgroundColor: const Color(0xFFF5F6FA),
+        body: BlocBuilder<ChildrenBloc, ChildrenState>(
           builder: (context, state) {
-            if (state is ChildrenInitial || state is ChildrenLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (state is ChildrenError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppDimensions.paddingLG),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(state.message, textAlign: TextAlign.center),
-                      const SizedBox(height: AppDimensions.paddingMD),
-                      ElevatedButton(
-                        onPressed: () => context.read<ChildrenBloc>().add(const ChildrenLoad()),
-                        child: const Text('إعادة المحاولة'),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-            if (state is! ChildrenLoaded && state is! ChildrenLoadedWithCredentials) {
-              return const SizedBox.shrink();
-            }
             final children = state is ChildrenLoaded
                 ? state.children
-                : (state as ChildrenLoadedWithCredentials).children;
+                : state is ChildrenLoadedWithCredentials
+                ? state.children
+                : <ChildModel>[];
+            final isLoading =
+                state is ChildrenLoading || state is ChildrenInitial;
 
-            if (children.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.child_care, size: 64, color: Colors.grey.shade400),
-                    const SizedBox(height: AppDimensions.paddingMD),
-                    Text(
-                      'لا يوجد أطفال مضافون بعد',
-                      style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: AppDimensions.paddingLG),
-                    FilledButton.icon(
-                      onPressed: () => context.push('/parent/children/add'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('إضافة طفل'),
-                    ),
-                  ],
-                ),
-              );
-            }
+            return CustomScrollView(
+              slivers: [
+                // ─── Header ───
+                SliverToBoxAdapter(child: _buildHeader(context)),
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(AppDimensions.paddingMD),
-              itemCount: children.length,
-              itemBuilder: (context, i) {
-                final child = children[i];
-                return _ChildCard(
-                  child: child,
-                  onTap: () => context.push('/parent/children/${child.id}/card'),
-                  onLinkMosque: () => _showLinkMosqueDialog(context, child),
-                );
-              },
+                // ─── Content ───
+                if (isLoading)
+                  const SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (state is ChildrenError)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(state.message, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () => context.read<ChildrenBloc>().add(
+                              const ChildrenLoad(),
+                            ),
+                            child: const Text('إعادة المحاولة'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (children.isEmpty)
+                  SliverFillRemaining(child: _buildEmpty(context))
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) => _buildChildCard(context, children[i]),
+                        childCount: children.length,
+                      ),
+                    ),
+                  ),
+              ],
             );
           },
         ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => context.push('/parent/children/add').then((_) {
+            context.read<ChildrenBloc>().add(const ChildrenLoad());
+          }),
+          backgroundColor: AppColors.primary,
+          icon: const Icon(Icons.add_rounded, color: Colors.white),
+          label: const Text(
+            'إضافة طفل',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+        ),
       ),
     );
   }
 
-  void _showChildCredentialsDialog(
-    BuildContext context,
-    String email,
-    String password,
-  ) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('بيانات دخول ابنك'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('البريد: $email'),
-                const SizedBox(height: 8),
-                Text('كلمة المرور: $password'),
-                const SizedBox(height: 16),
-                Text(
-                  'احفظها في مكان آمن لاستخدامها عند دخول ابنك.',
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w500,
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D2137), Color(0xFF1B5E8A), Color(0xFF2E8B57)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => context.pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                    size: 22,
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 14),
+              const Text(
+                'أطفالي',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
-          actions: [
-            FilledButton(
-              onPressed: () {
-                context.read<ChildrenBloc>().add(const ChildrenCredentialsShown());
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('تم'),
-            ),
-          ],
         ),
       ),
     );
   }
 
-  void _showLinkMosqueDialog(BuildContext context, ChildModel child) {
-    final codeController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('ربط بمسجد'),
-          content: TextField(
-            controller: codeController,
-            decoration: const InputDecoration(
-              labelText: 'كود المسجد',
-              hintText: 'أدخل الكود من إدارة المسجد',
-            ),
-            textCapitalization: TextCapitalization.characters,
+  Widget _buildChildCard(BuildContext context, ChildModel child) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final code = codeController.text.trim();
-                if (code.isEmpty) return;
-                Navigator.pop(ctx);
-                try {
-                  await sl<ChildRepository>().linkChildToMosque(
-                    childId: child.id,
-                    mosqueCode: code,
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('تم ربط الطفل بالمسجد'),
-                        backgroundColor: AppColors.success,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                    context.read<ChildrenBloc>().add(const ChildrenLoad());
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(e.toString().replaceFirst('Exception: ', '')),
-                        backgroundColor: AppColors.error,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('ربط'),
-            ),
-          ],
-        ),
+        ],
       ),
-    );
-  }
-}
-
-class _ChildCard extends StatelessWidget {
-  const _ChildCard({
-    required this.child,
-    required this.onTap,
-    required this.onLinkMosque,
-  });
-
-  final ChildModel child;
-  final VoidCallback onTap;
-  final VoidCallback onLinkMosque;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppDimensions.paddingSM),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-          child: Text(
-            child.name.isNotEmpty ? child.name[0] : '؟',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Center(
+            child: Text(
+              child.name.isNotEmpty ? child.name[0] : '؟',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              ),
             ),
           ),
         ),
-        title: Text(child.name),
-        subtitle: Text('${child.age} سنة · ${child.totalPoints} نقطة'),
+        title: Text(
+          child.name,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A2B3C),
+          ),
+        ),
+        subtitle: Text(
+          '${child.age} سنة · ${child.totalPoints} نقطة',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: const Icon(Icons.mosque),
-              onPressed: onLinkMosque,
-              tooltip: 'ربط بمسجد',
+            // زر البطاقة
+            GestureDetector(
+              onTap: () => context.push('/parent/children/${child.id}/card'),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5C8BFF).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.qr_code_rounded,
+                  color: Color(0xFF5C8BFF),
+                  size: 20,
+                ),
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.qr_code_2),
-              onPressed: onTap,
-              tooltip: 'بطاقة QR',
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_left_rounded,
+              color: Colors.grey,
+              size: 22,
             ),
           ],
         ),
-        onTap: onTap,
+        onTap: () => context.push('/parent/children/${child.id}/card'),
+      ),
+    );
+  }
+
+  Widget _buildEmpty(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Icon(
+                Icons.child_care_rounded,
+                color: Color(0xFF4CAF50),
+                size: 42,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'لا يوجد أطفال بعد',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1A2B3C),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'اضغط على "إضافة طفل" لإضافة طفلك الأول',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
       ),
     );
   }

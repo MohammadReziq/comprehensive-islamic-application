@@ -10,7 +10,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/parent/presentation/screens/home_screen.dart';
 import '../../features/parent/presentation/screens/children_screen.dart';
-import '../../features/parent/presentation/screens/add_child_screen.dart';
+import '../../features/parent/presentation/screens/add_child_screen.dart' show AddChildScreen;
 import '../../features/parent/presentation/screens/child_card_screen.dart';
 import '../../features/parent/presentation/screens/child_view_screen.dart';
 import '../../features/mosque/presentation/screens/mosque_gate_screen.dart';
@@ -187,7 +187,7 @@ class AppRouter {
         path: '/parent/children/:id/card',
         name: 'parentChildCard',
         builder: (context, state) =>
-            ChildCardScreen(childId: state.pathParameters['id']),
+            ChildCardScreen(childId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/parent/children/:id/request-correction',

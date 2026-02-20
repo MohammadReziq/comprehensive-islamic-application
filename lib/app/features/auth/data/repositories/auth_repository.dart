@@ -68,28 +68,31 @@ class AuthRepository {
   }
 
   /// تسجيل دخول بـ Google داخل التطبيق (قائمة الحسابات — بدون متصفح).
+  /// google_sign_in v7: استخدام instance + initialize + authenticate
   Future<void> _signInWithGoogleNative({required String webClientId}) async {
-    final googleSignIn = GoogleSignIn(
+    final googleSignIn = GoogleSignIn.instance;
+    final iosClientId = SupabaseConfig.googleIosClientId.trim();
+    await googleSignIn.initialize(
       serverClientId: webClientId,
-      clientId: SupabaseConfig.googleIosClientId.trim().isEmpty
-          ? null
-          : SupabaseConfig.googleIosClientId.trim(),
+      clientId: iosClientId.isEmpty ? null : iosClientId,
     );
-    final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) {
-      throw GoogleSignInCancelledException();
+    try {
+      final googleUser = await googleSignIn.authenticate();
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      if (idToken == null) {
+        throw Exception('لم يتم الحصول على رمز Google');
+      }
+      await supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        throw GoogleSignInCancelledException();
+      }
+      rethrow;
     }
-    final googleAuth = await googleUser.authentication;
-    final idToken = googleAuth.idToken;
-    final accessToken = googleAuth.accessToken;
-    if (idToken == null) {
-      throw Exception('لم يتم الحصول على رمز Google');
-    }
-    await supabase.auth.signInWithIdToken(
-      provider: OAuthProvider.google,
-      idToken: idToken,
-      accessToken: accessToken,
-    );
   }
 
   /// إرسال إيميل استعادة كلمة المرور (يحتوي على رمز OTP إذا عدّلت القالب في Supabase ليعرض {{ .Token }}).
