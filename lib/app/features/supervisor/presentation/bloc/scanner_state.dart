@@ -23,17 +23,20 @@ class ScannerReady extends ScannerState {
     required this.recordedChildIds,
     required this.prayer,
     required this.date,
+    this.scanMessage,
   });
 
   final List<MosqueStudentModel> students;
   final Set<String> recordedChildIds;
   final Prayer prayer;
   final DateTime date;
+  /// رسالة بعد مسح QR (نجاح أو فشل) — تُعرض مرة ثم تُمسح
+  final String? scanMessage;
 
   bool isRecorded(String childId) => recordedChildIds.contains(childId);
 
   @override
-  List<Object?> get props => [students, recordedChildIds, prayer, date];
+  List<Object?> get props => [students, recordedChildIds, prayer, date, scanMessage];
 }
 
 class ScannerError extends ScannerState {

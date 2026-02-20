@@ -73,6 +73,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 ),
               );
             }
+            if (state is ScannerReady && state.scanMessage != null) {
+              final isSuccess = state.scanMessage == 'تم تسجيل الحضور';
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.scanMessage!),
+                  backgroundColor: isSuccess ? AppColors.success : AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
           },
           builder: (context, state) {
             if (state is ScannerInitial || state is ScannerLoading) {

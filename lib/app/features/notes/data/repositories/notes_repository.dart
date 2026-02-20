@@ -65,6 +65,7 @@ class NotesRepository {
   // مشرف: الملاحظات التي أرسلها
   // ─────────────────────────────────────────────────────────
 
+  /// ملاحظات أرسلها المستخدم (مشرف/إمام) — مع اسم الطفل للعرض
   Future<List<NoteModel>> getMySentNotes() async {
     try {
       final user = await _authRepo.getCurrentUserProfile();
@@ -72,7 +73,7 @@ class NotesRepository {
 
       final res = await supabase
           .from('notes')
-          .select()
+          .select('*, children(name)')
           .eq('sender_id', user.id)
           .order('created_at', ascending: false);
 

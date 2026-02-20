@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
-import '../../../../core/widgets/app_drawer.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/services/prayer_times_service.dart';
@@ -13,32 +12,44 @@ import '../../../../injection_container.dart';
 import '../../../../models/mosque_model.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
-import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../data/repositories/supervisor_repository.dart';
 
-/// لوحة المشرف — ملخص اليوم + التحضير والطلاب والتصحيحات والملاحظات
+/// لوحة المشرف — نفس تصميم الإمام بصلاحيات المشرف فقط
 class SupervisorDashboardScreen extends StatefulWidget {
   const SupervisorDashboardScreen({super.key});
 
   @override
-  State<SupervisorDashboardScreen> createState() => _SupervisorDashboardScreenState();
+  State<SupervisorDashboardScreen> createState() =>
+      _SupervisorDashboardScreenState();
 }
 
-class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
+class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
-  /// يُستعمل لإعادة جلب أرقام طلاب المسجد وحضور اليوم عند العودة من التحضير/الطلاب أو عند حدث Realtime
   int _statsRefreshKey = 0;
-  /// مسجد اللي صار عليه اشتراك Realtime لـ mosque_children (حتى لا نكرر الاشتراك)
   String? _mosqueChildrenSubscribedForMosqueId;
+
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
 
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final state = context.read<MosqueBloc>().state;
@@ -50,6 +61,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
 
   @override
   void dispose() {
+    _animController.dispose();
     sl<RealtimeService>().unsubscribeMosqueChildren();
     _mosqueChildrenSubscribedForMosqueId = null;
     super.dispose();
@@ -58,566 +70,573 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final nextPrayer = sl<PrayerTimesService>().getNextPrayer();
-    final approvedMosque = _getApprovedMosque(context);
-    final isSupervisor = _isSupervisor(context);
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        key: _scaffoldKey,
-        drawer: AppDrawer(
-          title: AppStrings.supervisorDashboardTitle,
-          subtitle: 'مشرف',
-          items: [
-            AppDrawerItem(
-              title: 'لوحة المشرف',
-              icon: Icons.dashboard,
-              onTap: () => context.go('/supervisor/dashboard'),
+    return BlocBuilder<MosqueBloc, MosqueState>(
+      builder: (context, state) {
+        MosqueModel? mosque;
+        if (state is MosqueLoaded) {
+          try {
+            mosque = state.mosques.firstWhere(
+              (m) => m.status == MosqueStatus.approved,
+            );
+          } catch (_) {}
+        }
+
+        // Realtime subscription
+        if (mosque != null &&
+            mosque.id != _mosqueChildrenSubscribedForMosqueId) {
+          _mosqueChildrenSubscribedForMosqueId = mosque.id;
+          sl<RealtimeService>().unsubscribeMosqueChildren();
+          sl<RealtimeService>().subscribeMosqueChildren(mosque.id, (_) {
+            if (mounted) setState(() => _statsRefreshKey++);
+          });
+        }
+
+        if (mosque != null && !_animController.isCompleted) {
+          _animController.forward();
+        }
+
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF5F6FA),
+            body: IndexedStack(
+              index: _selectedIndex,
+              children: [
+                mosque == null
+                    ? _buildNoMosqueState(context, state)
+                    : FadeTransition(
+                        opacity: _fadeAnim,
+                        child: SlideTransition(
+                          position: _slideAnim,
+                          child: CustomScrollView(
+                            slivers: [
+                              SliverToBoxAdapter(
+                                child: _buildHeroSection(
+                                  context,
+                                  mosque,
+                                  nextPrayer,
+                                ),
+                              ),
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  24,
+                                ),
+                                sliver: SliverToBoxAdapter(
+                                  child: _buildActionsGrid(
+                                    context,
+                                    mosque,
+                                    nextPrayer,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                const ProfileScreen(),
+              ],
             ),
-            AppDrawerItem(
-              title: 'التحضير',
-              icon: Icons.qr_code_scanner,
-              onTap: () => context.push('/supervisor/scan'),
-            ),
-            AppDrawerItem(
-              title: AppStrings.students,
-              icon: Icons.people,
-              onTap: () => context.push('/supervisor/students'),
-            ),
-            AppDrawerItem(
-              title: AppStrings.correctionRequest,
-              icon: Icons.edit_note,
-              onTap: () {
-                if (approvedMosque != null) {
-                  context.push('/supervisor/corrections/${approvedMosque!.id}');
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('حدد المسجد أولاً')),
-                  );
-                }
-              },
-            ),
-            AppDrawerItem(
-              title: 'الملاحظات',
-              icon: Icons.note_alt_outlined,
-              onTap: () {
-                if (approvedMosque != null) {
-                  context.push('/supervisor/notes/send/${approvedMosque!.id}');
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('حدد المسجد أولاً')),
-                  );
-                }
-              },
-            ),
-            AppDrawerItem(
-              title: 'المسابقات',
-              icon: Icons.emoji_events,
-              onTap: () {
-                if (approvedMosque != null) {
-                  context.push('/supervisor/competitions/${approvedMosque!.id}');
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('حدد المسجد أولاً')),
-                  );
-                }
-              },
-            ),
-            AppDrawerItem(
-              title: 'انضم لمسجد',
-              icon: Icons.add,
-              onTap: () => context.push('/mosque/join').then((_) {
-                if (mounted) setState(() => _statsRefreshKey++);
-              }),
-            ),
-          ],
-          onLogout: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
-        ),
-        body: IndexedStack(
-          index: _selectedIndex,
-          children: [
-            Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primaryDark, AppColors.primary],
-              begin: Alignment.topCenter,
-              end: Alignment.center,
-            ),
+            bottomNavigationBar: _buildBottomNav(),
           ),
-          child: SafeArea(
-            child: BlocListener<MosqueBloc, MosqueState>(
-              listener: (context, state) {
-                if (!isSupervisor) return;
-                if (state is MosqueLoaded && state.mosques.isEmpty) {
-                  if (context.mounted) context.go('/mosque');
-                  return;
-                }
-                if (state is MosqueLoaded && state.mosques.isNotEmpty) {
-                  try {
-                    final approved = state.mosques
-                        .firstWhere((m) => m.status == MosqueStatus.approved);
-                    if (approved.id != _mosqueChildrenSubscribedForMosqueId) {
-                      sl<RealtimeService>().unsubscribeMosqueChildren();
-                      sl<RealtimeService>().subscribeMosqueChildren(
-                        approved.id,
-                        (_) {
-                          if (mounted) setState(() => _statsRefreshKey++);
-                        },
-                      );
-                      _mosqueChildrenSubscribedForMosqueId = approved.id;
-                    }
-                  } catch (_) {}
-                }
-              },
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppDimensions.paddingLG),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildAppBar(context),
-                          const SizedBox(height: AppDimensions.paddingXL),
-                          if (approvedMosque == null && isSupervisor)
-                            _buildJoinMosqueCard(context),
-                          if (approvedMosque != null) ...[
-                            _buildMosqueCard(context, approvedMosque),
-                            _buildJoinAnotherMosqueLink(context),
+        );
+      },
+    );
+  }
+
+  // ─── No Mosque ───
+  Widget _buildNoMosqueState(BuildContext context, MosqueState state) {
+    final isLoading = state is MosqueLoading;
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D2137), Color(0xFF1B4F80), Color(0xFF2D7DD2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: SafeArea(
+        child: isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'لوحة المشرف',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => context.read<AuthBloc>().add(
+                            const AuthLogoutRequested(),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.logout_rounded,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => context.push('/mosque/join').then((_) {
+                        if (mounted) {
+                          context.read<MosqueBloc>().add(
+                            const MosqueLoadMyMosques(),
+                          );
+                        }
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.22),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Icon(
+                                Icons.group_add_rounded,
+                                color: Colors.white,
+                                size: 38,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'انضم لمسجد',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'أدخل كود الدعوة الذي أعطاك إياه مدير المسجد',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 28,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Text(
+                                'انضم الآن',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1B4F80),
+                                ),
+                              ),
+                            ),
                           ],
-                          const SizedBox(height: AppDimensions.paddingMD),
-                          _buildNextPrayerCard(nextPrayer),
-                          const SizedBox(height: AppDimensions.paddingXL),
-                          _buildSectionTitle(AppStrings.todayAttendance),
-                          const SizedBox(height: AppDimensions.paddingSM),
-                          _buildStatsRow(context, approvedMosque),
-                          const SizedBox(height: AppDimensions.paddingXL),
-                          _buildSectionTitle('الإجراءات'),
-                          const SizedBox(height: AppDimensions.paddingMD),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppDimensions.paddingLG),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        _buildActionCard(
-                          context,
-                          icon: Icons.qr_code_scanner,
-                          title: 'التحضير',
-                          subtitle: 'مسح QR أو إدخال رقم الطالب',
-                          onTap: () => context.push('/supervisor/scan').then((_) {
-                            if (mounted) setState(() => _statsRefreshKey++);
-                          }),
-                        ),
-                        const SizedBox(height: AppDimensions.paddingSM),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.people,
-                          title: AppStrings.students,
-                          subtitle: 'قائمة طلاب المسجد',
-                          onTap: () => context.push('/supervisor/students').then((_) {
-                            if (mounted) setState(() => _statsRefreshKey++);
-                          }),
-                        ),
-                        const SizedBox(height: AppDimensions.paddingSM),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.edit_note,
-                          title: AppStrings.correctionRequest,
-                          subtitle: 'طلبات التصحيح من أولياء الأمور',
-                          onTap: () {
-                            if (approvedMosque != null) {
-                              context.push('/supervisor/corrections/${approvedMosque!.id}').then((_) {
-                                if (mounted) setState(() => _statsRefreshKey++);
-                              });
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('حدد المسجد أولاً')),
-                              );
-                            }
-                          },
-                        ),
-                        const SizedBox(height: AppDimensions.paddingSM),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.note_alt_outlined,
-                          title: 'الملاحظات',
-                          subtitle: 'ملاحظات للطلاب',
-                          onTap: () {
-                            if (approvedMosque != null) {
-                              context.push('/supervisor/notes/send/${approvedMosque!.id}');
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('حدد المسجد أولاً')),
-                              );
-                            }
-                          },
-                        ),
-                        const SizedBox(height: AppDimensions.paddingSM),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.emoji_events,
-                          title: 'المسابقات',
-                          subtitle: 'المسابقة النشطة والترتيب',
-                          onTap: () {
-                            if (approvedMosque != null) {
-                              context.push('/supervisor/competitions/${approvedMosque!.id}').then((_) {
-                                if (mounted) setState(() => _statsRefreshKey++);
-                              });
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('حدد المسجد أولاً')),
-                              );
-                            }
-                          },
-                        ),
-                        const SizedBox(height: AppDimensions.paddingXXL),
-                      ]),
-                    ),
-                  ),
-                ],
+                    const Spacer(),
+                  ],
+                ),
               ),
-            ),
-          ),
-        ),
-            const ProfileScreen(),
-          ],
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (i) => setState(() => _selectedIndex = i),
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: Colors.grey,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'لوحة المشرف'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'الملف الشخصي'),
-          ],
-        ),
       ),
     );
   }
 
-  bool _isSupervisor(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    return authState is AuthAuthenticated &&
-        authState.userProfile?.role == UserRole.supervisor;
-  }
-
-  Widget _buildJoinMosqueCard(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppDimensions.paddingMD),
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-        child: InkWell(
-          onTap: () => context.push('/mosque/join'),
-          borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-          child: Padding(
-            padding: const EdgeInsets.all(AppDimensions.paddingLG),
-            child: Row(
-              children: [
-                Icon(Icons.group_add, color: Colors.white, size: 40),
-                const SizedBox(width: AppDimensions.paddingMD),
-                Expanded(
-                  child: Column(
+  // ─── Hero Section ───
+  Widget _buildHeroSection(
+    BuildContext context,
+    MosqueModel mosque,
+    dynamic nextPrayer,
+  ) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D2137), Color(0xFF1B4F80), Color(0xFF2D7DD2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'انضم لمسجد',
+                      const Text(
+                        'لوحة المشرف',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
                           color: Colors.white,
+                          letterSpacing: -0.3,
                         ),
                       ),
-                      const SizedBox(height: 4),
                       Text(
-                        'أدخل كود الدعوة الذي أعطاك إياه مدير المسجد',
+                        mosque.name,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: Colors.white.withOpacity(0.65),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                ),
-                Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 18),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildJoinAnotherMosqueLink(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppDimensions.paddingSM),
-      child: TextButton.icon(
-        onPressed: () => context.push('/mosque/join'),
-        icon: const Icon(Icons.add, color: Colors.white70, size: 20),
-        label: Text(
-          'انضم لمسجد آخر (كود الدعوة)',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.95)),
-        ),
-      ),
-    );
-  }
-
-  MosqueModel? _getApprovedMosque(BuildContext context) {
-    final state = context.read<MosqueBloc>().state;
-    if (state is MosqueLoaded) {
-      try {
-        return state.mosques.firstWhere((m) => m.status == MosqueStatus.approved);
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
-  }
-
-  Widget _buildAppBar(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        Text(
-          AppStrings.supervisorDashboardTitle,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(width: 48),
-      ],
-    );
-  }
-
-  Widget _buildMosqueCard(BuildContext context, MosqueModel mosque) {
-    void copyAndShow(String value, String label) {
-      Clipboard.setData(ClipboardData(text: value));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تم نسخ $label'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingMD),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.mosque, color: Colors.white, size: 28),
-              const SizedBox(width: AppDimensions.paddingMD),
-              Expanded(
-                child: Text(
-                  mosque.name,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-                ),
+                  Row(
+                    children: [
+                      // زر انضم لمسجد آخر
+                      GestureDetector(
+                        onTap: () => context.push('/mosque/join').then((_) {
+                          if (mounted) {
+                            context.read<MosqueBloc>().add(
+                              const MosqueLoadMyMosques(),
+                            );
+                          }
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.mosque_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: AppDimensions.paddingSM),
-          _buildCodeRow(
-            context,
-            label: AppStrings.mosqueCode,
-            value: mosque.code,
-            hint: 'لربط الأطفال (ولي الأمر)',
-            onCopy: () => copyAndShow(mosque.code, AppStrings.mosqueCode),
-          ),
-        ],
-      ),
-    );
-  }
+              const SizedBox(height: 22),
 
-  Widget _buildCodeRow(
-    BuildContext context, {
-    required String label,
-    required String value,
-    required String hint,
-    required VoidCallback onCopy,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.85)),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              Text(
-                hint,
-                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7)),
+              // Prayer Card
+              _buildPrayerCard(nextPrayer),
+              const SizedBox(height: 14),
+
+              // Info Row: كود المسجد + إحصائيات
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildHeroInfoChip(
+                      icon: Icons.tag_rounded,
+                      label: 'كود المسجد',
+                      value: mosque.code,
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: mosque.code));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('تم نسخ كود المسجد'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(flex: 2, child: _buildStatsChips(mosque)),
+                ],
               ),
             ],
           ),
         ),
-        IconButton(
-          icon: const Icon(Icons.copy, color: Colors.white, size: 22),
-          onPressed: onCopy,
-          tooltip: AppStrings.copyCode,
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildNextPrayerCard(PrayerInfo? nextPrayer) {
+  Widget _buildPrayerCard(dynamic nextPrayer) {
     final nameAr = nextPrayer?.nameAr ?? '—';
     final timeFormatted = nextPrayer?.timeFormatted ?? '—';
     final remaining = nextPrayer?.remaining;
-    final remainingStr = remaining != null
-        ? '${remaining.inMinutes} د'
-        : '';
+    final remainingMin = remaining?.inMinutes;
 
     return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingMD),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusLG),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+        color: Colors.white.withOpacity(0.13),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.22)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.3),
-              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.schedule, color: Colors.white, size: 28),
+            child: const Icon(
+              Icons.access_time_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
           ),
-          const SizedBox(width: AppDimensions.paddingMD),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppStrings.nextPrayer,
+                  'الصلاة القادمة',
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 11,
+                    color: Colors.white.withOpacity(0.65),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 3),
                 Text(
-                  '$nameAr $timeFormatted',
+                  '$nameAr  $timeFormatted',
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
                     color: Colors.white,
                   ),
                 ),
-                if (remainingStr.isNotEmpty)
-                  Text(
-                    'بعد $remainingStr',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
-                  ),
               ],
             ),
           ),
+          if (remainingMin != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD54F).withOpacity(0.25),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFFFFD54F).withOpacity(0.5),
+                ),
+              ),
+              child: Text(
+                'بعد ${remainingMin}د',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFFFD54F),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
+  Widget _buildHeroInfoChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+    Color? accentColor,
+    bool hasBadge = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.13),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasBadge
+                ? const Color(0xFFFFB74D).withOpacity(0.5)
+                : Colors.white.withOpacity(0.18),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 14,
+                  color: accentColor ?? Colors.white.withOpacity(0.7),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white.withOpacity(0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: accentColor ?? Colors.white,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatsRow(BuildContext context, MosqueModel? approvedMosque) {
-    if (approvedMosque == null) {
-      return Row(
-        children: [
-          Expanded(child: _buildStatChip('حضور اليوم', '0')),
-          const SizedBox(width: AppDimensions.paddingSM),
-          Expanded(child: _buildStatChip('طلاب المسجد', '—')),
-        ],
-      );
-    }
+  Widget _buildStatsChips(MosqueModel mosque) {
     final repo = sl<SupervisorRepository>();
     return FutureBuilder<List<dynamic>>(
       key: ValueKey(_statsRefreshKey),
       future: Future.wait([
-        repo.getTodayAttendanceCount(approvedMosque.id),
-        repo.getMosqueStudents(approvedMosque.id),
+        repo.getTodayAttendanceCount(mosque.id),
+        repo.getMosqueStudents(mosque.id),
       ]),
       builder: (context, snapshot) {
-        final todayCount = snapshot.hasData && snapshot.data != null
+        final todayCount = snapshot.hasData
             ? (snapshot.data![0] as int).toString()
             : '—';
-        final studentsCount = snapshot.hasData && snapshot.data != null
+        final studentsCount = snapshot.hasData
             ? (snapshot.data![1] as List).length.toString()
             : '—';
         return Row(
           children: [
-            Expanded(child: _buildStatChip('حضور اليوم', todayCount)),
-            const SizedBox(width: AppDimensions.paddingSM),
-            Expanded(child: _buildStatChip('طلاب المسجد', studentsCount)),
+            Expanded(
+              child: _buildStatMini(
+                'حضور اليوم',
+                todayCount,
+                Icons.how_to_reg_rounded,
+                const Color(0xFF69F0AE),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildStatMini(
+                'الطلاب',
+                studentsCount,
+                Icons.people_rounded,
+                const Color(0xFF82B1FF),
+              ),
+            ),
           ],
         );
       },
     );
   }
 
-  Widget _buildStatChip(String label, String value) {
+  Widget _buildStatMini(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppDimensions.paddingMD, horizontal: AppDimensions.paddingSM),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+        color: Colors.white.withOpacity(0.13),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.18)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
             style: TextStyle(
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.9),
+              fontWeight: FontWeight.w800,
+              color: color,
+              letterSpacing: 0.3,
             ),
           ),
         ],
@@ -625,70 +644,193 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
     );
   }
 
-  Widget _buildActionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-        child: Container(
-          padding: const EdgeInsets.all(AppDimensions.paddingMD),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+  // ─── Actions Grid: 3 per row — صلاحيات المشرف فقط ───
+  Widget _buildActionsGrid(
+    BuildContext context,
+    MosqueModel? mosque,
+    dynamic nextPrayer,
+  ) {
+    if (mosque == null) return const SizedBox.shrink();
+
+    final actions = [
+      _ActionItem(
+        icon: Icons.qr_code_scanner_rounded,
+        title: 'التحضير',
+        color: const Color(0xFF4CAF50),
+        onTap: () => context.push('/supervisor/scan').then((_) {
+          if (mounted) setState(() => _statsRefreshKey++);
+        }),
+      ),
+      _ActionItem(
+        icon: Icons.people_rounded,
+        title: AppStrings.students,
+        color: const Color(0xFFFF7043),
+        onTap: () => context.push('/supervisor/students').then((_) {
+          if (mounted) setState(() => _statsRefreshKey++);
+        }),
+      ),
+      _ActionItem(
+        icon: Icons.edit_note_rounded,
+        title: 'طلبات التصحيح',
+        color: const Color(0xFF9C27B0),
+        onTap: () =>
+            context.push('/supervisor/corrections/${mosque.id}').then((_) {
+              if (mounted) setState(() => _statsRefreshKey++);
+            }),
+      ),
+      _ActionItem(
+        icon: Icons.note_alt_outlined,
+        title: 'الملاحظات',
+        color: const Color(0xFF00BCD4),
+        onTap: () => context.push('/supervisor/notes/send/${mosque.id}'),
+      ),
+
+      _ActionItem(
+        icon: Icons.add_home_work_rounded,
+        title: 'انضم لمسجد',
+        color: const Color(0xFF5C8BFF),
+        onTap: () => context.push('/mosque/join').then((_) {
+          if (mounted) {
+            context.read<MosqueBloc>().add(const MosqueLoadMyMosques());
+            setState(() => _statsRefreshKey++);
+          }
+        }),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 20, bottom: 14),
+          child: Text(
+            'الإجراءات',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A2B3C),
+              letterSpacing: -0.2,
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusSM),
-                ),
-                child: Icon(icon, color: AppColors.primary, size: 28),
-              ),
-              const SizedBox(width: AppDimensions.paddingMD),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_left, color: Colors.grey.shade400),
-            ],
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: actions.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.05,
           ),
+          itemBuilder: (context, i) => _buildActionTile(context, actions[i]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionTile(BuildContext context, _ActionItem item) {
+    return GestureDetector(
+      onTap: item.onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: item.color.withOpacity(0.13),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: item.color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(item.icon, color: item.color, size: 26),
+            ),
+            const SizedBox(height: 9),
+            Text(
+              item.title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1A2B3C),
+                height: 1.3,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 16,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (i) => setState(() => _selectedIndex = i),
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: const Color(0xFFB0B8C4),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 11,
+        ),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_rounded),
+            label: 'لوحة المشرف',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: 'الملف الشخصي',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionItem {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final VoidCallback onTap;
+  const _ActionItem({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.onTap,
+  });
 }

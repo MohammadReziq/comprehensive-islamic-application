@@ -17,6 +17,9 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
   String? _mosqueId;
   Prayer? _prayer;
   DateTime? _date;
+  String? _lastScannedCode;
+  DateTime? _lastScannedAt;
+  static const _throttleDuration = Duration(seconds: 2);
 
   Future<void> _onLoad(ScannerLoad e, Emitter<ScannerState> emit) async {
     _mosqueId = e.mosqueId;
@@ -70,22 +73,91 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
           recordedChildIds: newRecorded,
           prayer: current.prayer,
           date: current.date,
+          scanMessage: 'تم تسجيل الحضور',
         ),
       );
-    } catch (_) {
-      // keep state, could emit error
+      emit(
+        ScannerReady(
+          students: current.students,
+          recordedChildIds: newRecorded,
+          prayer: current.prayer,
+          date: current.date,
+        ),
+      );
+    } catch (err) {
+      if (state is ScannerReady) {
+        final current = state as ScannerReady;
+        final msg = err.toString().replaceFirst('Exception: ', '');
+        emit(ScannerReady(
+          students: current.students,
+          recordedChildIds: current.recordedChildIds,
+          prayer: current.prayer,
+          date: current.date,
+          scanMessage: msg.isNotEmpty ? msg : 'فشل تسجيل الحضور',
+        ));
+        emit(ScannerReady(
+          students: current.students,
+          recordedChildIds: current.recordedChildIds,
+          prayer: current.prayer,
+          date: current.date,
+        ));
+      }
     }
   }
 
   Future<void> _onScanQr(ScannerScanQr e, Emitter<ScannerState> emit) async {
     final mosqueId = _mosqueId;
     if (mosqueId == null) return;
+    // تخفيف: عدم معالجة نفس الـ QR خلال ثانيتين
+    final now = DateTime.now();
+    if (_lastScannedCode == e.qrCode &&
+        _lastScannedAt != null &&
+        now.difference(_lastScannedAt!) < _throttleDuration) {
+      return;
+    }
+    _lastScannedCode = e.qrCode;
+    _lastScannedAt = now;
+
     try {
       final child = await _repo.findChildByQrCode(e.qrCode, mosqueId);
       if (child != null) {
         add(ScannerRecordAttendance(child.id));
+      } else {
+        if (state is ScannerReady) {
+          final current = state as ScannerReady;
+          emit(ScannerReady(
+            students: current.students,
+            recordedChildIds: current.recordedChildIds,
+            prayer: current.prayer,
+            date: current.date,
+            scanMessage: 'الطالب غير موجود في هذا المسجد أو الباركود غير مطابق',
+          ));
+          emit(ScannerReady(
+            students: current.students,
+            recordedChildIds: current.recordedChildIds,
+            prayer: current.prayer,
+            date: current.date,
+          ));
+        }
       }
-    } catch (_) {}
+    } catch (_) {
+      if (state is ScannerReady) {
+        final current = state as ScannerReady;
+        emit(ScannerReady(
+          students: current.students,
+          recordedChildIds: current.recordedChildIds,
+          prayer: current.prayer,
+          date: current.date,
+          scanMessage: 'حدث خطأ أثناء قراءة الباركود',
+        ));
+        emit(ScannerReady(
+          students: current.students,
+          recordedChildIds: current.recordedChildIds,
+          prayer: current.prayer,
+          date: current.date,
+        ));
+      }
+    }
   }
 
   Future<void> _onRecordByNumber(
