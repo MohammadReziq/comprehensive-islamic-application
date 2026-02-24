@@ -58,3 +58,19 @@ class AuthResetOtpVerified extends AuthState {
 class AuthPasswordResetSuccess extends AuthState {
   const AuthPasswordResetSuccess();
 }
+
+/// بانتظار إدخال رمز تفعيل البريد (بعد إنشاء الحساب)
+class AuthAwaitingEmailVerification extends AuthState {
+  final String email;
+  final String name;
+  final String role;
+
+  const AuthAwaitingEmailVerification({
+    required this.email,
+    required this.name,
+    this.role = 'parent',
+  });
+
+  @override
+  List<Object?> get props => [email, name, role];
+}

@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:video_player/video_player.dart';
+import 'dart:ui';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_responsive.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import '../../../../core/constants/app_enums.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/constants/app_enums.dart';
+import '../../../../core/services/auth_video_manager.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -25,7 +28,31 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _forgotEmailController = TextEditingController();
-  bool _obscurePassword = true;
+
+  // ─── Video via shared manager ────────────────────────────
+  final _mgr = AuthVideoManager();
+  bool _videoReady = false;
+  double _videoOpacity = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    // If video was already loaded (coming from RegisterScreen), show instantly
+    if (_mgr.isReady) {
+      if (mounted) setState(() { _videoReady = true; _videoOpacity = 1.0; });
+      return;
+    }
+    final ok = await _mgr.ensureReady();
+    if (!mounted || !ok) return;
+    setState(() { _videoReady = true; });
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) setState(() => _videoOpacity = 1.0);
+    });
+  }
 
   @override
   void dispose() {
@@ -60,15 +87,27 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final r = AppResponsive(context);
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
+    // Field styling for glass look
+    const fieldFill = Colors.transparent;
+    final fieldBorder = Colors.white.withValues(alpha: 0.35);
+    final fieldIcon = Colors.white.withValues(alpha: 0.65);
+    final fieldHint = Colors.white.withValues(alpha: 0.4);
+
+    final ctrl = _mgr.controller;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         body: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is AuthAuthenticated) {
               final role = state.userProfile?.role;
               if (role == null) return;
+              // Release the shared video when leaving auth flow
+              _mgr.release();
               if (role == UserRole.superAdmin) {
                 context.go('/admin');
               } else if (role == UserRole.imam || role == UserRole.supervisor) {
@@ -110,262 +149,309 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             }
           },
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.primaryDark, AppColors.primary],
-                begin: Alignment.topCenter,
-                end: Alignment.center,
-              ),
-            ),
-            child: SafeArea(
-              child: SingleChildScrollView(
-                // padding سفلي يضمن ظهور الكل حتى على الشاشات القصيرة
-                padding: EdgeInsets.only(bottom: r.vlg),
-                child: Column(
-                  children: [
-                    SizedBox(height: r.isShortPhone ? r.vmd : r.vxl),
-
-                    // ─── الأيقونة ───
-                    Text(
-                          '🕌',
-                          style: TextStyle(fontSize: r.isShortPhone ? 40 : 56),
-                        )
-                        .animate()
-                        .fadeIn(duration: 600.ms)
-                        .scale(
-                          begin: const Offset(0.5, 0.5),
-                          curve: Curves.elasticOut,
-                          duration: 800.ms,
-                        ),
-
-                    SizedBox(height: r.vsm),
-
-                    Text(
-                      AppStrings.appName,
-                      style: TextStyle(
-                        fontSize: r.textXXL,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textOnDark,
-                      ),
-                    ).animate().fadeIn(delay: 200.ms),
-
-                    SizedBox(height: r.vxs),
-
-                    Text(
-                      AppStrings.login,
-                      style: TextStyle(
-                        fontSize: r.textMD,
-                        color: Colors.white.withOpacity(0.8),
-                      ),
-                    ).animate().fadeIn(delay: 300.ms),
-
-                    SizedBox(height: r.isShortPhone ? r.vmd : r.vxl),
-
-                    // ─── Form Card ───
-                    Container(
-                          width: double.infinity,
-                          margin: EdgeInsets.symmetric(horizontal: r.md),
-                          padding: EdgeInsets.all(r.lg),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(r.radiusXL),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // الإيميل
-                                AppTextField(
-                                  controller: _emailController,
-                                  label: AppStrings.email,
-                                  hint: 'example@email.com',
-                                  prefixIcon: Icons.email_outlined,
-                                  keyboardType: TextInputType.emailAddress,
-                                  textDirection: TextDirection.ltr,
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return AppStrings.errorFieldRequired;
-                                    if (!v.contains('@'))
-                                      return AppStrings.errorInvalidEmail;
-                                    return null;
-                                  },
-                                ),
-
-                                SizedBox(height: r.vmd),
-
-                                // كلمة المرور
-                                AppTextField(
-                                  controller: _passwordController,
-                                  label: AppStrings.password,
-                                  hint: '••••••••',
-                                  prefixIcon: Icons.lock_outline,
-                                  obscureText: _obscurePassword,
-                                  textDirection: TextDirection.ltr,
-                                  suffix: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      color: AppColors.textHint,
-                                    ),
-                                    onPressed: () => setState(
-                                      () =>
-                                          _obscurePassword = !_obscurePassword,
-                                    ),
-                                  ),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return AppStrings.errorFieldRequired;
-                                    if (v.length < 6)
-                                      return AppStrings.errorWeakPassword;
-                                    return null;
-                                  },
-                                ),
-
-                                // نسيت كلمة المرور
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: TextButton(
-                                    onPressed: _showForgotPasswordDialog,
-                                    child: Text(
-                                      AppStrings.forgotPassword,
-                                      style: TextStyle(
-                                        color: AppColors.primaryLight,
-                                        fontSize: r.textSM,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                SizedBox(height: r.vsm),
-
-                                // زر تسجيل الدخول
-                                BlocBuilder<AuthBloc, AuthState>(
-                                  builder: (context, state) {
-                                    final isLoading = state is AuthLoading;
-                                    return SizedBox(
-                                      height: r.buttonHeight,
-                                      child: AppButton(
-                                        text: AppStrings.login,
-                                        onPressed: isLoading ? null : _onLogin,
-                                        isLoading: isLoading,
-                                      ),
-                                    );
-                                  },
-                                ),
-
-                                SizedBox(height: r.vmd),
-
-                                // فاصل
-                                Row(
-                                  children: [
-                                    const Expanded(
-                                      child: Divider(color: AppColors.border),
-                                    ),
-                                    Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: r.md,
-                                      ),
-                                      child: Text(
-                                        AppStrings.orLoginWith,
-                                        style: TextStyle(
-                                          color: AppColors.textHint,
-                                          fontSize: r.textSM,
-                                        ),
-                                      ),
-                                    ),
-                                    const Expanded(
-                                      child: Divider(color: AppColors.border),
-                                    ),
-                                  ],
-                                ),
-
-                                SizedBox(height: r.vmd),
-
-                                // زر Google
-                                SizedBox(
-                                  height: r.buttonHeight,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () =>
-                                        context.read<AuthBloc>().add(
-                                          const AuthLoginWithGoogleRequested(),
-                                        ),
-                                    style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(
-                                        color: AppColors.border,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          r.radiusMD,
-                                        ),
-                                      ),
-                                    ),
-                                    icon: Text(
-                                      'G',
-                                      style: TextStyle(
-                                        fontSize: r.textLG,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.error,
-                                      ),
-                                    ),
-                                    label: Text(
-                                      AppStrings.loginWithGoogle,
-                                      style: TextStyle(
-                                        color: AppColors.textPrimary,
-                                        fontSize: r.textMD,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .animate()
-                        .fadeIn(delay: 400.ms, duration: 600.ms)
-                        .slideY(begin: 0.1, curve: Curves.easeOut),
-
-                    SizedBox(height: r.vlg),
-
-                    // رابط إنشاء حساب
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          AppStrings.dontHaveAccount,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: r.textSM,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => context.push('/register'),
-                          child: Text(
-                            AppStrings.register,
-                            style: TextStyle(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: r.textSM,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ).animate().fadeIn(delay: 600.ms),
-                  ],
+          child: Stack(
+            children: [
+              // ─── Layer 1: Gradient fallback (always visible) ───
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.primaryDark, AppColors.primary],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
                 ),
               ),
-            ),
+
+              // ─── Layer 2: Video (fades in when ready) ───
+              if (_videoReady && ctrl != null)
+                AnimatedOpacity(
+                  opacity: _videoOpacity,
+                  duration: const Duration(milliseconds: 500),
+                  child: SizedBox.expand(
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: ctrl.value.size.width,
+                        height: ctrl.value.size.height,
+                        child: VideoPlayer(ctrl),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ─── Layer 3: Gradient overlay ───
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.1),
+                      Colors.black.withValues(alpha: 0.5),
+                      Colors.black.withValues(alpha: 0.72),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+
+              // ─── Layer 4: Content — slides up with keyboard smoothly ───
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: keyboardHeight,
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      children: [
+                        SizedBox(height: r.isShortPhone ? r.vmd : r.vxl),
+
+                        // ─── Logo ───
+                        SizedBox(height: r.vxxl + 90),
+
+                        SizedBox(height: r.isShortPhone ? r.vmd : r.vxl),
+
+                        // ─── Form card ───
+                        ClipRRect(
+                              borderRadius: BorderRadius.circular(r.radiusXL),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(
+                                  sigmaX: 20,
+                                  sigmaY: 20,
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  margin: EdgeInsets.symmetric(
+                                    horizontal: r.md,
+                                  ),
+                                  padding: EdgeInsets.all(r.lg),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(
+                                      r.radiusXL,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Form(
+                                    key: _formKey,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        AppTextField(
+                                          controller: _emailController,
+                                          label: AppStrings.email,
+                                          hint: 'example@email.com',
+                                          prefixIcon: Icons.email_outlined,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          textDirection: TextDirection.ltr,
+                                          fillColor: fieldFill,
+                                          labelColor: Colors.white,
+                                          textColor: Colors.white,
+                                          borderColor: fieldBorder,
+                                          iconColor: fieldIcon,
+                                          hintColor: fieldHint,
+                                          validator: (v) {
+                                            if (v == null || v.isEmpty) {
+                                              return AppStrings
+                                                  .errorFieldRequired;
+                                            }
+                                            if (!v.contains('@')) {
+                                              return AppStrings
+                                                  .errorInvalidEmail;
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        SizedBox(height: r.vmd),
+
+                                        AppTextField.password(
+                                          controller: _passwordController,
+                                          fillColor: fieldFill,
+                                          labelColor: Colors.white,
+                                          textColor: Colors.white,
+                                          borderColor: fieldBorder,
+                                          iconColor: fieldIcon,
+                                          hintColor: fieldHint,
+                                          validator: (v) {
+                                            if (v == null || v.isEmpty) {
+                                              return AppStrings
+                                                  .errorFieldRequired;
+                                            }
+                                            if (v.length < 6) {
+                                              return AppStrings
+                                                  .errorWeakPassword;
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: TextButton(
+                                            onPressed:
+                                                _showForgotPasswordDialog,
+                                            child: Text(
+                                              AppStrings.forgotPassword,
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                                fontSize: r.textSM,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+
+                                        SizedBox(height: r.vsm),
+
+                                        BlocBuilder<AuthBloc, AuthState>(
+                                          builder: (context, state) {
+                                            final isLoading =
+                                                state is AuthLoading;
+                                            return SizedBox(
+                                              height: r.buttonHeight,
+                                              child: AppButton(
+                                                text: AppStrings.login,
+                                                onPressed: isLoading
+                                                    ? null
+                                                    : _onLogin,
+                                                isLoading: isLoading,
+                                              ),
+                                            );
+                                          },
+                                        ),
+
+                                        SizedBox(height: r.vmd),
+
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Divider(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.2,
+                                                ),
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: r.md,
+                                              ),
+                                              child: Text(
+                                                AppStrings.orLoginWith,
+                                                style: TextStyle(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.5),
+                                                  fontSize: r.textSM,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Divider(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.2,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+
+                                        SizedBox(height: r.vmd),
+
+                                        SizedBox(
+                                          height: r.buttonHeight,
+                                          child: OutlinedButton.icon(
+                                            onPressed: () =>
+                                                context.read<AuthBloc>().add(
+                                                  const AuthLoginWithGoogleRequested(),
+                                                ),
+                                            style: OutlinedButton.styleFrom(
+                                              backgroundColor: Colors.white
+                                                  .withValues(alpha: 0.05),
+                                              side: BorderSide(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.22,
+                                                ),
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                      r.radiusMD,
+                                                    ),
+                                              ),
+                                            ),
+                                            icon: Text(
+                                              'G',
+                                              style: TextStyle(
+                                                fontSize: r.textLG,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            label: Text(
+                                              AppStrings.loginWithGoogle,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: r.textMD,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .animate()
+                            .fadeIn(delay: 400.ms, duration: 600.ms)
+                            .slideY(begin: 0.1, curve: Curves.easeOut),
+
+                        SizedBox(height: r.vmd),
+
+                        // ─── Register link ───
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              AppStrings.dontHaveAccount,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: r.textSM,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => context.push('/register'),
+                              child: Text(
+                                AppStrings.register,
+                                style: TextStyle(
+                                  color: AppColors.accent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: r.textSM,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ).animate().fadeIn(delay: 600.ms),
+
+                        SizedBox(height: r.vsm),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

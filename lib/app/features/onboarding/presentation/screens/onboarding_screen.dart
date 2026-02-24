@@ -22,21 +22,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
 
   // ─── بيانات الصفحات ───
-  static const _pages = [
-    _OnboardingPageData(
+  late final _pages = [
+    const _OnboardingPageData(
       lottieAsset: AppAssets.lottieMosque,
       title: AppStrings.onboardingTitle1,
       description: AppStrings.onboardingDesc1,
     ),
-    _OnboardingPageData(
+    const _OnboardingPageData(
       lottieAsset: AppAssets.lottieDadPrayer,
       title: AppStrings.onboardingTitle2,
       description: AppStrings.onboardingDesc2,
     ),
     _OnboardingPageData(
-      lottieAsset: null, // صفحة بدون Lottie — أيقونة فقط
+      lottieAsset: AppAssets.lottieStartUpRocket,
       title: AppStrings.onboardingTitle3,
       description: AppStrings.onboardingDesc3,
+      lottieDelegates: LottieDelegates(
+        values: [
+          ValueDelegate.color(
+            // الجزء الأول هو المسار داخل الطبقات (Layers) في الملف
+            // يمكنك استخدام ['**'] لتغيير كل الألوان، أو تحديد اسم طبقة معينة
+            const ['Shape Layer 26', 'Shape 1', 'Stroke 1'],
+            value: Colors.red, // اللون الجديد الذي تريده
+          ),
+          ValueDelegate.color(
+            // الجزء الأول هو المسار داخل الطبقات (Layers) في الملف
+            // يمكنك استخدام ['**'] لتغيير كل الألوان، أو تحديد اسم طبقة معينة
+            const ['Shape Layer 26', 'Shape 1', 'Stroke 1'],
+            value: Colors.red, // اللون الجديد الذي تريده
+          ),
+        ],
+      ),
     ),
   ];
 
@@ -158,43 +174,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                 // ─── زر التالي / ابدأ ───
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: r.lg),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: r.buttonHeight,
-                    child: ElevatedButton(
-                      onPressed: _nextPage,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        foregroundColor: AppColors.primaryDark,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(r.radiusMD),
+                      padding: EdgeInsets.symmetric(horizontal: r.lg),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: r.buttonHeight,
+                        child: ElevatedButton(
+                          onPressed: _nextPage,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: AppColors.primaryDark,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(r.radiusMD),
+                            ),
+                            elevation: 4,
+                            shadowColor: AppColors.accent.withOpacity(0.4),
+                          ),
+                          child: Text(
+                            _currentPage == _pages.length - 1
+                                ? AppStrings.getStarted
+                                : AppStrings.next,
+                            style: TextStyle(
+                              fontSize: r.textLG,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                        elevation: 4,
-                        shadowColor: AppColors.accent.withOpacity(0.4),
                       ),
-                      child: Text(
-                        _currentPage == _pages.length - 1
-                            ? AppStrings.getStarted
-                            : AppStrings.next,
-                        style: TextStyle(
-                          fontSize: r.textLG,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                )
+                    )
                     .animate()
                     .fadeIn(delay: 600.ms, duration: 500.ms)
                     .slideY(begin: 0.3),
 
                 // ─── تملك حساب؟ سجل دخولك ───
                 Padding(
-                  padding: EdgeInsets.only(
-                    top: r.vsm,
-                    bottom: r.vmd,
-                  ),
+                  padding: EdgeInsets.only(top: r.vsm, bottom: r.vmd),
                   child: TextButton(
                     onPressed: _goToLogin,
                     child: Text(
@@ -222,14 +235,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 // ══════════════════════════════════════════════════════════════
 
 class _OnboardingPageData {
-  final String? lottieAsset;
+  final String lottieAsset;
   final String title;
   final String description;
-
+  final LottieDelegates? lottieDelegates;
   const _OnboardingPageData({
     required this.lottieAsset,
     required this.title,
     required this.description,
+    this.lottieDelegates,
   });
 }
 
@@ -241,10 +255,7 @@ class _OnboardingPage extends StatelessWidget {
   final _OnboardingPageData data;
   final bool isLastPage;
 
-  const _OnboardingPage({
-    required this.data,
-    required this.isLastPage,
-  });
+  const _OnboardingPage({required this.data, required this.isLastPage});
 
   @override
   Widget build(BuildContext context) {
@@ -258,74 +269,40 @@ class _OnboardingPage extends StatelessWidget {
           const Spacer(flex: 1),
 
           // ─── Lottie / Icon ───
-          if (data.lottieAsset != null)
-            Container(
-              height: r.isShortPhone ? r.hp(28) : r.hp(35),
-              constraints: const BoxConstraints(maxHeight: 300),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(r.radiusXL),
-              ),
-              child: Lottie.asset(
-                data.lottieAsset!,
-                fit: BoxFit.contain,
-                repeat: true,
-              ),
-            )
-                .animate()
-                .fadeIn(duration: 600.ms)
-                .scale(
-                  begin: const Offset(0.8, 0.8),
-                  curve: Curves.easeOut,
-                  duration: 700.ms,
-                )
-          else
-            // الصفحة الأخيرة: أيقونة بدل Lottie
-            Container(
-              width: r.isShortPhone ? 100 : 130,
-              height: r.isShortPhone ? 100 : 130,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.accent.withOpacity(0.3),
-                    AppColors.accent.withOpacity(0.1),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+          Container(
+                height: r.isShortPhone ? r.hp(28) : r.hp(35),
+                constraints: const BoxConstraints(maxHeight: 300),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(r.radiusXL),
                 ),
-                border: Border.all(
-                  color: AppColors.accent.withOpacity(0.4),
-                  width: 2,
+                child: Lottie.asset(
+                  data.lottieAsset,
+                  fit: BoxFit.contain,
+                  repeat: true,
+                  delegates: data.lottieDelegates,
                 ),
+              )
+              .animate()
+              .fadeIn(duration: 600.ms)
+              .scale(
+                begin: const Offset(0.8, 0.8),
+                curve: Curves.easeOut,
+                duration: 700.ms,
               ),
-              child: Center(
-                child: Text(
-                  '🚀',
-                  style: TextStyle(fontSize: r.isShortPhone ? 44 : 56),
-                ),
-              ),
-            )
-                .animate()
-                .fadeIn(duration: 600.ms)
-                .scale(
-                  begin: const Offset(0.5, 0.5),
-                  curve: Curves.elasticOut,
-                  duration: 900.ms,
-                ),
 
           SizedBox(height: r.vxl),
 
           // ─── العنوان ───
           Text(
-            data.title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: r.textXXL,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textOnDark,
-              height: 1.4,
-            ),
-          )
+                data.title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: r.textXXL,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textOnDark,
+                  height: 1.4,
+                ),
+              )
               .animate()
               .fadeIn(delay: 200.ms, duration: 500.ms)
               .slideY(begin: 0.2, curve: Curves.easeOut),
@@ -334,14 +311,14 @@ class _OnboardingPage extends StatelessWidget {
 
           // ─── الوصف ───
           Text(
-            data.description,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: r.textMD,
-              color: Colors.white.withOpacity(0.85),
-              height: 1.7,
-            ),
-          )
+                data.description,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: r.textMD,
+                  color: Colors.white.withOpacity(0.85),
+                  height: 1.7,
+                ),
+              )
               .animate()
               .fadeIn(delay: 400.ms, duration: 500.ms)
               .slideY(begin: 0.2, curve: Curves.easeOut),

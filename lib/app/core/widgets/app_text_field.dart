@@ -24,6 +24,13 @@ class AppTextField extends StatelessWidget {
   final void Function()? onTap;
   final FocusNode? focusNode;
   final TextDirection? textDirection;
+  final Color? fillColor;
+  final Color? labelColor;
+  final Color? textColor;
+  // ─── Glass / dark-background support ───
+  final Color? borderColor;
+  final Color? iconColor;
+  final Color? hintColor;
 
   const AppTextField({
     super.key,
@@ -46,6 +53,12 @@ class AppTextField extends StatelessWidget {
     this.onTap,
     this.focusNode,
     this.textDirection,
+    this.fillColor,
+    this.labelColor,
+    this.textColor,
+    this.borderColor,
+    this.iconColor,
+    this.hintColor,
   });
 
   /// حقل بريد إلكتروني
@@ -58,6 +71,12 @@ class AppTextField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.focusNode,
+    this.fillColor,
+    this.labelColor,
+    this.textColor,
+    this.borderColor,
+    this.iconColor,
+    this.hintColor,
   }) : label = 'البريد الإلكتروني',
        prefixIcon = Icons.email_outlined,
        suffix = null,
@@ -80,6 +99,12 @@ class AppTextField extends StatelessWidget {
     void Function(String)? onChanged,
     void Function(String)? onSubmitted,
     FocusNode? focusNode,
+    Color? fillColor,
+    Color? labelColor,
+    Color? textColor,
+    Color? borderColor,
+    Color? iconColor,
+    Color? hintColor,
   }) {
     return _PasswordTextField(
       key: key,
@@ -89,6 +114,12 @@ class AppTextField extends StatelessWidget {
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       focusNode: focusNode,
+      fillColor: fillColor,
+      labelColor: labelColor,
+      textColor: textColor,
+      borderColor: borderColor,
+      iconColor: iconColor,
+      hintColor: hintColor,
     );
   }
 
@@ -102,6 +133,12 @@ class AppTextField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.focusNode,
+    this.fillColor,
+    this.labelColor,
+    this.textColor,
+    this.borderColor,
+    this.iconColor,
+    this.hintColor,
   }) : label = 'رقم الهاتف',
        prefixIcon = Icons.phone_outlined,
        suffix = null,
@@ -122,6 +159,7 @@ class AppTextField extends StatelessWidget {
     this.hint = 'بحث...',
     this.onChanged,
     this.focusNode,
+    this.fillColor,
   }) : label = null,
        errorText = null,
        prefixIcon = Icons.search,
@@ -136,10 +174,26 @@ class AppTextField extends StatelessWidget {
        validator = null,
        onSubmitted = null,
        onTap = null,
-       textDirection = null;
+       textDirection = null,
+       labelColor = null,
+       textColor = null,
+       borderColor = null,
+       iconColor = null,
+       hintColor = null;
+
+  InputBorder? _outlineBorder(Color color, {double width = 1.5}) =>
+      OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color, width: width),
+      );
 
   @override
   Widget build(BuildContext context) {
+    final hasBorder = borderColor != null;
+    final focusedColor = hasBorder
+        ? (borderColor!.withValues(alpha: 1.0))
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -152,7 +206,7 @@ class AppTextField extends StatelessWidget {
               style: GoogleFonts.cairo(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: labelColor ?? AppColors.textPrimary,
               ),
             ),
           ),
@@ -174,13 +228,31 @@ class AppTextField extends StatelessWidget {
           style: GoogleFonts.cairo(
             fontSize: 14,
             fontWeight: FontWeight.w400,
-            color: AppColors.textPrimary,
+            color: textColor ?? AppColors.textPrimary,
           ),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: hintColor != null
+                ? GoogleFonts.cairo(color: hintColor, fontSize: 14)
+                : null,
             errorText: errorText,
-            prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
+            prefixIcon: prefixIcon != null
+                ? Icon(prefixIcon, color: iconColor)
+                : null,
             suffixIcon: suffix,
+            filled: fillColor != null,
+            fillColor: fillColor,
+            border: hasBorder ? _outlineBorder(borderColor!) : null,
+            enabledBorder: hasBorder ? _outlineBorder(borderColor!) : null,
+            focusedBorder: hasBorder
+                ? _outlineBorder(focusedColor!, width: 2.0)
+                : null,
+            errorBorder: hasBorder
+                ? _outlineBorder(AppColors.error)
+                : null,
+            focusedErrorBorder: hasBorder
+                ? _outlineBorder(AppColors.error, width: 2.0)
+                : null,
           ),
         ),
       ],
@@ -198,6 +270,12 @@ class _PasswordTextField extends AppTextField {
     super.onChanged,
     super.onSubmitted,
     super.focusNode,
+    super.fillColor,
+    super.labelColor,
+    super.textColor,
+    super.borderColor,
+    super.iconColor,
+    super.hintColor,
   }) : super(
          label: 'كلمة المرور',
          prefixIcon: Icons.lock_outlined,
@@ -215,6 +293,12 @@ class _PasswordTextField extends AppTextField {
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       focusNode: focusNode,
+      fillColor: fillColor,
+      labelColor: labelColor,
+      textColor: textColor,
+      borderColor: borderColor,
+      iconColor: iconColor,
+      hintColor: hintColor,
     );
   }
 }
@@ -226,6 +310,12 @@ class _PasswordTextFieldStateful extends StatefulWidget {
   final void Function(String)? onChanged;
   final void Function(String)? onSubmitted;
   final FocusNode? focusNode;
+  final Color? fillColor;
+  final Color? labelColor;
+  final Color? textColor;
+  final Color? borderColor;
+  final Color? iconColor;
+  final Color? hintColor;
 
   const _PasswordTextFieldStateful({
     this.controller,
@@ -234,6 +324,12 @@ class _PasswordTextFieldStateful extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.focusNode,
+    this.fillColor,
+    this.labelColor,
+    this.textColor,
+    this.borderColor,
+    this.iconColor,
+    this.hintColor,
   });
 
   @override
@@ -245,8 +341,19 @@ class _PasswordTextFieldStatefulState
     extends State<_PasswordTextFieldStateful> {
   bool _obscure = true;
 
+  InputBorder? _outlineBorder(Color color, {double width = 1.5}) =>
+      OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color, width: width),
+      );
+
   @override
   Widget build(BuildContext context) {
+    final hasBorder = widget.borderColor != null;
+    final focusedColor = hasBorder
+        ? widget.borderColor!.withValues(alpha: 1.0)
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -258,7 +365,7 @@ class _PasswordTextFieldStatefulState
             style: GoogleFonts.cairo(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: widget.labelColor ?? AppColors.textPrimary,
             ),
           ),
         ),
@@ -274,21 +381,37 @@ class _PasswordTextFieldStatefulState
           style: GoogleFonts.cairo(
             fontSize: 14,
             fontWeight: FontWeight.w400,
-            color: AppColors.textPrimary,
+            color: widget.textColor ?? AppColors.textPrimary,
           ),
           decoration: InputDecoration(
-            hintText: '••••••••',
-            errorText: widget.errorText,
-            prefixIcon: const Icon(Icons.lock_outlined),
+            prefixIcon: Icon(
+              Icons.lock_outlined,
+              color: widget.iconColor,
+            ),
             suffixIcon: IconButton(
               icon: Icon(
                 _obscure
                     ? Icons.visibility_off_outlined
                     : Icons.visibility_outlined,
-                color: AppColors.textSecondary,
+                color: widget.iconColor ?? AppColors.textSecondary,
               ),
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
+            filled: widget.fillColor != null,
+            fillColor: widget.fillColor,
+            border: hasBorder ? _outlineBorder(widget.borderColor!) : null,
+            enabledBorder: hasBorder
+                ? _outlineBorder(widget.borderColor!)
+                : null,
+            focusedBorder: hasBorder
+                ? _outlineBorder(focusedColor!, width: 2.0)
+                : null,
+            errorBorder: hasBorder
+                ? _outlineBorder(AppColors.error)
+                : null,
+            focusedErrorBorder: hasBorder
+                ? _outlineBorder(AppColors.error, width: 2.0)
+                : null,
           ),
         ),
       ],

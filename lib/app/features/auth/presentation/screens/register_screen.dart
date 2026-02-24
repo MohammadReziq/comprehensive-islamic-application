@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:video_player/video_player.dart';
+import 'dart:ui';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_responsive.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/constants/app_enums.dart';
+import '../../../../core/services/auth_video_manager.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -26,12 +30,74 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
-  bool _obscurePass = true;
   bool _obscureConfirm = true;
   String _selectedRole = 'parent';
 
+  // ─── Video via shared manager ────────────────────────────
+  final _mgr = AuthVideoManager();
+  bool _videoReady = false;
+  double _videoOpacity = 0.0;
+
+  // ─── Scroll + confirm-field focus ────────────────────────
+  final _scrollCtrl = ScrollController();
+  final _confirmFocus = FocusNode();
+  double _lastKeyboardHeight = 0;
+  Timer? _scrollDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    // Video was already loaded by LoginScreen — show instantly, no flash
+    if (_mgr.isReady) {
+      if (mounted)
+        setState(() {
+          _videoReady = true;
+          _videoOpacity = 1.0;
+        });
+      return;
+    }
+    final ok = await _mgr.ensureReady();
+    if (!mounted || !ok) return;
+    setState(() {
+      _videoReady = true;
+    });
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) setState(() => _videoOpacity = 1.0);
+    });
+  }
+
+  /// Called every build when MediaQuery changes (keyboard open/close).
+  /// Scrolls confirm field into view 120 ms after keyboard settles.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final kh = MediaQuery.of(context).viewInsets.bottom;
+    if (_confirmFocus.hasFocus && kh != _lastKeyboardHeight) {
+      _scrollDebounce?.cancel();
+      if (kh > 0) {
+        _scrollDebounce = Timer(const Duration(milliseconds: 120), () {
+          if (mounted && _scrollCtrl.hasClients) {
+            _scrollCtrl.animateTo(
+              _scrollCtrl.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    }
+    _lastKeyboardHeight = kh;
+  }
+
   @override
   void dispose() {
+    _scrollDebounce?.cancel();
+    _scrollCtrl.dispose();
+    _confirmFocus.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
@@ -55,15 +121,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final r = AppResponsive(context);
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
+    // Glass field styling — matches login screen
+    const fieldFill = Colors.transparent;
+    final fieldBorder = Colors.white.withValues(alpha: 0.35);
+    final fieldIcon = Colors.white.withValues(alpha: 0.65);
+    final fieldHint = Colors.white.withValues(alpha: 0.4);
+
+    final ctrl = _mgr.controller;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         body: BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
+            if (state is AuthAwaitingEmailVerification) {
+              context.go('/verify-email');
+              return;
+            }
             if (state is AuthAuthenticated) {
               final role = state.userProfile?.role;
               if (role == null) return;
+              _mgr.release();
               if (role == UserRole.superAdmin) {
                 context.go('/admin');
               } else if (role == UserRole.imam || role == UserRole.supervisor) {
@@ -84,279 +165,347 @@ class _RegisterScreenState extends State<RegisterScreen> {
               );
             }
           },
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.primaryDark, AppColors.primary],
-                begin: Alignment.topCenter,
-                end: Alignment.center,
-              ),
-            ),
-            child: SafeArea(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(bottom: r.vlg),
-                child: Column(
-                  children: [
-                    SizedBox(height: r.isShortPhone ? r.vsm : r.vlg),
-
-                    // أيقونة
-                    Text(
-                      '🕌',
-                      style: TextStyle(fontSize: r.isShortPhone ? 36 : 48),
-                    ).animate().fadeIn(duration: 600.ms),
-
-                    SizedBox(height: r.vxs),
-
-                    Text(
-                      AppStrings.register,
-                      style: TextStyle(
-                        fontSize: r.textXXL,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textOnDark,
-                      ),
-                    ).animate().fadeIn(delay: 200.ms),
-
-                    Text(
-                      AppStrings.welcomeMessage,
-                      style: TextStyle(
-                        fontSize: r.textSM,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                    ).animate().fadeIn(delay: 300.ms),
-
-                    SizedBox(height: r.isShortPhone ? r.vmd : r.vlg),
-
-                    // Form Card
-                    Container(
-                          width: double.infinity,
-                          margin: EdgeInsets.symmetric(horizontal: r.md),
-                          padding: EdgeInsets.all(r.lg),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(r.radiusXL),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // الاسم
-                                AppTextField(
-                                  controller: _nameCtrl,
-                                  label: AppStrings.name,
-                                  hint: 'أدخل اسمك الكامل',
-                                  prefixIcon: Icons.person_outline,
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return AppStrings.errorFieldRequired;
-                                    if (v.length < 3)
-                                      return 'الاسم يجب أن يكون 3 أحرف على الأقل';
-                                    return null;
-                                  },
-                                ),
-
-                                SizedBox(height: r.vmd),
-
-                                // الإيميل
-                                AppTextField(
-                                  controller: _emailCtrl,
-                                  label: AppStrings.email,
-                                  hint: 'example@email.com',
-                                  prefixIcon: Icons.email_outlined,
-                                  keyboardType: TextInputType.emailAddress,
-                                  textDirection: TextDirection.ltr,
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return AppStrings.errorFieldRequired;
-                                    if (!v.contains('@') || !v.contains('.'))
-                                      return AppStrings.errorInvalidEmail;
-                                    return null;
-                                  },
-                                ),
-
-                                SizedBox(height: r.vmd),
-
-                                // كلمة المرور
-                                AppTextField(
-                                  controller: _passCtrl,
-                                  label: AppStrings.password,
-                                  hint: '6 أحرف على الأقل',
-                                  prefixIcon: Icons.lock_outline,
-                                  obscureText: _obscurePass,
-                                  textDirection: TextDirection.ltr,
-                                  suffix: IconButton(
-                                    icon: Icon(
-                                      _obscurePass
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      color: AppColors.textHint,
-                                    ),
-                                    onPressed: () => setState(
-                                      () => _obscurePass = !_obscurePass,
-                                    ),
-                                  ),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return AppStrings.errorFieldRequired;
-                                    if (v.length < 6)
-                                      return AppStrings.errorWeakPassword;
-                                    return null;
-                                  },
-                                ),
-
-                                SizedBox(height: r.vmd),
-
-                                // تأكيد كلمة المرور
-                                AppTextField(
-                                  controller: _confirmCtrl,
-                                  label: AppStrings.confirmPassword,
-                                  hint: '••••••••',
-                                  prefixIcon: Icons.lock_outline,
-                                  obscureText: _obscureConfirm,
-                                  textDirection: TextDirection.ltr,
-                                  suffix: IconButton(
-                                    icon: Icon(
-                                      _obscureConfirm
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      color: AppColors.textHint,
-                                    ),
-                                    onPressed: () => setState(
-                                      () => _obscureConfirm = !_obscureConfirm,
-                                    ),
-                                  ),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return AppStrings.errorFieldRequired;
-                                    if (v != _passCtrl.text)
-                                      return AppStrings.errorPasswordMismatch;
-                                    return null;
-                                  },
-                                ),
-
-                                SizedBox(height: r.vlg),
-
-                                // اختيار الدور
-                                Text(
-                                  AppStrings.chooseRole,
-                                  style: TextStyle(
-                                    fontSize: r.textMD,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-
-                                SizedBox(height: r.vsm),
-
-                                // بطاقات الأدوار
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _RoleCard(
-                                        emoji: '👨‍👩‍👧',
-                                        title: AppStrings.roleParent,
-                                        subtitle: AppStrings.roleParentDesc,
-                                        isSelected: _selectedRole == 'parent',
-                                        onTap: () => setState(
-                                          () => _selectedRole = 'parent',
-                                        ),
-                                        r: r,
-                                      ),
-                                    ),
-                                    SizedBox(width: r.sm),
-                                    Expanded(
-                                      child: _RoleCard(
-                                        emoji: '🕌',
-                                        title: AppStrings.roleImam,
-                                        subtitle: AppStrings.roleImamDesc,
-                                        isSelected: _selectedRole == 'imam',
-                                        onTap: () => setState(
-                                          () => _selectedRole = 'imam',
-                                        ),
-                                        r: r,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                SizedBox(height: r.vsm),
-
-                                _RoleCard(
-                                  emoji: '📋',
-                                  title: AppStrings.roleSupervisor,
-                                  subtitle: AppStrings.roleSupervisorDesc,
-                                  isSelected: _selectedRole == 'supervisor',
-                                  onTap: () => setState(
-                                    () => _selectedRole = 'supervisor',
-                                  ),
-                                  r: r,
-                                ),
-
-                                SizedBox(height: r.vlg),
-
-                                // زر إنشاء الحساب
-                                BlocBuilder<AuthBloc, AuthState>(
-                                  builder: (context, state) {
-                                    final isLoading = state is AuthLoading;
-                                    return SizedBox(
-                                      height: r.buttonHeight,
-                                      child: AppButton(
-                                        text: AppStrings.register,
-                                        onPressed: isLoading
-                                            ? null
-                                            : _onRegister,
-                                        isLoading: isLoading,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .animate()
-                        .fadeIn(delay: 400.ms, duration: 600.ms)
-                        .slideY(begin: 0.1, curve: Curves.easeOut),
-
-                    SizedBox(height: r.vlg),
-
-                    // رابط تسجيل الدخول
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          AppStrings.alreadyHaveAccount,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: r.textSM,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => context.pop(),
-                          child: Text(
-                            AppStrings.login,
-                            style: TextStyle(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: r.textSM,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ).animate().fadeIn(delay: 600.ms),
-                  ],
+          child: Stack(
+            children: [
+              // ─── Layer 1: Gradient fallback ───
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.primaryDark, AppColors.primary],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
                 ),
               ),
-            ),
+
+              // ─── Layer 2: Video (fades in when ready) ───
+              if (_videoReady && ctrl != null)
+                AnimatedOpacity(
+                  opacity: _videoOpacity,
+                  duration: const Duration(milliseconds: 500),
+                  child: SizedBox.expand(
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: ctrl.value.size.width,
+                        height: ctrl.value.size.height,
+                        child: VideoPlayer(ctrl),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ─── Layer 3: Gradient overlay ───
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.15),
+                      Colors.black.withValues(alpha: 0.55),
+                      Colors.black.withValues(alpha: 0.75),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+
+              // ─── Layer 4: Content — slides up with keyboard smoothly ───
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: keyboardHeight,
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    controller: _scrollCtrl,
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      children: [
+                        SizedBox(height: r.sm),
+
+                        Text(
+                          AppStrings.register,
+                          style: TextStyle(
+                            fontSize: r.textXXL,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textOnDark,
+                          ),
+                        ).animate(),
+
+                        SizedBox(height: r.isShortPhone ? r.vsm : r.vmd),
+
+                        // ─── Form card ───
+                        ClipRRect(
+                              borderRadius: BorderRadius.circular(r.radiusXL),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(
+                                  sigmaX: 20,
+                                  sigmaY: 20,
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  margin: EdgeInsets.symmetric(
+                                    horizontal: r.md,
+                                  ),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: r.lg,
+                                    vertical: r.md,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(
+                                      r.radiusXL,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Form(
+                                    key: _formKey,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        AppTextField(
+                                          controller: _nameCtrl,
+                                          label: AppStrings.name,
+                                          hint: 'أدخل اسمك الكامل',
+                                          prefixIcon: Icons.person_outline,
+                                          fillColor: fieldFill,
+                                          labelColor: Colors.white,
+                                          textColor: Colors.white,
+                                          borderColor: fieldBorder,
+                                          iconColor: fieldIcon,
+                                          hintColor: fieldHint,
+                                          validator: (v) {
+                                            if (v == null || v.isEmpty) {
+                                              return AppStrings
+                                                  .errorFieldRequired;
+                                            }
+                                            if (v.length < 3) {
+                                              return 'الاسم يجب أن يكون 3 أحرف على الأقل';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        SizedBox(height: r.sm),
+
+                                        AppTextField(
+                                          controller: _emailCtrl,
+                                          label: AppStrings.email,
+                                          hint: 'example@email.com',
+                                          prefixIcon: Icons.email_outlined,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          textDirection: TextDirection.ltr,
+                                          fillColor: fieldFill,
+                                          labelColor: Colors.white,
+                                          textColor: Colors.white,
+                                          borderColor: fieldBorder,
+                                          iconColor: fieldIcon,
+                                          hintColor: fieldHint,
+                                          validator: (v) {
+                                            if (v == null || v.isEmpty) {
+                                              return AppStrings
+                                                  .errorFieldRequired;
+                                            }
+                                            if (!v.contains('@') ||
+                                                !v.contains('.')) {
+                                              return AppStrings
+                                                  .errorInvalidEmail;
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        SizedBox(height: r.sm),
+
+                                        AppTextField.password(
+                                          controller: _passCtrl,
+                                          fillColor: fieldFill,
+                                          labelColor: Colors.white,
+                                          textColor: Colors.white,
+                                          borderColor: fieldBorder,
+                                          iconColor: fieldIcon,
+                                          hintColor: fieldHint,
+                                          validator: (v) {
+                                            if (v == null || v.isEmpty) {
+                                              return AppStrings
+                                                  .errorFieldRequired;
+                                            }
+                                            if (v.length < 6) {
+                                              return AppStrings
+                                                  .errorWeakPassword;
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        SizedBox(height: r.sm),
+
+                                        AppTextField(
+                                          controller: _confirmCtrl,
+                                          focusNode: _confirmFocus,
+                                          label: AppStrings.confirmPassword,
+                                          hint: '••••••••',
+                                          prefixIcon: Icons.lock_outline,
+                                          obscureText: _obscureConfirm,
+                                          textDirection: TextDirection.ltr,
+                                          fillColor: fieldFill,
+                                          labelColor: Colors.white,
+                                          textColor: Colors.white,
+                                          borderColor: fieldBorder,
+                                          iconColor: fieldIcon,
+                                          hintColor: fieldHint,
+                                          suffix: IconButton(
+                                            icon: Icon(
+                                              _obscureConfirm
+                                                  ? Icons
+                                                        .visibility_off_outlined
+                                                  : Icons.visibility_outlined,
+                                              color: fieldIcon,
+                                            ),
+                                            onPressed: () => setState(
+                                              () => _obscureConfirm =
+                                                  !_obscureConfirm,
+                                            ),
+                                          ),
+                                          validator: (v) {
+                                            if (v == null || v.isEmpty) {
+                                              return AppStrings
+                                                  .errorFieldRequired;
+                                            }
+                                            if (v != _passCtrl.text) {
+                                              return AppStrings
+                                                  .errorPasswordMismatch;
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        SizedBox(height: r.sm),
+
+                                        Text(
+                                          AppStrings.chooseRole,
+                                          style: TextStyle(
+                                            fontSize: r.textSM,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+
+                                        SizedBox(height: r.sm),
+
+                                        // ─── Role cards ───
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: _RoleCard(
+                                                emoji: Icon(
+                                                  Icons
+                                                      .family_restroom_outlined,
+                                                  color: Colors.white,
+                                                ),
+                                                title: AppStrings.roleParent,
+                                                isSelected:
+                                                    _selectedRole == 'parent',
+                                                onTap: () => setState(
+                                                  () =>
+                                                      _selectedRole = 'parent',
+                                                ),
+                                                r: r,
+                                              ),
+                                            ),
+                                            SizedBox(width: r.sm),
+                                            Expanded(
+                                              child: _RoleCard(
+                                                emoji: Icon(
+                                                  Icons.church_outlined,
+                                                  color: Colors.white,
+                                                ),
+                                                title: AppStrings.roleImam,
+                                                isSelected:
+                                                    _selectedRole == 'imam',
+                                                onTap: () => setState(
+                                                  () => _selectedRole = 'imam',
+                                                ),
+                                                r: r,
+                                              ),
+                                            ),
+                                            SizedBox(width: r.sm),
+                                          ],
+                                        ),
+
+                                        SizedBox(height: r.lg),
+
+                                        BlocBuilder<AuthBloc, AuthState>(
+                                          builder: (context, state) {
+                                            final isLoading =
+                                                state is AuthLoading;
+                                            return SizedBox(
+                                              height: r.buttonHeight,
+                                              child: AppButton(
+                                                text: AppStrings.register,
+                                                onPressed: isLoading
+                                                    ? null
+                                                    : _onRegister,
+                                                isLoading: isLoading,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .animate()
+                            .fadeIn(delay: 400.ms, duration: 600.ms)
+                            .slideY(begin: 0.1, curve: Curves.easeOut),
+
+                        SizedBox(height: r.sm),
+
+                        // ─── Login link ───
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              AppStrings.alreadyHaveAccount,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: r.textSM,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => context.go('/login'),
+                              child: Text(
+                                AppStrings.login,
+                                style: TextStyle(
+                                  color: AppColors.accent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: r.textSM,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ).animate().fadeIn(delay: 600.ms),
+
+                        SizedBox(height: r.sm),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -365,9 +514,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 }
 
 class _RoleCard extends StatelessWidget {
-  final String emoji;
+  final Icon emoji;
   final String title;
-  final String subtitle;
   final bool isSelected;
   final VoidCallback onTap;
   final AppResponsive r;
@@ -375,7 +523,6 @@ class _RoleCard extends StatelessWidget {
   const _RoleCard({
     required this.emoji,
     required this.title,
-    required this.subtitle,
     required this.isSelected,
     required this.onTap,
     required this.r,
@@ -387,36 +534,29 @@ class _RoleCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        padding: EdgeInsets.all(r.md),
+        padding: EdgeInsets.all(r.sm),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primarySurface
-              : AppColors.surfaceVariant,
+              ? Colors.white.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(r.radiusMD),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
+            color: isSelected
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.18),
+            width: isSelected ? 2 : 1.5,
           ),
         ),
         child: Column(
           children: [
-            Text(emoji, style: TextStyle(fontSize: r.isShortPhone ? 24 : 30)),
-            SizedBox(height: r.vxs),
+            emoji,
+            SizedBox(height: r.sm),
             Text(
               title,
               style: TextStyle(
                 fontSize: r.textSM,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? AppColors.primary : AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: r.textXS,
-                color: AppColors.textSecondary,
+                color: Colors.white,
               ),
             ),
           ],

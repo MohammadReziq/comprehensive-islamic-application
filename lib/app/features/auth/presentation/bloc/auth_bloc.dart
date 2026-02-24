@@ -9,12 +9,15 @@ import 'auth_state.dart';
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
   StreamSubscription? _authSubscription;
+  bool _pendingEmailVerification = false;
 
   AuthBloc(this._authRepository) : super(const AuthInitial()) {
     on<AuthCheckRequested>(_onCheckRequested);
     on<AuthLoginRequested>(_onLoginRequested);
     on<AuthLoginWithGoogleRequested>(_onLoginWithGoogleRequested);
     on<AuthRegisterRequested>(_onRegisterRequested);
+    on<AuthVerifySignupCodeRequested>(_onVerifySignupCodeRequested);
+    on<AuthResendSignupCodeRequested>(_onResendSignupCodeRequested);
     on<AuthLogoutRequested>(_onLogoutRequested);
     on<AuthResetPasswordRequested>(_onResetPasswordRequested);
     on<AuthVerifyResetOtpRequested>(_onVerifyResetOtpRequested);
@@ -37,10 +40,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   /// فحص حالة Auth عند بدء التطبيق
+  /// لا نستبدل حالة "بانتظار التحقق" — حتى لا يُدخل المستخدم مباشرة بعد التسجيل
   Future<void> _onCheckRequested(
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
+    if (_pendingEmailVerification || state is AuthAwaitingEmailVerification) return;
+
     emit(const AuthLoading());
 
     try {
@@ -103,11 +109,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  /// إنشاء حساب جديد
+  /// إنشاء حساب جديد ثم إرسال رمز التفعيل إلى البريد
   Future<void> _onRegisterRequested(
     AuthRegisterRequested event,
     Emitter<AuthState> emit,
   ) async {
+    _pendingEmailVerification = true;
     emit(const AuthLoading());
 
     try {
@@ -128,17 +135,56 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
       }
 
-      var profile = await _authRepository.getCurrentUserProfile();
-      if (profile == null) {
-        emit(const AuthError('فشل جلب بيانات المستخدم بعد التسجيل.'));
-        return;
-      }
-
-      emit(AuthAuthenticated(userProfile: profile));
+      await _authRepository.requestSignupVerificationCode(userName: event.name);
+      _pendingEmailVerification = false;
+      emit(AuthAwaitingEmailVerification(
+        email: event.email,
+        name: event.name,
+        role: event.role,
+      ));
     } on AuthException catch (e) {
+      _pendingEmailVerification = false;
       emit(AuthError(_mapAuthError(e.message)));
     } catch (e) {
-      emit(AuthError('حدث خطأ غير متوقع: ${e.toString()}'));
+      _pendingEmailVerification = false;
+      emit(AuthError(e.toString().replaceFirst('Exception: ', '')));
+    }
+  }
+
+  /// التحقق من رمز تفعيل البريد ثم إكمال تسجيل الدخول
+  Future<void> _onVerifySignupCodeRequested(
+    AuthVerifySignupCodeRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    try {
+      await _authRepository.verifySignupCode(event.code);
+      final profile = await _authRepository.getCurrentUserProfile();
+      if (profile == null) {
+        emit(const AuthError('فشل جلب بيانات المستخدم.'));
+        return;
+      }
+      emit(AuthAuthenticated(userProfile: profile));
+    } catch (e) {
+      emit(AuthError(e.toString().replaceFirst('Exception: ', '')));
+    }
+  }
+
+  /// إعادة إرسال رمز تفعيل البريد
+  Future<void> _onResendSignupCodeRequested(
+    AuthResendSignupCodeRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final prev = state;
+    final email = prev is AuthAwaitingEmailVerification ? prev.email : '';
+    final name = prev is AuthAwaitingEmailVerification ? prev.name : '';
+    final role = prev is AuthAwaitingEmailVerification ? prev.role : 'parent';
+    emit(const AuthLoading());
+    try {
+      await _authRepository.requestSignupVerificationCode(userName: name);
+      emit(AuthAwaitingEmailVerification(email: email, name: name, role: role));
+    } catch (e) {
+      emit(AuthError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 

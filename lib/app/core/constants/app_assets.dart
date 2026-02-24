@@ -20,13 +20,15 @@ class AppAssets {
   static const String lottieSplash = '$_lottie/splash.json';
   static const String lottieSuccess = '$_lottie/success.json';
   static const String lottieLoading = '$_lottie/loading.json';
-  static const String lottiePrayer  = '$_lottie/prayer.json';
+  static const String lottiePrayer = '$_lottie/prayer.json';
   static const String lottieCelebration = '$_lottie/celebration.json';
   static const String lottieBadge = '$_lottie/badge.json';
   static const String lottieEmpty = '$_lottie/empty.json';
   static const String lottieError = '$_lottie/error.json';
   static const String lottieMosque = '$_lottie/mosque.json';
   static const String lottieDadPrayer = '$_lottie/dadwithfatherareprayer.json';
+  static const String lottieRocket = '$_lottie/rocket.json';
+  static const String lottieStartUpRocket = '$_lottie/startup_rocket.json';
 
   // ─── أيقونات SVG ───
   static const String iconMosque = '$_icons/mosque.svg';

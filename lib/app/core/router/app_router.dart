@@ -12,6 +12,7 @@ import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/verify_email_screen.dart';
 import '../../features/parent/presentation/screens/home_screen.dart';
 import '../../features/parent/presentation/screens/children_screen.dart';
 import '../../features/parent/presentation/screens/add_child_screen.dart' show AddChildScreen;
@@ -73,7 +74,8 @@ class AppRouter {
       final isUnauthenticated = authState is AuthUnauthenticated;
       final isOnAuth =
           state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/verify-email';
       final isOnSplash = state.matchedLocation == '/splash';
 
       // في الـ Splash: لا نوجّه إلا بعد اكتمال جلب الـ profile (تفادي حلقة التوجيه)
@@ -93,6 +95,12 @@ class AppRouter {
           return '/home';
         }
         return null; // سيتم التوجيه في SplashScreen عبر FutureBuilder
+      }
+
+      // بانتظار إدخال رمز التفعيل → التوجيه لشاشة التحقق
+      if (authState is AuthAwaitingEmailVerification &&
+          state.matchedLocation != '/verify-email') {
+        return '/verify-email';
       }
 
       // إذا حاول الدخول لصفحة محمية وهو غير مسجل
@@ -183,6 +191,11 @@ class AppRouter {
         path: '/register',
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        name: 'verifyEmail',
+        builder: (context, state) => const VerifyEmailScreen(),
       ),
       GoRoute(
         path: '/home',

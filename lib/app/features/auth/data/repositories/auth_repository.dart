@@ -37,6 +37,34 @@ class AuthRepository {
     return response;
   }
 
+  /// طلب إرسال رمز تفعيل البريد (بعد التسجيل) — يستدعي Edge Function
+  Future<void> requestSignupVerificationCode({String? userName}) async {
+    final res = await supabase.functions.invoke(
+      'send-signup-verification-code',
+      body: userName != null && userName.isNotEmpty ? {'userName': userName} : {},
+    );
+    if (res.status != 200) {
+      final msg = (res.data is Map && res.data['error'] != null)
+          ? res.data['error'] as String
+          : 'فشل إرسال الرمز';
+      throw Exception(msg);
+    }
+  }
+
+  /// التحقق من رمز تفعيل البريد — يستدعي Edge Function
+  Future<void> verifySignupCode(String code) async {
+    final res = await supabase.functions.invoke(
+      'verify-signup-code',
+      body: {'code': code.trim()},
+    );
+    if (res.status != 200) {
+      final msg = (res.data is Map && res.data['error'] != null)
+          ? res.data['error'] as String
+          : 'رمز غير صحيح أو منتهي';
+      throw Exception(msg);
+    }
+  }
+
   // ─── تسجيل دخول ───
 
   /// تسجيل دخول بالإيميل وكلمة السر

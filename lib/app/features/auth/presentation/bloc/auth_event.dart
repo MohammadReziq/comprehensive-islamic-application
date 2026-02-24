@@ -93,3 +93,18 @@ class AuthSetNewPasswordRequested extends AuthEvent {
 class AuthResetPasswordFlowFinished extends AuthEvent {
   const AuthResetPasswordFlowFinished();
 }
+
+/// التحقق من رمز تفعيل البريد (بعد التسجيل)
+class AuthVerifySignupCodeRequested extends AuthEvent {
+  final String code;
+
+  const AuthVerifySignupCodeRequested(this.code);
+
+  @override
+  List<Object?> get props => [code];
+}
+
+/// إعادة إرسال رمز تفعيل البريد
+class AuthResendSignupCodeRequested extends AuthEvent {
+  const AuthResendSignupCodeRequested();
+}

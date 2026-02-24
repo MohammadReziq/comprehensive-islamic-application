@@ -49,7 +49,13 @@ lib/firebase_options.dart
 
 # Supabase / env (لا ترفع المفاتيح)
 .env
+.env.*
+!.env.example
 supabase/.env
+supabase/.env.*
+
+# لا تضع مفاتيح في deno.json — استخدم Supabase Dashboard → Secrets
+# (RESEND_API_KEY يُضبط في Dashboard وليس في الملفات)
 
 # Node (Supabase CLI - لا ترفع node_modules)
 node_modules/
