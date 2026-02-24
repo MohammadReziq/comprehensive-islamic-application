@@ -10,7 +10,7 @@ class RealtimeService {
   RealtimeChannel? _notesChannel;
   RealtimeChannel? _announcementsChannel;
 
-  /// الاشتراك في تغييرات الحضور لأطفال معيّنين (لولي الأمر).
+  /// الاشتراك في تغييرات الحضور لأبناء معيّنين (لولي الأمر).
   void subscribeAttendanceForChildIds(
     List<String> childIds,
     void Function(PostgresChangePayload payload) onEvent,
@@ -61,7 +61,7 @@ class RealtimeService {
         .subscribe();
   }
 
-  /// الاشتراك في تغييرات ربط الأطفال بالمسجد
+  /// الاشتراك في تغييرات ربط الأبناء بالمسجد
   void subscribeMosqueChildren(
     String mosqueId,
     void Function(PostgresChangePayload payload) onEvent,
@@ -113,7 +113,7 @@ class RealtimeService {
         .subscribe();
   }
 
-  /// الاشتراك في الملاحظات لأطفال معينين (لولي الأمر)
+  /// الاشتراك في الملاحظات لأبناء معينين (لولي الأمر)
   void subscribeNotesForChildren(
     List<String> childIds,
     void Function(PostgresChangePayload payload) onEvent,

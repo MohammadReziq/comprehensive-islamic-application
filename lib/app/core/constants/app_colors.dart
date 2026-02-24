@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// ألوان تطبيق صلاتي حياتي
-/// تصميم ملائم للأطفال - ألوان مبهجة ودافئة
+/// تصميم ملائم للأبناء - ألوان مبهجة ودافئة
 class AppColors {
   AppColors._();
 

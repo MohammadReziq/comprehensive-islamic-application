@@ -24,8 +24,8 @@ class CorrectionTile extends StatelessWidget {
 
   String get _childName {
     final children = correction['children'];
-    if (children is Map) return children['name'] as String? ?? 'طفل';
-    return 'طفل';
+    if (children is Map) return children['name'] as String? ?? 'ابن';
+    return 'ابن';
   }
 
   String get _prayerName {

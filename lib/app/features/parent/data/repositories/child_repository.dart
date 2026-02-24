@@ -5,7 +5,7 @@ import '../../../../models/attendance_model.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
 
-/// نتيجة إضافة طفل — مع بيانات الدخول للابن إن تم إنشاء الحساب
+/// نتيجة إضافة ابن — مع بيانات الدخول للابن إن تم إنشاء الحساب
 class AddChildResult {
   final ChildModel child;
   final String? email;
@@ -14,14 +14,14 @@ class AddChildResult {
   const AddChildResult(this.child, {this.email, this.password});
 }
 
-/// مستودع الأطفال - إضافة، جلب، ربط بمسجد
+/// مستودع الأبناء - إضافة، جلب، ربط بمسجد
 class ChildRepository {
   ChildRepository(this._authRepo, this._mosqueRepo);
 
   final AuthRepository _authRepo;
   final MosqueRepository _mosqueRepo;
 
-  /// الطفل المرتبط بحساب تسجيل الدخول (للدور child) — RLS تسمح بالقراءة إن كان userId = المستخدم الحالي
+  /// الابن المرتبط بحساب تسجيل الدخول (للدور child) — RLS تسمح بالقراءة إن كان userId = المستخدم الحالي
   Future<ChildModel?> getChildByLoginUserId(String userId) async {
     final row = await supabase
         .from('children')
@@ -32,7 +32,7 @@ class ChildRepository {
     return ChildModel.fromJson(row);
   }
 
-  /// طفل واحد (إن كان من أطفالي)
+  /// ابن واحد (إن كان من أبنائي)
   Future<ChildModel?> getMyChild(String childId) async {
     final user = await _authRepo.getCurrentUserProfile();
     if (user == null) return null;
@@ -46,7 +46,7 @@ class ChildRepository {
     return ChildModel.fromJson(row);
   }
 
-  /// أطفالي
+  /// أبنائي
   Future<List<ChildModel>> getMyChildren() async {
     final user = await _authRepo.getCurrentUserProfile();
     if (user == null) return [];
@@ -59,7 +59,7 @@ class ChildRepository {
     return (res as List).map((e) => ChildModel.fromJson(e)).toList();
   }
 
-  /// إضافة طفل. إن وُجدت [email] و [password] يُنشَأ حساب للابن عبر Edge Function وتُرجع بيانات الدخول.
+  /// إضافة ابن. إن وُجدت [email] و [password] يُنشَأ حساب للابن عبر Edge Function وتُرجع بيانات الدخول.
   Future<AddChildResult> addChild({
     required String name,
     required int age,
@@ -91,13 +91,13 @@ class ChildRepository {
           );
         }
       } catch (_) {
-        // الطفل مُدرج؛ إرجاع النتيجة بدون credentials
+        // الابن مُدرج؛ إرجاع النتيجة بدون credentials
       }
     }
     return AddChildResult(child);
   }
 
-  /// ربط طفل بمسجد (بكود المسجد)
+  /// ربط ابن بمسجد (بكود المسجد)
   Future<void> linkChildToMosque({
     required String childId,
     required String mosqueCode,
@@ -109,7 +109,7 @@ class ChildRepository {
     if (mosque == null) throw Exception('كود المسجد غير صحيح أو المسجد غير معتمد');
 
     final children = await getMyChildren();
-    if (!children.any((c) => c.id == childId)) throw Exception('الطفل غير موجود');
+    if (!children.any((c) => c.id == childId)) throw Exception('الابن غير موجود');
 
     final maxNum = await supabase
         .from('mosque_children')
@@ -133,7 +133,7 @@ class ChildRepository {
     });
   }
 
-  /// مساجد الطفل (المرتبط بها)
+  /// مساجد الابن (المرتبط بها)
   Future<List<String>> getChildMosqueIds(String childId) async {
     final res = await supabase
         .from('mosque_children')
@@ -143,7 +143,7 @@ class ChildRepository {
     return (res as List).map((e) => e['mosque_id'] as String).toList();
   }
 
-  /// حضور طفل واحد في تاريخ معيّن (للابن أو ولي الأمر — RLS يسمح للابن بحضوره فقط)
+  /// حضور ابن واحد في تاريخ معيّن (للابن أو ولي الأمر — RLS يسمح للابن بحضوره فقط)
   Future<List<AttendanceModel>> getAttendanceForChildOnDate(
     String childId,
     DateTime date,
@@ -158,7 +158,7 @@ class ChildRepository {
     return (res as List).map((e) => AttendanceModel.fromJson(e)).toList();
   }
 
-  /// حضور أطفالي لتاريخ معيّن (لولي الأمر — دورة حياة الحضور)
+  /// حضور أبنائي لتاريخ معيّن (لولي الأمر — دورة حياة الحضور)
   Future<List<AttendanceModel>> getAttendanceForMyChildren(DateTime date) async {
     final user = await _authRepo.getCurrentUserProfile();
     if (user == null) return [];
@@ -179,12 +179,12 @@ class ChildRepository {
     return (res as List).map((e) => AttendanceModel.fromJson(e)).toList();
   }
 
-  /// ملف الطفل الشامل — الطفل + مساجده + نقاطه + سلسلته
+  /// ملف الابن الشامل — الابن + مساجده + نقاطه + سلسلته
   Future<Map<String, dynamic>> getFullChildProfile(String childId) async {
     final child = await getMyChild(childId);
-    if (child == null) throw Exception('الطفل غير موجود');
+    if (child == null) throw Exception('الابن غير موجود');
 
-    // مساجد الطفل
+    // مساجد الابن
     final mosqueIds = await getChildMosqueIds(childId);
 
     // إجمالي النقاط
@@ -212,7 +212,7 @@ class ChildRepository {
     };
   }
 
-  /// سجل حضور الطفل — مع ترقيم
+  /// سجل حضور الابن — مع ترقيم
   Future<List<AttendanceModel>> getAttendanceHistory(
     String childId, {
     int limit = 50,
@@ -229,7 +229,7 @@ class ChildRepository {
     return (res as List).map((e) => AttendanceModel.fromJson(e)).toList();
   }
 
-  /// تقرير أسبوعي/شهري للطفل
+  /// تقرير أسبوعي/شهري للابن
   Future<Map<String, dynamic>> getChildReport(
     String childId, {
     required DateTime fromDate,

@@ -26,7 +26,7 @@ class NoteModel {
   });
 
   factory NoteModel.fromJson(Map<String, dynamic> json) {
-    // اسم الطفل: من JOIN مع children أو من الحقل المباشر
+    // اسم الابن: من JOIN مع children أو من الحقل المباشر
     String? childName;
     final childrenData = json['children'];
     if (childrenData is Map<String, dynamic> && childrenData['name'] != null) {

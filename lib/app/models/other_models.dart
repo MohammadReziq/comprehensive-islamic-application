@@ -101,7 +101,7 @@ class MosqueJoinRequestModel extends Equatable {
   List<Object?> get props => [id, mosqueId, userId, status, requestedAt, userName, userEmail];
 }
 
-/// نموذج ربط الطفل بالمسجد
+/// نموذج ربط الابن بالمسجد
 class MosqueChildModel extends Equatable {
   final String id;
   final String mosqueId;

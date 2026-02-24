@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-/// نموذج الطفل
+/// نموذج الابن
 class ChildModel extends Equatable {
   final String id;
   final String parentId;

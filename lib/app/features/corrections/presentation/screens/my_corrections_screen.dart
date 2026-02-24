@@ -110,7 +110,7 @@ class _RequestCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  request.childName ?? 'طفل',
+                  request.childName ?? 'ابن',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,

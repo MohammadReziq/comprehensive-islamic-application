@@ -79,7 +79,7 @@ class SupervisorRepository {
     return (res as List).map((e) => e['child_id'] as String).toSet();
   }
 
-  /// تسجيل حضور طفل لصلاة في المسجد
+  /// تسجيل حضور ابن لصلاة في المسجد
   Future<AttendanceModel> recordAttendance({
     required String mosqueId,
     required String childId,
@@ -148,7 +148,7 @@ class SupervisorRepository {
     }
   }
 
-  /// البحث عن طفل بـ QR في قائمة طلاب المسجد (أو من جدول children)
+  /// البحث عن ابن بـ QR في قائمة طلاب المسجد (أو من جدول children)
   Future<ChildModel?> findChildByQrCode(String qrCode, String mosqueId) async {
     final trimmed = qrCode.trim();
     if (trimmed.isEmpty) return null;
@@ -173,7 +173,7 @@ class SupervisorRepository {
     return ChildModel.fromJson(c);
   }
 
-  /// جلب بيانات طفل بالمعرّف (للإمام/المشرف — RLS تسمح فقط بأطفال مسجدهم)
+  /// جلب بيانات ابن بالمعرّف (للإمام/المشرف — RLS تسمح فقط بأبناء مسجدهم)
   Future<ChildModel?> getChildById(String childId) async {
     final row = await supabase
         .from('children')
@@ -184,7 +184,7 @@ class SupervisorRepository {
     return ChildModel.fromJson(row);
   }
 
-  /// طفل برقمه المحلي في المسجد
+  /// ابن برقمه المحلي في المسجد
   Future<ChildModel?> findChildByLocalNumber(int localNumber, String mosqueId) async {
     final row = await supabase
         .from('mosque_children')
@@ -222,7 +222,7 @@ class SupervisorRepository {
     }
   }
 
-  /// البحث عن طفل بالاسم في قائمة طلاب المسجد
+  /// البحث عن ابن بالاسم في قائمة طلاب المسجد
   Future<List<ChildModel>> findChildByName(String name, String mosqueId) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return [];

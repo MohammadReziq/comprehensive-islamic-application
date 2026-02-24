@@ -69,7 +69,7 @@ class _ChildCardScreenState extends State<ChildCardScreen> {
         _mosqueCodeCtrl.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم ربط الطفل بالمسجد'),
+            content: Text('تم ربط الابن بالمسجد'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -99,7 +99,7 @@ class _ChildCardScreenState extends State<ChildCardScreen> {
             : _error != null
             ? _buildError()
             : _child == null
-            ? const Center(child: Text('الطفل غير موجود'))
+            ? const Center(child: Text('الابن غير موجود'))
             : CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(child: _buildHeader(context)),
@@ -203,7 +203,7 @@ class _ChildCardScreenState extends State<ChildCardScreen> {
       child: Column(
         children: [
           const Text(
-            'بطاقة الطفل',
+            'بطاقة الابن',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,

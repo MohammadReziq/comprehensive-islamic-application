@@ -24,7 +24,7 @@ class ScannerLoad extends ScannerEvent {
   List<Object?> get props => [mosqueId, prayer, date];
 }
 
-/// تسجيل حضور طفل
+/// تسجيل حضور ابن
 class ScannerRecordAttendance extends ScannerEvent {
   const ScannerRecordAttendance(this.childId);
 

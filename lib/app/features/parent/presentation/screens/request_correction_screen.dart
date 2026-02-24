@@ -401,7 +401,7 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
           Icon(Icons.mosque_rounded, size: 48, color: Colors.grey.shade300),
           const SizedBox(height: 12),
           const Text(
-            'الطفل غير مرتبط بأي مسجد',
+            'الابن غير مرتبط بأي مسجد',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
@@ -410,7 +410,7 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'اذهب لبطاقة الطفل وأضف كود المسجد أولاً',
+            'اذهب لبطاقة الابن وأضف كود المسجد أولاً',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
           ),

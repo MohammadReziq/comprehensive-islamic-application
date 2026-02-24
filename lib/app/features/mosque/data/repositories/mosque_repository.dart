@@ -200,7 +200,7 @@ class MosqueRepository {
     return list.any((m) => m.status == MosqueStatus.approved);
   }
 
-  /// جلب مساجد بعدة معرفات (مثلاً مساجد الطفل لشاشة طلب التصحيح)
+  /// جلب مساجد بعدة معرفات (مثلاً مساجد الابن لشاشة طلب التصحيح)
   Future<List<MosqueModel>> getMosquesByIds(List<String> ids) async {
     if (ids.isEmpty) return [];
     final list = await supabase
@@ -211,7 +211,7 @@ class MosqueRepository {
     return (list as List).map((e) => MosqueModel.fromJson(e)).toList();
   }
 
-  /// مسجد معتمد بكوده (لربط الأطفال من ولي الأمر)
+  /// مسجد معتمد بكوده (لربط الأبناء من ولي الأمر)
   Future<MosqueModel?> getApprovedMosqueByCode(String code) async {
     final trimmed = code.trim().toUpperCase();
     if (trimmed.isEmpty) return null;

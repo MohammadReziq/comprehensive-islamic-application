@@ -22,7 +22,7 @@ class NotLoggedInFailure extends AppFailure {
   const NotLoggedInFailure() : super('يجب تسجيل الدخول أولاً');
 }
 
-/// تكرار حضور لنفس (طفل، صلاة، تاريخ)
+/// تكرار حضور لنفس (ابن، صلاة، تاريخ)
 class DuplicateAttendanceFailure extends AppFailure {
   const DuplicateAttendanceFailure()
       : super('تم تسجيل الحضور لهذه الصلاة مسبقاً');

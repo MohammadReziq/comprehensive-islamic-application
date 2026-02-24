@@ -158,7 +158,7 @@ class _NotesInboxScreenState extends State<NotesInboxScreen> {
                 Row(
                   children: [
                     Text(
-                      note['child_name'] ?? 'طفل',
+                      note['child_name'] ?? 'ابن',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -231,7 +231,7 @@ class _NotesInboxScreenState extends State<NotesInboxScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'ستظهر هنا ملاحظات المشرف لأطفالك',
+            'ستظهر هنا ملاحظات المشرف لأبنائك',
             style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
           ),
         ],

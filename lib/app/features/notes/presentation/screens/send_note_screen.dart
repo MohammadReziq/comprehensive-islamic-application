@@ -80,9 +80,9 @@ class _SendNoteScreenState extends State<SendNoteScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ─── اختيار الطفل ───
+                    // ─── اختيار الابن ───
                     const Text(
-                      'اختر الطفل',
+                      'اختر الابن',
                       style: TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 16),
                     ),
@@ -93,7 +93,7 @@ class _SendNoteScreenState extends State<SendNoteScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        hintText: 'اختر طفلاً',
+                        hintText: 'اختر ابناً',
                       ),
                       items: widget.children.map((c) {
                         return DropdownMenuItem(
@@ -163,7 +163,7 @@ class _SendNoteScreenState extends State<SendNoteScreen> {
                                 if (_selectedChild == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                        content: Text('اختر طفلاً أولاً')),
+                                        content: Text('اختر ابناً أولاً')),
                                   );
                                   return;
                                 }

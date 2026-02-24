@@ -43,7 +43,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('أدخل اسم الطفل'),
+          content: Text('أدخل اسم الابن'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -93,7 +93,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
                     children: [
                       _buildCard(
                         children: [
-                          _label('اسم الطفل'),
+                          _label('اسم الابن'),
                           _field(
                             _nameCtrl,
                             'مثال: أحمد محمد',
@@ -199,7 +199,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
                                   ),
                                 )
                               : const Text(
-                                  'إضافة الطفل',
+                                  'إضافة الابن',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
@@ -250,7 +250,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
               ),
               const SizedBox(width: 14),
               const Text(
-                'إضافة طفل',
+                'إضافة ابن',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,

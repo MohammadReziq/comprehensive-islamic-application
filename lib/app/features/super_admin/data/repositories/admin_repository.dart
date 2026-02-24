@@ -29,7 +29,7 @@ class AdminRepository {
       final users = await supabase.from('users').select('id, role');
       final totalUsers = (users as List).length;
 
-      // إجمالي الأطفال
+      // إجمالي الأبناء
       final children = await supabase.from('children').select('id');
       final totalChildren = (children as List).length;
 

@@ -10,7 +10,7 @@ import '../bloc/notes_bloc.dart';
 import '../bloc/notes_event.dart';
 import '../bloc/notes_state.dart';
 
-/// اسم الطفل من الداتا؛ إن لم يُجلب نعرض "لم نستطع جلب الاسم" لتعرف أن الحالة خطأ وتختبر التطبيق.
+/// اسم الابن من الداتا؛ إن لم يُجلب نعرض "لم نستطع جلب الاسم" لتعرف أن الحالة خطأ وتختبر التطبيق.
 String _effectiveChildName(String? childName) {
   final trimmed = childName?.trim();
   if (trimmed != null && trimmed.isNotEmpty) return trimmed;

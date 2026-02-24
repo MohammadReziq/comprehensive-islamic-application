@@ -1,4 +1,4 @@
-// شاشة إنشاء طلب تصحيح — لولي الأمر (من بطاقة الطفل)
+// شاشة إنشاء طلب تصحيح — لولي الأمر (من بطاقة الابن)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -54,7 +54,7 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
       if (ids.isEmpty) {
         if (mounted) setState(() {
           _loadingMosques = false;
-          _errorMosques = 'اربط ابنك بمسجد أولاً من بطاقة الطفل';
+          _errorMosques = 'اربط ابنك بمسجد أولاً من بطاقة الابن';
         });
         return;
       }
@@ -160,7 +160,7 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
                             children: [
                               if (widget.childName != null) ...[
                                 Text(
-                                  'طفل: ${widget.childName!}',
+                                  'ابن: ${widget.childName!}',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,

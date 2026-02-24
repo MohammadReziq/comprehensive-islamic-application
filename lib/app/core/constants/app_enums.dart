@@ -93,7 +93,7 @@ enum MosqueRole {
   }
 }
 
-/// نوع ربط الطفل بالمسجد
+/// نوع ربط الابن بالمسجد
 enum MosqueType {
   primary('primary', 'أساسي'),
   secondary('secondary', 'إضافي');

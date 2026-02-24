@@ -61,7 +61,7 @@ class CompetitionModel {
   }
 }
 
-/// ترتيب طفل في المسابقة
+/// ترتيب ابن في المسابقة
 class LeaderboardEntry {
   final String childId;
   final String childName;

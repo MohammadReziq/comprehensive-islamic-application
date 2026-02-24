@@ -11,7 +11,7 @@ class NotesRepository {
   final AuthRepository _authRepo;
 
   // ─────────────────────────────────────────────────────────
-  // مشرف/إمام: إرسال ملاحظة لولي أمر طفل
+  // مشرف/إمام: إرسال ملاحظة لولي أمر ابن
   // ─────────────────────────────────────────────────────────
 
   Future<NoteModel> sendNote({
@@ -40,7 +40,7 @@ class NotesRepository {
   }
 
   // ─────────────────────────────────────────────────────────
-  // ولي الأمر: ملاحظات أطفاله (مرتبة بالأحدث)
+  // ولي الأمر: ملاحظات أبنائه (مرتبة بالأحدث)
   // ─────────────────────────────────────────────────────────
 
   Future<List<NoteModel>> getNotesForMyChildren(
@@ -48,7 +48,7 @@ class NotesRepository {
     try {
       if (childIds.isEmpty) return [];
 
-      // جلب الملاحظات مع اسم الطفل من جدول children (JOIN)
+      // جلب الملاحظات مع اسم الابن من جدول children (JOIN)
       final res = await supabase
           .from('notes')
           .select('*, children(name)')
@@ -65,7 +65,7 @@ class NotesRepository {
   // مشرف: الملاحظات التي أرسلها
   // ─────────────────────────────────────────────────────────
 
-  /// ملاحظات أرسلها المستخدم (مشرف/إمام) — مع اسم الطفل للعرض
+  /// ملاحظات أرسلها المستخدم (مشرف/إمام) — مع اسم الابن للعرض
   Future<List<NoteModel>> getMySentNotes() async {
     try {
       final user = await _authRepo.getCurrentUserProfile();
@@ -99,7 +99,7 @@ class NotesRepository {
   }
 
   // ─────────────────────────────────────────────────────────
-  // تحديث كل ملاحظات طفل كمقروءة
+  // تحديث كل ملاحظات ابن كمقروءة
   // ─────────────────────────────────────────────────────────
 
   Future<void> markAllReadForChild(String childId) async {

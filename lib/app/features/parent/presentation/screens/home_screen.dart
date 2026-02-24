@@ -332,14 +332,14 @@ class _HomeScreenState extends State<HomeScreen>
               _buildPrayerCard(nextPrayer),
               const SizedBox(height: 14),
 
-              // Stats Row: أطفالي | حضور اليوم
+              // Stats Row: أبنائي | حضور اليوم
               Row(
                 children: [
                   Expanded(
                     child: _buildHeroChip(
                       icon: Icons.child_care_rounded,
-                      label: 'أطفالي',
-                      value: '${children.length} أطفال',
+                      label: 'أبنائي',
+                      value: '${children.length} أبناء',
                       onTap: () => context.push('/parent/children'),
                     ),
                   ),
@@ -522,13 +522,13 @@ class _HomeScreenState extends State<HomeScreen>
     final actions = [
       _Action(
         Icons.child_care_rounded,
-        'أطفالي',
+        'أبنائي',
         const Color(0xFF5C8BFF),
         () => context.push('/parent/children'),
       ),
       _Action(
         Icons.person_add_rounded,
-        'إضافة طفل',
+        'إضافة ابن',
         const Color(0xFF4CAF50),
         () => context.push('/parent/children/add'),
       ),
@@ -550,7 +550,7 @@ class _HomeScreenState extends State<HomeScreen>
         const Color(0xFFFF7043),
         () => context.push('/parent/corrections'),
       ),
-      _Action(Icons.qr_code_rounded, 'بطاقة طفل', const Color(0xFFFFB300), () {
+      _Action(Icons.qr_code_rounded, 'بطاقة ابن', const Color(0xFFFFB300), () {
         if (children.isNotEmpty) {
           context.push('/parent/children/${children.first.id}/card');
         } else {
@@ -691,7 +691,7 @@ class _HomeScreenState extends State<HomeScreen>
       (c) => c.id == attendance.childId,
       orElse: () => ChildModel(
         id: '',
-        name: 'طفل',
+        name: 'ابن',
         age: 0,
         parentId: '',
         qrCode: '',
@@ -852,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             const SizedBox(height: 14),
             const Text(
-              'أضف طفلك الأول',
+              'أضف ابنك الأول',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -861,7 +861,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             const SizedBox(height: 6),
             Text(
-              'اضغط لإضافة طفل وربطه بمسجد',
+              'اضغط لإضافة ابن وربطه بمسجد',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
             ),
             const SizedBox(height: 16),
@@ -872,7 +872,7 @@ class _HomeScreenState extends State<HomeScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                'إضافة طفل',
+                'إضافة ابن',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,

@@ -11,9 +11,9 @@ class GamificationRepository {
 
   final AuthRepository _authRepo;
 
-  // ─── مستوى الطفل ───
+  // ─── مستوى الابن ───
 
-  /// حساب مستوى الطفل بناءً على إجمالي النقاط
+  /// حساب مستوى الابن بناءً على إجمالي النقاط
   /// المستويات: كل 100 نقطة = مستوى جديد
   Future<Map<String, dynamic>> getChildLevel(String childId) async {
     try {
@@ -44,9 +44,9 @@ class GamificationRepository {
     }
   }
 
-  // ─── شارات الطفل ───
+  // ─── شارات الابن ───
 
-  /// حساب الشارات المستحقة للطفل
+  /// حساب الشارات المستحقة للابن
   Future<List<Map<String, dynamic>>> getChildBadges(String childId) async {
     try {
       final badges = <Map<String, dynamic>>[];
@@ -91,13 +91,13 @@ class GamificationRepository {
 
   // ─── ترتيب المسجد (عام) ───
 
-  /// ترتيب الأطفال في مسجد حسب إجمالي النقاط
+  /// ترتيب الأبناء في مسجد حسب إجمالي النقاط
   Future<List<Map<String, dynamic>>> getMosqueLeaderboard(
     String mosqueId, {
     int limit = 20,
   }) async {
     try {
-      // جلب أطفال المسجد
+      // جلب أبناء المسجد
       final children = await supabase
           .from('mosque_children')
           .select('child_id')

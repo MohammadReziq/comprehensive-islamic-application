@@ -811,10 +811,11 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
 
   static const _roleFilters = [
     (key: null, label: 'الكل', color: AppColors.primary),
+    (key: 'super_admin', label: 'مديرو النظام', color: AppColors.primary),
     (key: 'parent', label: 'أولياء أمور', color: AppColors.info),
     (key: 'imam', label: 'أئمة', color: AppColors.success),
     (key: 'supervisor', label: 'مشرفون', color: AppColors.warning),
-    (key: 'child', label: 'أطفال', color: Color(0xFF9B59B6)),
+    (key: 'child', label: 'أبناء', color: Color(0xFF9B59B6)),
   ];
 
   @override
@@ -990,10 +991,11 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
   void _showChangeRoleDialog(BuildContext context, Map<String, dynamic> user) {
     String selected = user['role'] as String? ?? 'parent';
     final roleLabels = {
+      'super_admin': 'مدير النظام (سوبر أدمن)',
       'parent': 'ولي أمر',
       'imam': 'إمام',
       'supervisor': 'مشرف',
-      'child': 'طفل',
+      'child': 'ابن',
     };
     showDialog(
       context: context,
@@ -1107,7 +1109,7 @@ class _UserCard extends StatelessWidget {
       case 'supervisor':
         return 'مشرف';
       case 'child':
-        return 'طفل';
+        return 'ابن';
       default:
         return user['role'] ?? '';
     }
@@ -1385,7 +1387,7 @@ class AdminStatsTab extends StatelessWidget {
                 ),
                 _StatCard(
                   icon: Icons.child_care_rounded,
-                  label: 'إجمالي الأطفال',
+                  label: 'إجمالي الأبناء',
                   value: children.toString(),
                   color: const Color(0xFF9B59B6),
                 ),

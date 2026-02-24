@@ -119,7 +119,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'ولي الأمر يربط أطفاله بكود المسجد',
+                              'ولي الأمر يربط أبناءه بكود المسجد',
                               style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                             ),
                           ],

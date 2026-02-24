@@ -139,19 +139,19 @@ class CompetitionRepository {
   }
 
   // ─────────────────────────────────────────────────────────
-  // ترتيب الأطفال في مسابقة (Leaderboard)
+  // ترتيب الأبناء في مسابقة (Leaderboard)
   // ─────────────────────────────────────────────────────────
 
   Future<List<LeaderboardEntry>> getLeaderboard(
       String competitionId) async {
     try {
-      // نجمع الحضور المرتبط بالمسابقة ونحسب النقاط لكل طفل
+      // نجمع الحضور المرتبط بالمسابقة ونحسب النقاط لكل ابن
       final res = await supabase
           .from('attendance')
           .select('child_id, points_earned, children(name)')
           .eq('competition_id', competitionId);
 
-      // تجميع النقاط لكل طفل
+      // تجميع النقاط لكل ابن
       final Map<String, Map<String, dynamic>> byChild = {};
       for (final row in (res as List)) {
         final childId = row['child_id'] as String;

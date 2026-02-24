@@ -4,7 +4,7 @@ class AppStrings {
 
   // ─── عام ───
   static const String appName = 'صلاتي حياتي';
-  static const String appTagline = 'تابع صلاة أطفالك بسهولة';
+  static const String appTagline = 'تابع صلاة أبنائك بسهولة';
 
   // ─── Auth ───
   static const String login = 'تسجيل الدخول';
@@ -22,10 +22,21 @@ class AppStrings {
   static const String alreadyHaveAccount = 'لديك حساب بالفعل؟';
   static const String loginWithGoogle = 'تسجيل بحساب Google';
 
+  // ─── Onboarding ───
+  static const String onboardingTitle1 = 'مرحباً بك في صلاتي حياتي 🕌';
+  static const String onboardingDesc1 = 'تابع صلاة أبنائك وساعدهم على بناء عادة الصلاة في المسجد';
+  static const String onboardingTitle2 = 'صلاة العائلة معاً 👨‍👧‍👦';
+  static const String onboardingDesc2 = 'سجّل حضور أبنائك، تابع تقدمهم، وشاركهم الإنجازات';
+  static const String onboardingTitle3 = 'ابدأ الآن! 🚀';
+  static const String onboardingDesc3 = 'أنشئ حسابك وابدأ رحلة ابنك مع الصلاة';
+  static const String getStarted = 'ابدأ';
+  static const String skip = 'تخطي';
+  static const String alreadyHaveAccountQuestion = 'تملك حساب؟ سجل دخولك';
+
   // ─── اختيار الدور ───
   static const String chooseRole = 'اختر ما يناسبك';
   static const String roleParent = 'ولي أمر';
-  static const String roleParentDesc = 'تابع صلاة أطفالك واحصل على تقارير';
+  static const String roleParentDesc = 'تابع صلاة أبنائك واحصل على تقارير';
   static const String roleImam = 'إمام (مدير المسجد)';
   static const String roleImamDesc = 'أنشئ مسجدك وادعُ المشرفين، وسجّل حضور الطلاب';
   static const String roleSupervisor = 'مشرف';
@@ -88,12 +99,12 @@ class AppStrings {
   static const String shareInviteCode = 'مشاركة كود الدعوة';
   static const String copyCode = 'نسخ الكود';
 
-  // ─── الأطفال ───
-  static const String children = 'الأطفال';
-  static const String addChild = 'إضافة طفل';
-  static const String childName = 'اسم الطفل';
+  // ─── الأبناء ───
+  static const String children = 'الأبناء';
+  static const String addChild = 'إضافة ابن';
+  static const String childName = 'اسم الابن';
   static const String childAge = 'العمر';
-  static const String childCard = 'بطاقة الطفل';
+  static const String childCard = 'بطاقة الابن';
   static const String printCard = 'طباعة البطاقة';
   static const String shareCard = 'مشاركة البطاقة';
   static const String regenerateQR = 'إعادة توليد QR';

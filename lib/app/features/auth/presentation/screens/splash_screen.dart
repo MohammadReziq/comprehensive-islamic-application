@@ -1,9 +1,13 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_player/video_player.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
-import '../../../../core/constants/app_responsive.dart';
+import '../../../../core/constants/app_storage_keys.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_state.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,136 +17,130 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  late final String _randomQuote;
+  VideoPlayerController? _controller;
+  bool _videoReady    = false;
+  bool _videoEnded    = false;
+  bool _authResolved  = false;
+  String? _destination;
+
+  // مسار الفيديو — ضع ملفك هنا
+  static const _videoAsset = 'assets/videos/splash.mp4';
 
   @override
   void initState() {
     super.initState();
-    final random = Random();
-    _randomQuote =
-        AppStrings.prayerQuotes[random.nextInt(AppStrings.prayerQuotes.length)];
+    // إخفاء شريط الحالة أثناء السبلاش
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _initVideo();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkCurrentAuth());
+  }
+
+  // ─── تهيئة الفيديو ───────────────────────────────────────────────────────
+  Future<void> _initVideo() async {
+    try {
+      final ctrl = VideoPlayerController.asset(_videoAsset);
+      await ctrl.initialize();
+      ctrl.setLooping(false);
+      ctrl.setVolume(0); // صامت — غيّر لـ 1.0 إذا عندك صوت
+      ctrl.addListener(_onVideoTick);
+      await ctrl.play();
+      if (!mounted) return;
+      setState(() {
+        _controller  = ctrl;
+        _videoReady  = true;
+      });
+    } catch (_) {
+      // الفيديو مو موجود بعد → انتقل فوراً بعد تحليل Auth
+      _videoEnded = true;
+      _tryNavigate();
+    }
+  }
+
+  void _onVideoTick() {
+    final ctrl = _controller;
+    if (ctrl == null || _videoEnded) return;
+    final pos = ctrl.value.position;
+    final dur = ctrl.value.duration;
+    if (dur > Duration.zero && pos >= dur - const Duration(milliseconds: 100)) {
+      _videoEnded = true;
+      _tryNavigate();
+    }
+  }
+
+  // ─── Auth ────────────────────────────────────────────────────────────────
+  void _checkCurrentAuth() {
+    if (!mounted) return;
+    final state = context.read<AuthBloc>().state;
+    _handleAuthState(state);
+  }
+
+  Future<void> _handleAuthState(AuthState state) async {
+    if (state is AuthAuthenticated) {
+      _destination  = '/home';
+      _authResolved = true;
+      _tryNavigate();
+    } else if (state is AuthUnauthenticated || state is AuthError) {
+      await _resolveUnauthenticated();
+    }
+    // AuthInitial / AuthLoading → ننتظر BlocListener
+  }
+
+  Future<void> _resolveUnauthenticated() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen  = prefs.getBool(AppStorageKeys.onboardingSeen) ?? false;
+    _destination  = seen ? '/login' : '/onboarding';
+    _authResolved = true;
+    _tryNavigate();
+  }
+
+  // ─── الانتقال عندما ينتهي الفيديو + يتحل الـ Auth ───────────────────────
+  void _tryNavigate() {
+    if (!mounted || !_authResolved || !_videoEnded) return;
+    final dest = _destination;
+    if (dest == null) return;
+    // إعادة شريط الحالة
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    context.go(dest);
   }
 
   @override
+  void dispose() {
+    _controller?.removeListener(_onVideoTick);
+    _controller?.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  // ─── UI ──────────────────────────────────────────────────────────────────
+  @override
   Widget build(BuildContext context) {
-    final r = AppResponsive(context);
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) => _handleAuthState(state),
       child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primaryDark,
-                AppColors.primary,
-                AppColors.secondary,
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Spacer(flex: 2),
-
-                // أيقونة المسجد
-                Container(
-                      width: r.avatarHero,
-                      height: r.avatarHero,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 2,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '🕌',
-                          style: TextStyle(fontSize: r.isShortPhone ? 40 : 52),
-                        ),
-                      ),
-                    )
-                    .animate()
-                    .fadeIn(duration: 800.ms)
-                    .scale(
-                      begin: const Offset(0.5, 0.5),
-                      curve: Curves.elasticOut,
-                      duration: 1000.ms,
-                    ),
-
-                SizedBox(height: r.vlg),
-
-                Text(
-                      AppStrings.appName,
-                      style: TextStyle(
-                        fontSize: r.textHero,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textOnDark,
-                        letterSpacing: 1.5,
-                      ),
-                    )
-                    .animate()
-                    .fadeIn(delay: 400.ms, duration: 600.ms)
-                    .slideY(begin: 0.3, curve: Curves.easeOut),
-
-                SizedBox(height: r.vxs),
-
-                Text(
-                  AppStrings.appTagline,
-                  style: TextStyle(
-                    fontSize: r.textMD,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ).animate().fadeIn(delay: 700.ms, duration: 500.ms),
-
-                const Spacer(flex: 2),
-
-                // آية / حديث
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: r.xl),
-                  child: Container(
-                    padding: EdgeInsets.all(r.md),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(r.radiusLG),
-                      border: Border.all(color: Colors.white.withOpacity(0.15)),
-                    ),
-                    child: Text(
-                      _randomQuote,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: r.isShortPhone ? r.textXS : r.textSM,
-                        color: Colors.white.withOpacity(0.9),
-                        height: 1.8,
-                      ),
-                    ),
-                  ),
-                ).animate().fadeIn(delay: 1000.ms, duration: 800.ms),
-
-                const Spacer(),
-
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Colors.white.withOpacity(0.7),
-                  ),
-                ).animate().fadeIn(delay: 1200.ms),
-
-                SizedBox(height: r.vlg),
-              ],
-            ),
-          ),
-        ),
+        backgroundColor: AppColors.primaryDark,
+        body: _buildBody(),
       ),
     );
+  }
+
+  Widget _buildBody() {
+    final ctrl = _controller;
+
+    // ─ فيديو جاهز ─
+    if (_videoReady && ctrl != null && ctrl.value.isInitialized) {
+      return SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width:  ctrl.value.size.width,
+            height: ctrl.value.size.height,
+            child:  VideoPlayer(ctrl),
+          ),
+        ),
+      );
+    }
+
+    // ─ شاشة سوداء ريثما يحمّل الفيديو — بتبيّن وكأنه الفيديو بلّش فوراً ─
+    return const SizedBox.expand();
   }
 }

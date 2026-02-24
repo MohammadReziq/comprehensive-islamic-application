@@ -160,7 +160,7 @@ class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  correction['child_name'] ?? 'طفل',
+                  correction['child_name'] ?? 'ابن',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,

@@ -78,7 +78,7 @@ class ChildrenScreen extends StatelessWidget {
           backgroundColor: AppColors.primary,
           icon: const Icon(Icons.add_rounded, color: Colors.white),
           label: const Text(
-            'إضافة طفل',
+            'إضافة ابن',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
           ),
         ),
@@ -118,7 +118,7 @@ class ChildrenScreen extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               const Text(
-                'أطفالي',
+                'أبنائي',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -232,7 +232,7 @@ class ChildrenScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             const Text(
-              'لا يوجد أطفال بعد',
+              'لا يوجد أبناء بعد',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -241,7 +241,7 @@ class ChildrenScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'اضغط على "إضافة طفل" لإضافة طفلك الأول',
+              'اضغط على "إضافة ابن" لإضافة ابنك الأول',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
             ),

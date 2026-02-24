@@ -38,7 +38,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
         setState(() {
           _child = c;
           _loading = false;
-          if (c == null) _error = 'الطفل غير موجود';
+          if (c == null) _error = 'الابن غير موجود';
         });
       }
     } catch (e) {
@@ -85,7 +85,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                     ),
                   )
                 : _child == null
-                    ? const Center(child: Text('الطفل غير موجود'))
+                    ? const Center(child: Text('الابن غير موجود'))
                     : SingleChildScrollView(
                         padding: const EdgeInsets.all(AppDimensions.paddingLG),
                         child: Column(

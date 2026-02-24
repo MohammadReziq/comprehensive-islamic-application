@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>تصدير أيقونات صلاتي حياتي</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: #0D1F35;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px;
+      min-height: 100vh;
+    }
+    h1 { color: #FFD700; font-size: 1.8rem; margin-bottom: 6px; }
+    p  { color: #87CEEB; font-size: 0.9rem; margin-bottom: 24px; }
+    h2 { color: #FFD700; font-size: 1.1rem; margin: 20px 0 12px; align-self: flex-start; }
+    .section { width: 100%; max-width: 900px; }
+    .section-title {
+      color: #FFE566;
+      font-size: 1rem;
+      border-bottom: 1px solid #2D5F8A;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: flex-start;
+      margin-bottom: 28px;
+    }
+    .card {
+      background: #1A3A5C;
+      border: 1px solid #2D5F8A;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      min-width: 140px;
+    }
+    .card h3 { color: #FFD700; font-size: 0.8rem; margin-bottom: 8px; }
+    .card canvas { display: block; margin: 0 auto 8px; }
+    .card .size  { color: #87CEEB; font-size: 0.72rem; margin-bottom: 8px; }
+    /* معاينة splash على خلفية زرقاء */
+    .card canvas.splash-preview { background: #1A3A5C; border-radius: 4px; }
+    button {
+      background: #F1C40F;
+      color: #0D1F35;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 16px;
+      font-weight: bold;
+      font-size: 0.82rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover { background: #FFD700; }
+    .btn-all {
+      background: #FFD700;
+      color: #0D1F35;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 36px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-bottom: 28px;
+    }
+    .btn-all:hover { background: #FFE566; }
+    .note {
+      background: #1A3A5C;
+      border: 1px solid #2D5F8A;
+      border-radius: 10px;
+      padding: 16px 22px;
+      max-width: 700px;
+      color: #87CEEB;
+      font-size: 0.85rem;
+      line-height: 1.8;
+    }
+    .note strong { color: #FFD700; }
+    code {
+      background: #0D1F35;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #87CEEB;
+    }
+    .tag-icon   { background: #2D5F8A; color: #87CEEB; border-radius: 4px; padding: 1px 6px; font-size: 0.72rem; }
+    .tag-splash { background: #1A5C3A; color: #87CEEB; border-radius: 4px; padding: 1px 6px; font-size: 0.72rem; }
+  </style>
+</head>
+<body>
+  <h1>🕌 تصدير أيقونات صلاتي حياتي</h1>
+  <p>أيقونة التطبيق (مع خلفية) + أيقونة Splash (شفافة على أزرق)</p>
+
+  <button class="btn-all" onclick="downloadAll()">⬇ تحميل الكل دفعةً واحدة</button>
+
+  <!-- قسم أيقونة التطبيق -->
+  <div class="section">
+    <div class="section-title">🔵 أيقونة التطبيق (Launcher Icon) — مع خلفية زرقاء مدورة</div>
+    <div class="grid" id="gridIcon"></div>
+  </div>
+
+  <!-- قسم Splash -->
+  <div class="section">
+    <div class="section-title">✨ أيقونة شاشة البداية (Splash) — شفافة تُوضع على خلفية زرقاء</div>
+    <div class="grid" id="gridSplash"></div>
+  </div>
+
+  <div class="note">
+    <strong>📂 بعد التحميل:</strong><br><br>
+    ١. <code>app_icon_1024.png</code> → <code>assets/images/app_icon.png</code><br>
+    ٢. <code>splash_icon_512.png</code> → <code>assets/images/splash_icon.png</code><br>
+    <br>
+    <strong>🖥 Terminal:</strong><br>
+    <code>dart run flutter_launcher_icons</code><br>
+    <code>dart run flutter_native_splash:create</code>
+  </div>
+
+  <!-- ── SVG الأيقونة (مع خلفية) ── -->
+  <svg id="svgIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" style="display:none">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#0D1F35"/>
+        <stop offset="55%"  stop-color="#1A3A5C"/>
+        <stop offset="100%" stop-color="#2D5F8A"/>
+      </linearGradient>
+      <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%"   stop-color="#FFE566"/>
+        <stop offset="100%" stop-color="#CC8800"/>
+      </linearGradient>
+      <mask id="crescent">
+        <rect width="1024" height="1024" fill="white"/>
+        <circle cx="548" cy="112" r="56" fill="black"/>
+      </mask>
+    </defs>
+    <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+    <circle cx="510" cy="110" r="68" fill="url(#gold)" mask="url(#crescent)"/>
+    <g transform="translate(596,72) scale(2.2)">
+      <polygon points="10,0 12.35,6.76 19.51,6.91 13.80,11.24 15.88,18.09 10,14 4.12,18.09 6.20,11.24 0.49,6.91 7.65,6.76" fill="url(#gold)"/>
+    </g>
+    <rect x="198" y="460" width="68" height="356" rx="16" fill="white" opacity="0.96"/>
+    <rect x="181" y="552" width="102" height="20" rx="10" fill="white" opacity="0.75"/>
+    <path d="M 198,460 Q 232,385 266,460 Z" fill="white" opacity="0.96"/>
+    <rect x="226" y="360" width="12" height="54" rx="6" fill="url(#gold)"/>
+    <circle cx="232" cy="356" r="18" fill="url(#gold)"/>
+    <circle cx="232" cy="331" r="16" fill="url(#gold)" opacity="0.96"/>
+    <circle cx="239" cy="324" r="11" fill="#1A3A5C"/>
+    <rect x="758" y="460" width="68" height="356" rx="16" fill="white" opacity="0.96"/>
+    <rect x="741" y="552" width="102" height="20" rx="10" fill="white" opacity="0.75"/>
+    <path d="M 758,460 Q 792,385 826,460 Z" fill="white" opacity="0.96"/>
+    <rect x="786" y="360" width="12" height="54" rx="6" fill="url(#gold)"/>
+    <circle cx="792" cy="356" r="18" fill="url(#gold)"/>
+    <circle cx="792" cy="331" r="16" fill="url(#gold)" opacity="0.96"/>
+    <circle cx="799" cy="324" r="11" fill="#1A3A5C"/>
+    <path d="M 266,560 C 266,495 370,200 512,200 C 654,200 758,495 758,560 Z" fill="white" opacity="0.97"/>
+    <rect x="504" y="168" width="16" height="56" rx="8" fill="url(#gold)"/>
+    <circle cx="512" cy="163" r="26" fill="url(#gold)"/>
+    <circle cx="512" cy="130" r="24" fill="url(#gold)" opacity="0.97"/>
+    <circle cx="521" cy="122" r="17" fill="#1A3A5C"/>
+    <rect x="266" y="560" width="492" height="246" fill="white" opacity="0.97"/>
+    <rect x="266" y="560" width="492" height="12" fill="url(#gold)" opacity="0.5"/>
+    <path d="M 312,770 L 312,662 Q 362,596 412,662 L 412,770 Z" fill="#D6EAF8" opacity="0.78"/>
+    <path d="M 612,770 L 612,662 Q 662,596 712,662 L 712,770 Z" fill="#D6EAF8" opacity="0.78"/>
+    <path d="M 448,806 L 448,676 Q 512,602 576,676 L 576,806 Z" fill="url(#bg)" opacity="0.88"/>
+    <path d="M 448,806 L 448,676 Q 512,602 576,676 L 576,806" stroke="url(#gold)" stroke-width="7" fill="none" opacity="0.65"/>
+    <rect x="266" y="806" width="492" height="24" fill="white" opacity="0.97"/>
+    <rect x="228" y="830" width="568" height="18" rx="6" fill="white" opacity="0.72"/>
+    <rect x="190" y="848" width="644" height="14" rx="7" fill="white" opacity="0.42"/>
+    <line x1="156" y1="890" x2="440" y2="890" stroke="url(#gold)" stroke-width="3" opacity="0.45"/>
+    <polygon points="512,878 526,890 512,902 498,890" fill="url(#gold)" opacity="0.88"/>
+    <line x1="584" y1="890" x2="868" y2="890" stroke="url(#gold)" stroke-width="3" opacity="0.45"/>
+    <circle cx="156" cy="890" r="7" fill="url(#gold)" opacity="0.5"/>
+    <circle cx="868" cy="890" r="7" fill="url(#gold)" opacity="0.5"/>
+  </svg>
+
+  <!-- ── SVG السبلاش (خلفية شفافة) ── -->
+  <svg id="svgSplash" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" style="display:none">
+    <defs>
+      <linearGradient id="goldS" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%"   stop-color="#FFE566"/>
+        <stop offset="100%" stop-color="#CC8800"/>
+      </linearGradient>
+      <mask id="crescentS">
+        <rect width="512" height="512" fill="white"/>
+        <circle cx="274" cy="56" r="28" fill="black"/>
+      </mask>
+    </defs>
+    <!-- خلفية شفافة تماماً — بدون rect -->
+    <circle cx="255" cy="55" r="34" fill="url(#goldS)" mask="url(#crescentS)"/>
+    <g transform="translate(298,36) scale(1.1)">
+      <polygon points="10,0 12.35,6.76 19.51,6.91 13.80,11.24 15.88,18.09 10,14 4.12,18.09 6.20,11.24 0.49,6.91 7.65,6.76" fill="url(#goldS)"/>
+    </g>
+    <rect x="98" y="228" width="34" height="180" rx="8" fill="white" opacity="0.95"/>
+    <rect x="89" y="274" width="52" height="10" rx="5" fill="white" opacity="0.72"/>
+    <path d="M 98,228 Q 115,190 132,228 Z" fill="white" opacity="0.95"/>
+    <rect x="112" y="178" width="6" height="27" rx="3" fill="url(#goldS)"/>
+    <circle cx="115" cy="175" r="9"  fill="url(#goldS)"/>
+    <circle cx="115" cy="163" r="8"  fill="url(#goldS)" opacity="0.96"/>
+    <circle cx="119" cy="159" r="5.5" fill="#1A3A5C"/>
+    <rect x="380" y="228" width="34" height="180" rx="8" fill="white" opacity="0.95"/>
+    <rect x="371" y="274" width="52" height="10" rx="5" fill="white" opacity="0.72"/>
+    <path d="M 380,228 Q 397,190 414,228 Z" fill="white" opacity="0.95"/>
+    <rect x="394" y="178" width="6" height="27" rx="3" fill="url(#goldS)"/>
+    <circle cx="397" cy="175" r="9"  fill="url(#goldS)"/>
+    <circle cx="397" cy="163" r="8"  fill="url(#goldS)" opacity="0.96"/>
+    <circle cx="401" cy="159" r="5.5" fill="#1A3A5C"/>
+    <path d="M 132,280 C 132,248 185,100 256,100 C 327,100 380,248 380,280 Z" fill="white" opacity="0.97"/>
+    <rect x="252" y="82" width="8" height="28" rx="4" fill="url(#goldS)"/>
+    <circle cx="256" cy="79" r="13" fill="url(#goldS)"/>
+    <circle cx="256" cy="64" r="12" fill="url(#goldS)" opacity="0.97"/>
+    <circle cx="261" cy="60" r="8.5" fill="#1A3A5C"/>
+    <rect x="132" y="280" width="248" height="124" fill="white" opacity="0.97"/>
+    <rect x="132" y="280" width="248" height="6" fill="url(#goldS)" opacity="0.5"/>
+    <path d="M 156,385 L 156,332 Q 181,298 206,332 L 206,385 Z" fill="#D6EAF8" opacity="0.75"/>
+    <path d="M 306,385 L 306,332 Q 331,298 356,332 L 356,385 Z" fill="#D6EAF8" opacity="0.75"/>
+    <path d="M 224,404 L 224,338 Q 256,301 288,338 L 288,404 Z" fill="#1A3A5C" opacity="0.75"/>
+    <path d="M 224,404 L 224,338 Q 256,301 288,338 L 288,404" stroke="url(#goldS)" stroke-width="3.5" fill="none" opacity="0.65"/>
+    <rect x="132" y="404" width="248" height="12" fill="white" opacity="0.97"/>
+    <rect x="114" y="416" width="284" height="9"  rx="3" fill="white" opacity="0.7"/>
+    <rect x="96"  y="425" width="320" height="7"  rx="3" fill="white" opacity="0.4"/>
+    <line x1="78"  y1="446" x2="220" y2="446" stroke="url(#goldS)" stroke-width="1.5" opacity="0.45"/>
+    <polygon points="256,439 264,446 256,453 248,446" fill="url(#goldS)" opacity="0.9"/>
+    <line x1="292" y1="446" x2="434" y2="446" stroke="url(#goldS)" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="78"  cy="446" r="4" fill="url(#goldS)" opacity="0.5"/>
+    <circle cx="434" cy="446" r="4" fill="url(#goldS)" opacity="0.5"/>
+    <circle cx="240" cy="470" r="3.5" fill="url(#goldS)" opacity="0.35"/>
+    <circle cx="256" cy="470" r="3.5" fill="url(#goldS)" opacity="0.6"/>
+    <circle cx="272" cy="470" r="3.5" fill="url(#goldS)" opacity="0.35"/>
+  </svg>
+
+  <script>
+    // ─── أيقونة التطبيق ───
+    const ICON_EXPORTS = [
+      { label: 'Launcher Icon',  size: 1024, file: 'app_icon_1024.png', preview: 110 },
+      { label: 'Adaptive Foreground', size: 1024, file: 'app_icon.png', preview: 110 },
+    ];
+
+    // ─── Splash (شفاف) ───
+    const SPLASH_EXPORTS = [
+      { label: 'Splash Icon (512)',  size: 512, file: 'splash_icon_512.png', preview: 110, isSplash: true },
+      { label: 'Splash Icon (288)',  size: 288, file: 'splash_icon.png',     preview: 100, isSplash: true },
+    ];
+
+    const allExports = [];
+
+    function buildSection(exports, svgEl, gridId) {
+      const svgStr  = new XMLSerializer().serializeToString(svgEl);
+      const blob    = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const url     = URL.createObjectURL(blob);
+      const img     = new Image();
+      const grid    = document.getElementById(gridId);
+
+      exports.forEach((ex, i) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const cls = ex.isSplash ? 'splash-preview' : '';
+        card.innerHTML = `
+          <h3>${ex.label}</h3>
+          <canvas id="c_${gridId}_${i}" class="${cls}" width="${ex.preview}" height="${ex.preview}"></canvas>
+          <div class="size">${ex.size} × ${ex.size} px</div>
+          <button onclick="downloadCanvas('c_${gridId}_${i}', ${ex.size}, '${ex.file}', ${!!ex.isSplash})">⬇ تحميل</button>
+        `;
+        grid.appendChild(card);
+      });
+
+      img.onload = () => {
+        exports.forEach((ex, i) => {
+          const canvas = document.getElementById(`c_${gridId}_${i}`);
+          const ctx = canvas.getContext('2d');
+          if (ex.isSplash) {
+            ctx.fillStyle = '#1A3A5C';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        });
+      };
+      img.src = url;
+
+      exports.forEach((ex, i) => {
+        allExports.push({ gridId, i, size: ex.size, file: ex.file, isSplash: !!ex.isSplash, img });
+      });
+    }
+
+    buildSection(ICON_EXPORTS,   document.getElementById('svgIcon'),   'gridIcon');
+    buildSection(SPLASH_EXPORTS, document.getElementById('svgSplash'), 'gridSplash');
+
+    function downloadCanvas(canvasId, size, file, isSplash) {
+      const src = document.getElementById(canvasId);
+      const full = document.createElement('canvas');
+      full.width  = size;
+      full.height = size;
+      const ctx = full.getContext('2d');
+      if (isSplash) {
+        ctx.fillStyle = '#1A3A5C';
+        ctx.fillRect(0, 0, size, size);
+      }
+      // إيجاد الـ img المرتبط
+      const entry = allExports.find(e => `c_${e.gridId}_${e.i}` === canvasId);
+      if (entry) ctx.drawImage(entry.img, 0, 0, size, size);
+      const link = document.createElement('a');
+      link.download = file;
+      link.href = full.toDataURL('image/png');
+      link.click();
+    }
+
+    function downloadAll() {
+      allExports.forEach((ex, idx) => {
+        setTimeout(() => {
+          downloadCanvas(`c_${ex.gridId}_${ex.i}`, ex.size, ex.file, ex.isSplash);
+        }, idx * 350);
+      });
+    }
+  </script>
+</body>
+</html>

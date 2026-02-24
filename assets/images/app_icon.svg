@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  أيقونة تطبيق صلاتي حياتي — المسجد في المركز
+  1024 × 1024
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#0D1F35"/>
+      <stop offset="55%"  stop-color="#1A3A5C"/>
+      <stop offset="100%" stop-color="#2D5F8A"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#FFE566"/>
+      <stop offset="100%" stop-color="#CC8800"/>
+    </linearGradient>
+    <!-- قناع الهلال -->
+    <mask id="crescent">
+      <rect width="1024" height="1024" fill="white"/>
+      <circle cx="548" cy="112" r="56" fill="black"/>
+    </mask>
+    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- ═══ الخلفية ═══ -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+
+  <!-- نجوم خلفية خفيفة -->
+  <circle cx="110" cy="140" r="2.5" fill="white" opacity="0.25"/>
+  <circle cx="200" cy="95"  r="1.5" fill="white" opacity="0.2"/>
+  <circle cx="820" cy="110" r="2.5" fill="white" opacity="0.25"/>
+  <circle cx="900" cy="175" r="1.5" fill="white" opacity="0.2"/>
+  <circle cx="80"  cy="300" r="1.5" fill="white" opacity="0.15"/>
+  <circle cx="944" cy="280" r="1.5" fill="white" opacity="0.15"/>
+
+  <!-- ═══ هلال (أصغر ومحاذٍ للأعلى) ═══ -->
+  <circle cx="510" cy="110" r="68"
+          fill="url(#gold)"
+          mask="url(#crescent)"
+          filter="url(#glow)"/>
+
+  <!-- نجمة خماسية (بجانب الهلال — أصغر) -->
+  <g transform="translate(596, 72) scale(2.2)" filter="url(#glow)">
+    <polygon
+      points="10,0 12.35,6.76 19.51,6.91 13.80,11.24 15.88,18.09 10,14 4.12,18.09 6.20,11.24 0.49,6.91 7.65,6.76"
+      fill="url(#gold)"/>
+  </g>
+
+  <!-- ════════════════════════════════
+       المسجد — مركزه x=512, y≈530
+       القمة: y=200   القاعدة: y=856
+       الارتفاع: 656 px
+       ════════════════════════════════ -->
+
+  <!-- ─── مئذنة يسرى ─── -->
+  <!-- عمود رفيع -->
+  <rect x="198" y="460" width="68" height="356" rx="16" fill="white" opacity="0.96"/>
+  <!-- شرفة -->
+  <rect x="181" y="552" width="102" height="20" rx="10" fill="white" opacity="0.75"/>
+  <!-- قبة المئذنة -->
+  <path d="M 198,460 Q 232,385 266,460 Z" fill="white" opacity="0.96"/>
+  <!-- رمح -->
+  <rect x="226" y="360" width="12" height="54" rx="6" fill="url(#gold)"/>
+  <!-- كرة -->
+  <circle cx="232" cy="356" r="18" fill="url(#gold)" filter="url(#glow)"/>
+  <!-- هلال صغير -->
+  <circle cx="232" cy="331" r="16" fill="url(#gold)" opacity="0.96"/>
+  <circle cx="239" cy="324" r="11" fill="#1A3A5C"/>
+
+  <!-- ─── مئذنة يمنى ─── -->
+  <rect x="758" y="460" width="68" height="356" rx="16" fill="white" opacity="0.96"/>
+  <rect x="741" y="552" width="102" height="20" rx="10" fill="white" opacity="0.75"/>
+  <path d="M 758,460 Q 792,385 826,460 Z" fill="white" opacity="0.96"/>
+  <rect x="786" y="360" width="12" height="54" rx="6" fill="url(#gold)"/>
+  <circle cx="792" cy="356" r="18" fill="url(#gold)" filter="url(#glow)"/>
+  <circle cx="792" cy="331" r="16" fill="url(#gold)" opacity="0.96"/>
+  <circle cx="799" cy="324" r="11" fill="#1A3A5C"/>
+
+  <!-- ─── القبة الرئيسية ─── -->
+  <!-- شكل القبة: قوس مدبب، قاعدته y=560، قمته y=200 -->
+  <path d="M 266,560
+           C 266,495 370,200 512,200
+           C 654,200 758,495 758,560 Z"
+        fill="white" opacity="0.97"/>
+
+  <!-- خطوط القبة الخفيفة -->
+  <path d="M 358,490 C 378,366 444,260 512,218"
+        stroke="#1A3A5C" stroke-width="4" fill="none" opacity="0.06"/>
+  <path d="M 666,490 C 646,366 580,260 512,218"
+        stroke="#1A3A5C" stroke-width="4" fill="none" opacity="0.06"/>
+
+  <!-- رمح القبة -->
+  <rect x="504" y="168" width="16" height="56" rx="8" fill="url(#gold)"/>
+  <circle cx="512" cy="163" r="26" fill="url(#gold)" filter="url(#glow)"/>
+  <!-- هلال القبة -->
+  <circle cx="512" cy="130" r="24" fill="url(#gold)" opacity="0.97"/>
+  <circle cx="521" cy="122" r="17" fill="#1A3A5C"/>
+
+  <!-- ─── جسم المسجد ─── -->
+  <rect x="266" y="560" width="492" height="246" fill="white" opacity="0.97"/>
+  <!-- شريط ذهبي -->
+  <rect x="266" y="560" width="492" height="12" fill="url(#gold)" opacity="0.5"/>
+
+  <!-- نافذة قوسية يسرى -->
+  <path d="M 312,770 L 312,662 Q 362,596 412,662 L 412,770 Z"
+        fill="#D6EAF8" opacity="0.78"/>
+
+  <!-- نافذة قوسية يمنى -->
+  <path d="M 612,770 L 612,662 Q 662,596 712,662 L 712,770 Z"
+        fill="#D6EAF8" opacity="0.78"/>
+
+  <!-- الباب الرئيسي -->
+  <path d="M 448,806 L 448,676 Q 512,602 576,676 L 576,806 Z"
+        fill="url(#bg)" opacity="0.88"/>
+  <path d="M 448,806 L 448,676 Q 512,602 576,676 L 576,806"
+        stroke="url(#gold)" stroke-width="7" fill="none" opacity="0.65"/>
+
+  <!-- ─── القاعدة والدرجات ─── -->
+  <rect x="266" y="806" width="492" height="24" fill="white" opacity="0.97"/>
+  <rect x="228" y="830" width="568" height="18" rx="6" fill="white" opacity="0.72"/>
+  <rect x="190" y="848" width="644" height="14" rx="7" fill="white" opacity="0.42"/>
+
+  <!-- ─── الفاصل الزخرفي ─── -->
+  <line x1="156" y1="890" x2="440" y2="890" stroke="url(#gold)" stroke-width="3" opacity="0.45"/>
+  <polygon points="512,878 526,890 512,902 498,890" fill="url(#gold)" opacity="0.88"/>
+  <line x1="584" y1="890" x2="868" y2="890" stroke="url(#gold)" stroke-width="3" opacity="0.45"/>
+  <circle cx="156" cy="890" r="7" fill="url(#gold)" opacity="0.5"/>
+  <circle cx="868" cy="890" r="7" fill="url(#gold)" opacity="0.5"/>
+
+  <!-- نقاط زخرفية سفلية -->
+  <circle cx="476" cy="942" r="6" fill="url(#gold)" opacity="0.35"/>
+  <circle cx="512" cy="942" r="6" fill="url(#gold)" opacity="0.55"/>
+  <circle cx="548" cy="942" r="6" fill="url(#gold)" opacity="0.35"/>
+</svg>

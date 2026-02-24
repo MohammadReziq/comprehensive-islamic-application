@@ -322,7 +322,7 @@ class _ImamAttendanceReportScreenState
             const SizedBox(width: AppDimensions.spacingSM),
             Expanded(
               child: ImamStatCard(
-                title: 'أطفال مختلفون',
+                title: 'أبناء مختلفون',
                 value: '$_distinctChildren',
                 icon: Icons.child_care_outlined,
                 color: AppColors.info,
@@ -398,7 +398,7 @@ class _ImamAttendanceReportScreenState
   }
 
   Widget _buildRecordRow(Map<String, dynamic> r) {
-    final childName = (r['children'] as Map?)?['name'] as String? ?? 'طفل';
+    final childName = (r['children'] as Map?)?['name'] as String? ?? 'ابن';
     final prayer = r['prayer'] as String? ?? '';
     final prayerName = prayer.isNotEmpty
         ? Prayer.fromString(prayer).nameAr

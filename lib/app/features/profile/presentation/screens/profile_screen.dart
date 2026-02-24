@@ -15,7 +15,7 @@ import '../../../parent/data/repositories/child_repository.dart';
 
 /// 📁 lib/app/features/profile/presentation/screens/profile_screen.dart
 /// شاشة الملف الشخصي — مشتركة لكل الأدوار بتصميم محسّن
-/// تعديل الاسم والهاتف + عرض مساجد الإمام/المشرف + عرض أطفال ولي الأمر
+/// تعديل الاسم والهاتف + عرض مساجد الإمام/المشرف + عرض أبناء ولي الأمر
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -604,7 +604,7 @@ class _MosqueSection extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-/// قسم أطفال ولي الأمر
+/// قسم أبناء ولي الأمر
 // ═══════════════════════════════════════════════════════════════════
 class _ChildrenSection extends StatelessWidget {
   @override
@@ -650,7 +650,7 @@ class _ChildrenSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'أطفالي (${children.length})',
+                    'أبنائي (${children.length})',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,

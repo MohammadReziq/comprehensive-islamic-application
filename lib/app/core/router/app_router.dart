@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_screen.dart';
 import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_mosques_map_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../core/constants/app_storage_keys.dart';
 import '../../core/constants/app_enums.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
@@ -50,6 +53,16 @@ class AppRouter {
 
   AppRouter({required this.authBloc});
 
+  /// Cached onboarding flag — null means not loaded yet
+  bool? _onboardingSeen;
+
+  Future<bool> _isOnboardingSeen() async {
+    if (_onboardingSeen != null) return _onboardingSeen!;
+    final prefs = await SharedPreferences.getInstance();
+    _onboardingSeen = prefs.getBool(AppStorageKeys.onboardingSeen) ?? false;
+    return _onboardingSeen!;
+  }
+
   late final GoRouter router = GoRouter(
     initialLocation: '/splash',
     debugLogDiagnostics: true,
@@ -79,11 +92,12 @@ class AppRouter {
             return '/mosque';
           return '/home';
         }
-        return '/login'; // غير مسجّل → تسجيل الدخول
+        return null; // سيتم التوجيه في SplashScreen عبر FutureBuilder
       }
 
       // إذا حاول الدخول لصفحة محمية وهو غير مسجل
-      if (isUnauthenticated && !isOnAuth) return '/login';
+      final isOnOnboarding = state.matchedLocation == '/onboarding';
+      if (isUnauthenticated && !isOnAuth && !isOnOnboarding) return '/login';
 
       // إذا كان مسجلاً
       if (authState is AuthAuthenticated) {
@@ -154,6 +168,11 @@ class AppRouter {
         path: '/splash',
         name: 'splash',
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: '/login',
@@ -379,7 +398,7 @@ class AppRouter {
               final childIds = snapshot.data!.map((c) => c.id).toList();
               if (childIds.isEmpty) {
                 return const Scaffold(
-                  body: Center(child: Text('أضف أطفالاً أولاً')),
+                  body: Center(child: Text('أضف أبناءك أولاً')),
                 );
               }
               return NotesInboxScreen(childIds: childIds);

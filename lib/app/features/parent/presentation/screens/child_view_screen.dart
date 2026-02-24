@@ -70,7 +70,7 @@ class _ChildViewScreenState extends State<ChildViewScreen>
       final child = await sl<ChildRepository>().getChildByLoginUserId(user.id);
       if (child == null) {
         setState(() {
-          _error = 'لا يوجد طفل مرتبط بهذا الحساب';
+          _error = 'لا يوجد ابن مرتبط بهذا الحساب';
           _loading = false;
         });
         return;
