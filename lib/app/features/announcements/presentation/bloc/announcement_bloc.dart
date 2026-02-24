@@ -9,6 +9,8 @@ import 'announcement_state.dart';
 class AnnouncementBloc extends Bloc<AnnouncementEvent, AnnouncementState> {
   AnnouncementBloc(this._repo) : super(AnnouncementInitial()) {
     on<LoadAnnouncements>(_onLoad);
+    on<LoadForParent>(_onLoadForParent);
+    on<MarkAsRead>(_onMarkAsRead);
     on<CreateAnnouncement>(_onCreate);
     on<UpdateAnnouncement>(_onUpdate);
     on<DeleteAnnouncement>(_onDelete);
@@ -26,6 +28,41 @@ class AnnouncementBloc extends Bloc<AnnouncementEvent, AnnouncementState> {
     } catch (e) {
       emit(const AnnouncementError('حدث خطأ غير متوقع'));
     }
+  }
+
+  Future<void> _onLoadForParent(LoadForParent event, Emitter emit) async {
+    if (event.mosqueIds.isEmpty) {
+      emit(const AnnouncementsLoaded([]));
+      return;
+    }
+    emit(AnnouncementLoading());
+    try {
+      final user = await _repo.getCurrentUser();
+      if (user == null) {
+        emit(const AnnouncementsLoaded([]));
+        return;
+      }
+      final list = await _repo.getForParent(event.mosqueIds);
+      final readIds = await _repo.getReadIds(user.id);
+      emit(AnnouncementsLoaded(list, readIds: readIds));
+    } on AppFailure catch (f) {
+      emit(AnnouncementError(f.messageAr));
+    } catch (e) {
+      emit(const AnnouncementError('حدث خطأ غير متوقع'));
+    }
+  }
+
+  Future<void> _onMarkAsRead(MarkAsRead event, Emitter emit) async {
+    try {
+      final user = await _repo.getCurrentUser();
+      if (user == null) return;
+      await _repo.markAsRead(event.announcementId, user.id);
+      final current = state;
+      if (current is AnnouncementsLoaded) {
+        final updated = current.readIds.toSet()..add(event.announcementId);
+        emit(AnnouncementsLoaded(current.announcements, readIds: updated));
+      }
+    } catch (_) {}
   }
 
   Future<void> _onCreate(CreateAnnouncement event, Emitter emit) async {

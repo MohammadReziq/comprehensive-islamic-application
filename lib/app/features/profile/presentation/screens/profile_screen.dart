@@ -81,23 +81,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) setState(() => _saving = false);
   }
 
+  void _showChangePasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _ChangePasswordDialog(
+        onSuccess: () => Navigator.pop(ctx),
+        onCancel: () => Navigator.pop(ctx),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, authState) {
-          if (authState is! AuthAuthenticated ||
-              authState.userProfile == null) {
-            return const Center(child: CircularProgressIndicator());
+      child: BlocListener<AuthBloc, AuthState>(
+        listener: (context, authState) {
+          if (authState is AuthPasswordChangeSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم تغيير كلمة المرور بنجاح'),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: Color(0xFF2E8B57),
+              ),
+            );
           }
-          final user = authState.userProfile!;
+          if (authState is AuthError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(authState.message),
+                backgroundColor: AppColors.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+        child: BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, authState) {
+            if (authState is! AuthAuthenticated ||
+                authState.userProfile == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final user = authState.userProfile!;
 
-          // تهيئة الكونترولرز إن لم تكن محدّثة
-          if (!_editingName) _nameCtrl.text = user.name;
-          if (!_editingPhone) _phoneCtrl.text = user.phone ?? '';
+            // تهيئة الكونترولرز إن لم تكن محدّثة
+            if (!_editingName) _nameCtrl.text = user.name;
+            if (!_editingPhone) _phoneCtrl.text = user.phone ?? '';
 
-          return Scaffold(
+            return Scaffold(
             backgroundColor: const Color(0xFFF5F6FA),
             body: CustomScrollView(
               slivers: [
@@ -130,6 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           );
         },
+      ),
       ),
     );
   }
@@ -283,6 +315,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _editingPhone = false;
               _phoneCtrl.text = user.phone ?? '';
             }),
+          ),
+          const Divider(height: 24),
+          // تغيير كلمة المرور
+          GestureDetector(
+            onTap: _showChangePasswordDialog,
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.lock_reset_rounded,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'كلمة المرور',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        'تغيير كلمة المرور',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A2B3C),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_left_rounded, color: Colors.grey.shade400),
+              ],
+            ),
           ),
         ],
       ),
@@ -589,7 +667,7 @@ class _MosqueSection extends StatelessWidget {
                     color: Color(0xFF1A2B3C),
                   ),
                 ),
-                if (m.code?.isNotEmpty == true)
+                if (m.code.isNotEmpty)
                   Text(
                     'كود: ${m.code}',
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
@@ -745,6 +823,144 @@ class _ChildrenSection extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+/// حوار تغيير كلمة المرور من الملف الشخصي
+// ═══════════════════════════════════════════════════════════════════
+class _ChangePasswordDialog extends StatefulWidget {
+  final VoidCallback onSuccess;
+  final VoidCallback onCancel;
+
+  const _ChangePasswordDialog({
+    required this.onSuccess,
+    required this.onCancel,
+  });
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _newPassCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _newPassCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final newPass = _newPassCtrl.text;
+    final confirm = _confirmCtrl.text;
+    if (newPass.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('كلمة المرور الجديدة 6 أحرف على الأقل'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (newPass != confirm) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('كلمتا المرور غير متطابقتين'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    setState(() => _loading = true);
+    context.read<AuthBloc>().add(
+      AuthChangePasswordFromProfileRequested(newPassword: newPass),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthPasswordChangeSuccess) {
+            widget.onSuccess();
+          }
+          if (state is AuthError) {
+            setState(() => _loading = false);
+          }
+        },
+        child: AlertDialog(
+          title: const Text('تغيير كلمة المرور'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _newPassCtrl,
+                  obscureText: _obscureNew,
+                  decoration: InputDecoration(
+                    labelText: 'كلمة المرور الجديدة',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureNew ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscureNew = !_obscureNew),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _confirmCtrl,
+                  obscureText: _obscureConfirm,
+                  decoration: InputDecoration(
+                    labelText: 'تأكيد كلمة المرور',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirm
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: _loading ? null : widget.onCancel,
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: _loading ? null : _submit,
+              child: _loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('حفظ'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,5 +1,7 @@
 // lib/app/models/competition_model.dart
 
+enum CompetitionStatus { noCompetition, upcoming, running, finished }
+
 class CompetitionModel {
   final String id;
   final String mosqueId;

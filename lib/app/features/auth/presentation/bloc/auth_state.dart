@@ -59,6 +59,11 @@ class AuthPasswordResetSuccess extends AuthState {
   const AuthPasswordResetSuccess();
 }
 
+/// تم تغيير كلمة المرور من الملف الشخصي بنجاح (المستخدم يبقى مسجّل دخول)
+class AuthPasswordChangeSuccess extends AuthState {
+  const AuthPasswordChangeSuccess();
+}
+
 /// بانتظار إدخال رمز تفعيل البريد (بعد إنشاء الحساب)
 class AuthAwaitingEmailVerification extends AuthState {
   final String email;

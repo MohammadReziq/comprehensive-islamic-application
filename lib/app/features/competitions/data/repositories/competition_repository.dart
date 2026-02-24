@@ -184,6 +184,43 @@ class CompetitionRepository {
     }
   }
 
+  // ─────────────────────────────────────────────────────────
+  // حالة المسابقة للمسجد: جارية / قادمة / منتهية / لا شيء
+  // ─────────────────────────────────────────────────────────
+
+  Future<({CompetitionStatus status, CompetitionModel? competition})>
+      getCompetitionStatus(String mosqueId) async {
+    try {
+      final now = DateTime.now();
+
+      // 1. مسابقة نشطة الآن
+      final active = await getActive(mosqueId);
+      if (active != null) {
+        return (status: CompetitionStatus.running, competition: active);
+      }
+
+      // 2. كل مسابقات المسجد
+      final all = await getAllForMosque(mosqueId);
+      if (all.isEmpty) {
+        return (status: CompetitionStatus.noCompetition, competition: null);
+      }
+
+      // 3. مسابقة قادمة (startDate في المستقبل)
+      final upcoming = all
+          .where((c) => now.isBefore(c.startDate))
+          .toList()
+        ..sort((a, b) => a.startDate.compareTo(b.startDate));
+      if (upcoming.isNotEmpty) {
+        return (status: CompetitionStatus.upcoming, competition: upcoming.first);
+      }
+
+      // 4. أحدث مسابقة منتهية
+      return (status: CompetitionStatus.finished, competition: all.first);
+    } catch (_) {
+      return (status: CompetitionStatus.noCompetition, competition: null);
+    }
+  }
+
   /// تحقق: المستخدم لازم يكون owner (إمام) في هذا المسجد
   Future<void> _requireOwnerRole(String mosqueId, String userId) async {
     final membership = await supabase

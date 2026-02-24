@@ -10,6 +10,7 @@ import '../../../../core/services/attendance_validation_service.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
 import '../../../../core/constants/app_enums.dart';
+import '../../../../models/mosque_model.dart';
 import '../bloc/scanner_bloc.dart';
 import '../bloc/scanner_event.dart';
 import '../bloc/scanner_state.dart';
@@ -40,11 +41,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final approved = mosqueState.mosques.where((m) => m.status == MosqueStatus.approved).firstOrNull;
     if (approved == null) return;
 
-    final lat = approved.lat ?? PrayerTimesService.defaultLat;
-    final lng = approved.lng ?? PrayerTimesService.defaultLng;
+    final lat = approved.lat;
+    final lng = approved.lng;
+    if (lat == null || lng == null) return;
+
     sl<PrayerTimesService>().loadTimingsFor(lat, lng).then((_) {
       if (!context.mounted) return;
-      final nextPrayer = sl<PrayerTimesService>().getNextPrayer(lat, lng);
+      final nextPrayer = sl<PrayerTimesService>().getNextPrayerOrNull(lat, lng);
+      if (nextPrayer == null) return;
       final date = DateTime.now();
       context.read<ScannerBloc>().add(ScannerLoad(
             mosqueId: approved.id,
@@ -93,6 +97,32 @@ class _ScannerScreenState extends State<ScannerScreen> {
           },
           builder: (context, state) {
             if (state is ScannerInitial || state is ScannerLoading) {
+              final mosqueState = context.read<MosqueBloc>().state;
+              MosqueModel? approved;
+              if (mosqueState is MosqueLoaded) {
+                approved = mosqueState.mosques
+                    .where((m) => m.status == MosqueStatus.approved)
+                    .firstOrNull;
+              }
+              if (approved != null && (approved.lat == null || approved.lng == null)) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppDimensions.paddingLG),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_off_rounded, size: 48, color: Colors.grey.shade600),
+                        const SizedBox(height: 16),
+                        Text(
+                          'أضف إحداثيات المسجد لاستخدام التحضير',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
               if (state is ScannerInitial) {
                 WidgetsBinding.instance.addPostFrameCallback((_) => _loadIfNeeded(context));
               }

@@ -188,15 +188,17 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen>
             );
           } catch (_) {}
         }
-        final lat = mosque?.lat ?? PrayerTimesService.defaultLat;
-        final lng = mosque?.lng ?? PrayerTimesService.defaultLng;
-        if (mosque != null && mosque.id != _prayerTimingsLoadedForMosqueId) {
+        final lat = mosque?.lat;
+        final lng = mosque?.lng;
+        if (mosque != null && lat != null && lng != null && mosque.id != _prayerTimingsLoadedForMosqueId) {
           _prayerTimingsLoadedForMosqueId = mosque.id;
           sl<PrayerTimesService>().loadTimingsFor(lat, lng).then((_) {
             if (mounted) setState(() {});
           });
         }
-        final nextPrayer = sl<PrayerTimesService>().getNextPrayer(lat, lng);
+        final nextPrayer = (lat != null && lng != null)
+            ? sl<PrayerTimesService>().getNextPrayerOrNull(lat, lng)
+            : null;
         if (mosque != null && _supervisors == null && !_loadingSupervisors) {
           _loadingSupervisors = true;
           final id = mosque.id;
@@ -627,6 +629,12 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen>
         title: 'الملاحظات',
         color: const Color(0xFF00BCD4),
         onTap: () => context.push('/supervisor/notes/send/${mosque.id}'),
+      ),
+      _ActionItem(
+        icon: Icons.campaign_rounded,
+        title: 'الإعلانات',
+        color: const Color(0xFF2E8B57),
+        onTap: () => context.push('/imam/announcements/${mosque.id}'),
       ),
       _ActionItem(
         icon: Icons.emoji_events_rounded,

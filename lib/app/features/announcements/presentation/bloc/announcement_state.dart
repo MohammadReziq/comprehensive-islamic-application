@@ -16,9 +16,10 @@ class AnnouncementLoading extends AnnouncementState {}
 /// إعلانات محمّلة
 class AnnouncementsLoaded extends AnnouncementState {
   final List<AnnouncementModel> announcements;
-  const AnnouncementsLoaded(this.announcements);
+  final Set<String> readIds;
+  const AnnouncementsLoaded(this.announcements, {this.readIds = const {}});
   @override
-  List<Object?> get props => [announcements];
+  List<Object?> get props => [announcements, readIds];
 }
 
 /// نجاح إجراء

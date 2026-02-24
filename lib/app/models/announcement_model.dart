@@ -28,7 +28,7 @@ class AnnouncementModel extends Equatable {
     return AnnouncementModel(
       id: json['id'] as String,
       mosqueId: json['mosque_id'] as String,
-      createdBy: json['created_by'] as String,
+      createdBy: (json['sender_id'] ?? json['created_by']) as String,
       title: json['title'] as String,
       body: json['body'] as String,
       isPinned: json['is_pinned'] as bool? ?? false,

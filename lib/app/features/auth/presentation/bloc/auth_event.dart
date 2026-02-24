@@ -94,6 +94,16 @@ class AuthResetPasswordFlowFinished extends AuthEvent {
   const AuthResetPasswordFlowFinished();
 }
 
+/// تغيير كلمة المرور من الملف الشخصي (المستخدم مسجّل دخول — بدون تسجيل خروج)
+class AuthChangePasswordFromProfileRequested extends AuthEvent {
+  final String newPassword;
+
+  const AuthChangePasswordFromProfileRequested({required this.newPassword});
+
+  @override
+  List<Object?> get props => [newPassword];
+}
+
 /// التحقق من رمز تفعيل البريد (بعد التسجيل)
 class AuthVerifySignupCodeRequested extends AuthEvent {
   final String code;

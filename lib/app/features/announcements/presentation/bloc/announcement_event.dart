@@ -55,3 +55,19 @@ class DeleteAnnouncement extends AnnouncementEvent {
   @override
   List<Object?> get props => [announcementId];
 }
+
+/// تحميل إعلانات لولي الأمر (مساجد أبنائه)
+class LoadForParent extends AnnouncementEvent {
+  final List<String> mosqueIds;
+  const LoadForParent(this.mosqueIds);
+  @override
+  List<Object?> get props => [mosqueIds];
+}
+
+/// تسجيل قراءة إعلان (للوالد)
+class MarkAsRead extends AnnouncementEvent {
+  final String announcementId;
+  const MarkAsRead(this.announcementId);
+  @override
+  List<Object?> get props => [announcementId];
+}

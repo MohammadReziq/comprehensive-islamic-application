@@ -80,15 +80,17 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
             );
           } catch (_) {}
         }
-        final lat = mosque?.lat ?? PrayerTimesService.defaultLat;
-        final lng = mosque?.lng ?? PrayerTimesService.defaultLng;
-        if (mosque != null && mosque.id != _prayerTimingsLoadedForMosqueId) {
+        final lat = mosque?.lat;
+        final lng = mosque?.lng;
+        if (mosque != null && lat != null && lng != null && mosque.id != _prayerTimingsLoadedForMosqueId) {
           _prayerTimingsLoadedForMosqueId = mosque.id;
           sl<PrayerTimesService>().loadTimingsFor(lat, lng).then((_) {
             if (mounted) setState(() {});
           });
         }
-        final nextPrayer = sl<PrayerTimesService>().getNextPrayer(lat, lng);
+        final nextPrayer = (lat != null && lng != null)
+            ? sl<PrayerTimesService>().getNextPrayerOrNull(lat, lng)
+            : null;
 
         // Realtime subscription
         if (mosque != null &&

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:salati_hayati/app/features/auth/presentation/screens/register_screen.dart';
+import 'package:salati_hayati/app/features/auth/presentation/screens/verify_email_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_screen.dart';
 import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_mosques_map_screen.dart';
@@ -11,11 +13,15 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/auth/presentation/screens/register_screen.dart';
-import '../../features/auth/presentation/screens/verify_email_screen.dart';
 import '../../features/parent/presentation/screens/home_screen.dart';
+import '../../features/prayer_times/presentation/screens/prayer_time_screen.dart';
+import '../../core/services/prayer_times_service.dart';
+import '../../features/announcements/presentation/bloc/announcement_bloc.dart';
+import '../../features/announcements/presentation/screens/parent_announcements_screen.dart';
+import '../../features/announcements/presentation/screens/imam_announcements_screen.dart';
 import '../../features/parent/presentation/screens/children_screen.dart';
-import '../../features/parent/presentation/screens/add_child_screen.dart' show AddChildScreen;
+import '../../features/parent/presentation/screens/add_child_screen.dart'
+    show AddChildScreen;
 import '../../features/parent/presentation/screens/child_card_screen.dart';
 import '../../features/parent/presentation/screens/child_view_screen.dart';
 import '../../features/mosque/presentation/screens/mosque_gate_screen.dart';
@@ -39,6 +45,7 @@ import '../../features/corrections/presentation/screens/request_correction_scree
 import '../../features/corrections/presentation/screens/my_corrections_screen.dart';
 import '../../features/notes/presentation/screens/notes_inbox_screen.dart';
 import '../../features/notes/presentation/screens/send_note_screen.dart';
+import '../../features/parent/presentation/screens/parent_inbox_screen.dart';
 import '../../features/competitions/presentation/screens/manage_competition_screen.dart';
 import '../../features/supervisor/data/repositories/supervisor_repository.dart';
 import '../../features/supervisor/data/models/mosque_student_model.dart';
@@ -192,15 +199,21 @@ class AppRouter {
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      GoRoute(
-        path: '/verify-email',
-        name: 'verifyEmail',
-        builder: (context, state) => const VerifyEmailScreen(),
-      ),
+      GoRoute(path: '/verify-email', redirect: (_, __) => '/login'),
       GoRoute(
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/prayer-times',
+        name: 'prayerTimes',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, double>?;
+          final lat = extra?['lat'];
+          final lng = extra?['lng'];
+          return PrayerTimeScreen(lat: lat, lng: lng);
+        },
       ),
       GoRoute(
         path: '/child-view',
@@ -309,9 +322,8 @@ class AppRouter {
       GoRoute(
         path: '/imam/corrections/:mosqueId',
         name: 'imamCorrections',
-        builder: (context, state) => ImamCorrectionsScreen(
-          mosqueId: state.pathParameters['mosqueId']!,
-        ),
+        builder: (context, state) =>
+            ImamCorrectionsScreen(mosqueId: state.pathParameters['mosqueId']!),
       ),
       GoRoute(
         path: '/supervisor/notes/send/:mosqueId',
@@ -341,9 +353,8 @@ class AppRouter {
       GoRoute(
         path: '/imam/competitions/:mosqueId',
         name: 'imamCompetitions',
-        builder: (context, state) => ImamCompetitionsScreen(
-          mosqueId: state.pathParameters['mosqueId']!,
-        ),
+        builder: (context, state) =>
+            ImamCompetitionsScreen(mosqueId: state.pathParameters['mosqueId']!),
       ),
       GoRoute(
         path: '/imam/mosque/:mosqueId/prayer-points',
@@ -389,6 +400,16 @@ class AppRouter {
         ),
       ),
       GoRoute(
+        path: '/imam/announcements/:mosqueId',
+        name: 'imamAnnouncements',
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<AnnouncementBloc>(),
+          child: ImamAnnouncementsScreen(
+            mosqueId: state.pathParameters['mosqueId']!,
+          ),
+        ),
+      ),
+      GoRoute(
         path: '/supervisor/competitions/:mosqueId',
         name: 'supervisorCompetitions',
         builder: (context, state) {
@@ -418,6 +439,19 @@ class AppRouter {
             },
           );
         },
+      ),
+      GoRoute(
+        path: '/parent/announcements',
+        name: 'parentAnnouncements',
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<AnnouncementBloc>(),
+          child: const ParentAnnouncementsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/parent/inbox',
+        name: 'parentInbox',
+        builder: (context, state) => const ParentInboxScreen(),
       ),
     ],
   );

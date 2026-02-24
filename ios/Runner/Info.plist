@@ -60,5 +60,9 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>نحتاج موقعك لحساب أوقات الصلاة الدقيقة</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>نحتاج موقعك لحساب أوقات الصلاة الدقيقة</string>
 	</dict>
 </plist>

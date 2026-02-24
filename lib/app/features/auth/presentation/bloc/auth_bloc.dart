@@ -23,6 +23,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthVerifyResetOtpRequested>(_onVerifyResetOtpRequested);
     on<AuthSetNewPasswordRequested>(_onSetNewPasswordRequested);
     on<AuthResetPasswordFlowFinished>(_onResetPasswordFlowFinished);
+    on<AuthChangePasswordFromProfileRequested>(_onChangePasswordFromProfileRequested);
 
     _authSubscription = _authRepository.authChangeStream.listen((data) {
       final event = data.event;
@@ -263,6 +264,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) {
     emit(const AuthUnauthenticated());
+  }
+
+  /// تغيير كلمة المرور من الملف الشخصي (بدون تسجيل خروج)
+  Future<void> _onChangePasswordFromProfileRequested(
+    AuthChangePasswordFromProfileRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    try {
+      await _authRepository.updatePassword(event.newPassword);
+      emit(const AuthPasswordChangeSuccess());
+      final profile = await _authRepository.getCurrentUserProfile();
+      emit(AuthAuthenticated(userProfile: profile));
+    } on AuthException catch (e) {
+      emit(AuthError(_mapAuthError(e.message)));
+    } catch (e) {
+      emit(AuthError('حدث خطأ أثناء تغيير كلمة المرور.'));
+    }
   }
 
   /// تسجيل خروج
