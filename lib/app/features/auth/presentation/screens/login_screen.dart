@@ -113,9 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             style: OutlinedButton.styleFrom(
               backgroundColor: Colors.white.withValues(alpha: 0.08),
-              side: BorderSide(
-                color: Colors.white.withValues(alpha: 0.28),
-              ),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.28)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(r.radiusMD),
               ),
@@ -150,30 +148,6 @@ class _LoginScreenState extends State<LoginScreen> {
               decorationColor: Colors.white.withValues(alpha: 0.5),
             ),
           ),
-        ),
-        SizedBox(height: r.vsm),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              AppStrings.dontHaveAccount,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: r.textSM,
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.push('/register'),
-              child: Text(
-                AppStrings.register,
-                style: TextStyle(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: r.textSM,
-                ),
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -364,11 +338,9 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
               // ─── Layer 2: Video ping-pong (both textures always hot) ───
-              // Outer AnimatedOpacity: initial fade-in only (first load).
-              // Inner Opacity: INSTANT switch — no crossfade.
-              //   Both videos share identical frames at transition points,
-              //   so instant switch is seamless. 0.001 keeps GPU texture
-              //   warm so there's no cold-start flash on the next switch.
+              // Instant opacity switch only — no animation. Both clips match at
+              // transition, and we only flip after incoming has drawn first frame,
+              // so the user doesn't notice the switch.
               if (_videoReady)
                 AnimatedOpacity(
                   opacity: _videoOpacity,
@@ -473,7 +445,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                   child: _showEmailLogin
-                                      ? _buildEmailLoginForm(r, fieldFill, fieldBorder, fieldIcon, fieldHint)
+                                      ? _buildEmailLoginForm(
+                                          r,
+                                          fieldFill,
+                                          fieldBorder,
+                                          fieldIcon,
+                                          fieldHint,
+                                        )
                                       : _buildGooglePrimary(r),
                                 ),
                               ),

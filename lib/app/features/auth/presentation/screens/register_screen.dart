@@ -126,15 +126,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildVideoLayer(VideoPlayerController ctrl) => SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: ctrl.value.size.width,
-            height: ctrl.value.size.height,
-            child: VideoPlayer(ctrl),
-          ),
-        ),
-      );
+    child: FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: ctrl.value.size.width,
+        height: ctrl.value.size.height,
+        child: VideoPlayer(ctrl),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -195,11 +195,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
 
               // ─── Layer 2: Video ping-pong (both textures always hot) ───
-              // Outer AnimatedOpacity: initial fade-in only (first load).
-              // Inner Opacity: INSTANT switch — no crossfade.
-              //   Both videos share identical frames at transition points,
-              //   so instant switch is seamless. 0.001 keeps GPU texture
-              //   warm so there's no cold-start flash on the next switch.
+              // Instant switch only; incoming has first frame before we show it.
               if (_videoReady)
                 AnimatedOpacity(
                   opacity: _videoOpacity,

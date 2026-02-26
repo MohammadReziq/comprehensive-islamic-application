@@ -21,6 +21,9 @@ class AuthVideoManager extends ChangeNotifier {
   static const _fwdAsset = 'assets/videos/mosque.mp4';
   static const _revAsset = 'assets/videos/mosque_reverse.mp4';
 
+  /// Playback speed: 1.0 = normal, 0.5 = half speed (slower). Applied to both clips.
+  static const double playbackSpeed = 0.5;
+
   VideoPlayerController? _fwdCtrl;
   VideoPlayerController? _revCtrl;
 
@@ -66,6 +69,9 @@ class AuthVideoManager extends ChangeNotifier {
         _fwdCtrl!.setVolume(0),
         _revCtrl!.setVolume(0),
       ]);
+
+      await _fwdCtrl!.setPlaybackSpeed(playbackSpeed);
+      await _revCtrl!.setPlaybackSpeed(playbackSpeed);
 
       _fwdCtrl!.addListener(_onFwdTick);
       _revCtrl!.addListener(_onRevTick);
@@ -118,6 +124,15 @@ class AuthVideoManager extends ChangeNotifier {
 
   // ─── Controller switch ───────────────────────────────────────────────────
 
+  /// Wait until [ctrl] has advanced past start (first frame rendered) or timeout.
+  Future<void> _waitForFirstFrame(VideoPlayerController ctrl, {int timeoutMs = 200}) async {
+    final deadline = DateTime.now().add(Duration(milliseconds: timeoutMs));
+    while (DateTime.now().isBefore(deadline)) {
+      if (ctrl.value.position > Duration.zero) return;
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+  }
+
   Future<void> _switchTo({required bool forward}) async {
     if (_switching) return;
     _switching = true;
@@ -125,23 +140,21 @@ class AuthVideoManager extends ChangeNotifier {
     final outgoing = forward ? _revCtrl : _fwdCtrl;
     final incoming = forward ? _fwdCtrl : _revCtrl;
 
-    // 1. Pause outgoing immediately
-    outgoing?.pause();
+    // Prepare incoming without changing what's visible: seek and play (still hidden).
+    await incoming?.seekTo(Duration.zero);
+    if (incoming != null) {
+      await incoming.play();
+      await _waitForFirstFrame(incoming);
+    }
 
-    // 2. Update flag + notify UI (incoming is already at frame 0)
+    // Only now pause outgoing and flip UI — user never sees a "paused" frame.
+    outgoing?.pause();
     _isFwd = forward;
     notifyListeners();
 
-    // 3. Play incoming from frame 0
-    await incoming?.play();
-
-    // 4. Release the lock so the next end-detection can work normally.
     _switching = false;
 
-    // 5. Wait for the 400ms UI crossfade to FINISH, then reset outgoing.
-    //    Doing seekTo() during the crossfade causes a visible decoder flush
-    //    (frame goes blank briefly). Waiting makes the reset fully invisible.
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
     await outgoing?.seekTo(Duration.zero);
   }
 
