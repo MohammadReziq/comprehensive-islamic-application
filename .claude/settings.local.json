@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell -command:*)"
+      "Bash(powershell -command:*)",
+      "Bash(FFMPEG=\"/c/Users/LENOVO/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-8.0.1-full_build/bin/ffmpeg.exe\")",
+      "Bash(\"$FFMPEG\" -i \"c:/development/comprehensive_islamic_application/assets/videos/mosque.mp4\" -vf reverse -af areverse -preset fast \"c:/development/comprehensive_islamic_application/assets/videos/mosque_reverse.mp4\" -y)",
+      "Bash(flutter analyze lib/app/core/services/auth_video_manager.dart lib/app/features/auth/presentation/screens/login_screen.dart lib/app/features/auth/presentation/screens/register_screen.dart)",
+      "Bash(flutter analyze lib/app/core/services/auth_video_manager.dart)",
+      "Bash(flutter analyze lib/app/features/parent/presentation/screens/home_screen.dart)"
     ]
   }
 }

@@ -23,7 +23,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthVerifyResetOtpRequested>(_onVerifyResetOtpRequested);
     on<AuthSetNewPasswordRequested>(_onSetNewPasswordRequested);
     on<AuthResetPasswordFlowFinished>(_onResetPasswordFlowFinished);
-    on<AuthChangePasswordFromProfileRequested>(_onChangePasswordFromProfileRequested);
+    on<AuthChangePasswordFromProfileRequested>(
+      _onChangePasswordFromProfileRequested,
+    );
 
     _authSubscription = _authRepository.authChangeStream.listen((data) {
       final event = data.event;
@@ -46,7 +48,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
-    if (_pendingEmailVerification || state is AuthAwaitingEmailVerification) return;
+    if (_pendingEmailVerification || state is AuthAwaitingEmailVerification)
+      return;
 
     emit(const AuthLoading());
 
@@ -138,11 +141,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       await _authRepository.requestSignupVerificationCode(userName: event.name);
       _pendingEmailVerification = false;
-      emit(AuthAwaitingEmailVerification(
-        email: event.email,
-        name: event.name,
-        role: event.role,
-      ));
+      emit(
+        AuthAwaitingEmailVerification(
+          email: event.email,
+          name: event.name,
+          role: event.role,
+        ),
+      );
     } on AuthException catch (e) {
       _pendingEmailVerification = false;
       emit(AuthError(_mapAuthError(e.message)));

@@ -1,0 +1,279 @@
+================================================================================
+  خطة تحسينات تطبيق صلاتي حياتي (قُرب) — نسخة نهائية منظمة
+  ولي الأمر · الابن · المشرف · الإمام
+  مؤجلة لاحقاً: إشعارات Push، مراقبة التصحيحات (السوبر أدمن)
+  آخر تحديث: 2026-02-25
+================================================================================
+
+الهدف: وثيقة واحدة واضحة — كل تحسين مع هيكل ملفات مرتب (migrations → models →
+       repos → screens → router)، مسارات مطابقة للمشروع، وخطوات تنفيذ قابلة للتطبيق.
+
+--------------------------------------------------------------------------------
+١) ملخص النقد الذي تمت معالجته في هذه النسخة
+--------------------------------------------------------------------------------
+
+  • [أمان] التحسين 7: اشتراط التحقق من RLS قبل التنفيذ (توصية إلزامية رقم 1).
+  • [أداء] التحسين 2: استعلام واحد getActiveForMosques(mosqueIds) بدل N استعلامات.
+  • [تكرار] التحسينان 5 و6: دالة غياب مشتركة في مكان واحد (MosqueRepository أو ما يعادل).
+  • [غموض] التحسين 8: توثيق التحقق من البريد (emailConfirmedAt).
+  • [ترتيب] التحسين 1 (مصدر الحضور) أُعطي أولوية في المرحلة أ.
+  • [ملفات] إضافة جدول "هيكل الملفات حسب التحسين" وترتيب الملفات في كل تحسين.
+
+--------------------------------------------------------------------------------
+٢) توصيات إلزامية قبل أي تنفيذ
+--------------------------------------------------------------------------------
+
+  [!] 1. RLS على notes: افحص أن الابن يقرأ فقط WHERE child_id IN (SELECT id
+         FROM children WHERE login_user_id = auth.uid()). وثّق النتيجة قبل التحسين 7.
+
+  [!] 2. اختبار يدوي أو SQL script لكل تحسين يمس RLS أو RPC قبل الإنتاج.
+
+  [!] 3. تحقق أن RPC approve_correction_request تُنشئ سجل attendance عند القبول،
+         وإلا التحسين 1 سيكون ناقصاً.
+
+  [!] 4. الابن يسجّل دخولاً مستقلاً (create_child_account و children.login_user_id).
+         التحسين 7 يعتمد على ذلك.
+
+  [!] 5. نفّذ التحسين 4 (شاشة الملاحظات المرسلة) قبل التحسين 3 حتى يظهر الرد في واجهة.
+
+--------------------------------------------------------------------------------
+٣) جدول هيكل الملفات حسب التحسين (مرجع سريع)
+--------------------------------------------------------------------------------
+
+  التحسين 1 — مصدر الحضور
+  ├── جديد:    supabase/migrations/029_attendance_source.sql
+  ├── تعديل:   lib/app/models/attendance_model.dart
+  ├── تعديل:   lib/app/features/parent/data/repositories/child_repository.dart
+  ├── تعديل:   lib/app/features/parent/presentation/screens/home_screen.dart
+  ├── تعديل:   lib/app/features/parent/presentation/screens/child_view_screen.dart
+  └── فحص/تعديل: RPC approve_correction_request (في Supabase)
+
+  التحسين 2 — مسابقات متعددة
+  ├── تعديل:   lib/app/features/competitions/data/repositories/competition_repository.dart
+  ├── تعديل:   lib/app/features/parent/presentation/screens/home_screen.dart
+  └── تعديل:   lib/app/features/parent/presentation/screens/child_view_screen.dart
+
+  التحسين 3 — رد ولي الأمر على الملاحظة
+  ├── جديد:    supabase/migrations/030_notes_parent_reply.sql
+  ├── تعديل:   lib/app/models/note_model.dart (أو ما يعادله في المشروع)
+  ├── تعديل:   lib/app/features/notes/data/repositories/notes_repository.dart
+  ├── تعديل:   شاشة Inbox ولي الأمر (parent_inbox أو notes_inbox حسب المشروع)
+  └── يعتمد:   التحسين 4 (عرض الرد في شاشة المشرف)
+
+  التحسين 4 — الملاحظات المرسلة للمشرف
+  ├── تعديل أو استخدام: lib/app/features/supervisor/presentation/screens/supervisor_sent_notes_screen.dart
+  ├── تعديل:   lib/app/features/notes/data/repositories/notes_repository.dart (getMySentNotes)
+  └── تعديل:   lib/app/core/router/app_router.dart — ربط /supervisor/notes بالشاشة الصحيحة
+
+  التحسين 5 — لوحة الإمام المحسّنة
+  ├── تعديل:   lib/app/features/mosque/data/repositories/mosque_repository.dart (أو imam_repository) — getAbsentStudents
+  ├── تعديل:   lib/app/features/imam/data/repositories/imam_repository.dart — getMosqueStats
+  └── تعديل:   lib/app/features/imam/presentation/screens/imam_dashboard_screen.dart
+
+  التحسين 6 — لوحة المشرف المحسّنة
+  ├── تعديل:   نفس getAbsentStudents المشتركة (من التحسين 5)
+  └── تعديل:   lib/app/features/supervisor/presentation/screens/supervisor_dashboard_screen.dart
+
+  التحسين 7 — Inbox الابن (ملاحظاتي)
+  ├── جديد:    lib/app/features/parent/presentation/screens/child_notes_screen.dart
+  ├── تعديل:   lib/app/features/notes/data/repositories/notes_repository.dart — getNotesForChild, markAsRead
+  └── تعديل:   lib/app/features/parent/presentation/screens/child_view_screen.dart — زر "رسائلي"
+
+  التحسين 8 — صحة الحساب لولي الأمر
+  └── تعديل:   lib/app/features/profile/presentation/screens/profile_screen.dart
+
+  ملاحظة: مسار شاشة الابن في المشروع الحالي هو تحت parent (child_view_screen.dart)،
+          لذلك child_notes_screen يوضع في نفس المجلد: parent/presentation/screens/.
+
+--------------------------------------------------------------------------------
+٤) ترتيب التنفيذ (مراحل)
+--------------------------------------------------------------------------------
+
+  المرحلة أ — أساسيات البيانات
+    1) التحسين 1 — مصدر الحضور
+    2) التحسين 4 — الملاحظات المرسلة للمشرف
+    3) التحسين 3 — رد ولي الأمر على الملاحظة
+
+  المرحلة ب — تعزيز التجربة
+    4) التحسين 7 — Inbox الابن (بعد التحقق من RLS والتوصية 4)
+    5) التحسين 8 — صحة الحساب لولي الأمر
+
+  المرحلة ج — لوحات الإدارة (دالة غياب مشتركة)
+    6) التحسين 5 و 6 معاً — لوحة الإمام + لوحة المشرف
+
+  المرحلة د — تعدد المساجد والمسابقات
+    7) التحسين 2 — مسابقات متعددة (ابن بمسجدين)
+
+  مؤجلة: إشعارات Push، مراقبة التصحيحات (السوبر أدمن).
+
+--------------------------------------------------------------------------------
+٥) التحسين 1 — مصدر الحضور (مسجد / تصحيح مقبول)
+--------------------------------------------------------------------------------
+
+الوصف:
+  تمييز في الواجهة والبيانات بين حضور من المسجد (QR/رقم) وحضور من تصحيح مقبول.
+
+هيكل الملفات (بالترتيب):
+  1. supabase/migrations/029_attendance_source.sql (جديد)
+  2. lib/app/models/attendance_model.dart (تعديل)
+  3. lib/app/features/parent/data/repositories/child_repository.dart (تعديل)
+  4. lib/app/features/parent/presentation/screens/home_screen.dart (تعديل)
+  5. lib/app/features/parent/presentation/screens/child_view_screen.dart (تعديل)
+  6. RPC approve_correction_request في Supabase (فحص/تعديل)
+
+الخطوات:
+  1. Migration: ALTER TABLE attendance ADD COLUMN source TEXT NOT NULL DEFAULT 'mosque' CHECK (source IN ('mosque', 'correction'));
+  2. في approve_correction_request عند INSERT into attendance: تعيين source = 'correction'.
+  3. AttendanceModel: إضافة source من JSON مع افتراضي 'mosque'.
+  4. getAttendanceForChildOnDate و getAttendanceForMyChildren: إدراج source في SELECT.
+  5. في home_screen و child_view_screen عند عرض سجل حضور: إن source == 'correction' → "تصحيح مقبول" + لون مميز؛ وإلا "مسجد".
+
+معايير القبول: حضور QR يظهر "مسجد"، تصحيح مقبول يظهر "تصحيح مقبول"، بيانات قديمة تظهر "مسجد" بدون خطأ.
+
+--------------------------------------------------------------------------------
+٦) التحسين 2 — مسابقات متعددة (ابن بمسجدين)
+--------------------------------------------------------------------------------
+
+الوصف:
+  ابن بمسجدين يرى لوحة صدارة منفصلة لكل مسجد له مسابقة نشطة (استعلام واحد بـ IN).
+
+هيكل الملفات (بالترتيب):
+  1. lib/app/features/competitions/data/repositories/competition_repository.dart (تعديل)
+  2. lib/app/features/parent/presentation/screens/home_screen.dart (تعديل)
+  3. lib/app/features/parent/presentation/screens/child_view_screen.dart (تعديل)
+
+الخطوات:
+  1. CompetitionRepository: إضافة getActiveForMosques(List<String> mosqueIds) — استعلام واحد WHERE mosque_id IN (...) AND status = 'active'.
+  2. home_screen: جلب مساجد الأبناء ثم getActiveForMosques(ids) مرة واحدة؛ لكل مسجد له مسابقة نشطة عرض بطاقة "مسابقة [اسم المسجد]" وترتيب الابن.
+  3. child_view_screen: نفس المنطق — "ترتيبي في [اسم المسجد]" لكل مسجد نشط.
+
+معايير القبول: لا N+1 استعلامات؛ ابن بمسجدين ومسابقتان → قسمان منفصلان.
+
+--------------------------------------------------------------------------------
+٧) التحسين 3 — رد ولي الأمر على الملاحظة (مرة واحدة)
+--------------------------------------------------------------------------------
+
+الوصف:
+  ولي الأمر يرد مرة واحدة فقط؛ الرد يُقفل والمشرف يرى الرد في شاشة الملاحظات المرسلة.
+  (اختياري: Realtime أو تحديث عند فتح الشاشة لتنبيه المشرف بوجود رد.)
+
+هيكل الملفات (بالترتيب):
+  1. supabase/migrations/030_notes_parent_reply.sql (جديد)
+  2. lib/app/models/note_model.dart أو نموذج الملاحظة (تعديل — parentReply, parentRepliedAt)
+  3. lib/app/features/notes/data/repositories/notes_repository.dart (تعديل — updateParentReply)
+  4. شاشة Inbox ولي الأمر (تعديل — عرض رد أو حقل إرسال رد)
+  5. شاشة الملاحظات المرسلة للمشرف (تعديل — عرض parent_reply تحت الملاحظة)
+
+الخطوات:
+  1. Migration: ALTER TABLE notes ADD COLUMN parent_reply TEXT, ADD COLUMN parent_replied_at TIMESTAMPTZ;
+  2. RLS أو RPC: UPDATE notes SET parent_reply=..., parent_replied_at=NOW() WHERE id=... AND child_id IN (أبنائي) AND parent_reply IS NULL;
+  3. NoteModel: إضافة parentReply و parentRepliedAt.
+  4. NotesRepository.updateParentReply(noteId, replyText).
+  5. Inbox ولي الأمر: إن parent_reply != null عرض "ردك: ..."؛ وإلا حقل نص + زر إرسال.
+  6. شاشة المشرف (التحسين 4): عرض "رد ولي الأمر: ..." وتاريخه تحت نص الملاحظة.
+
+معايير القبول: رد واحد فقط مقبول؛ المشرف يرى الرد؛ محاولة رد ثانٍ مرفوضة.
+
+--------------------------------------------------------------------------------
+٨) التحسين 4 — شاشة الملاحظات المرسلة للمشرف
+--------------------------------------------------------------------------------
+
+الوصف:
+  استبدال أي placeholder في /supervisor/notes بقائمة حقيقية + تفاصيل + رد ولي الأمر.
+
+هيكل الملفات (بالترتيب):
+  1. lib/app/features/notes/data/repositories/notes_repository.dart — getMySentNotes (تعديل أو إضافة)
+  2. lib/app/features/supervisor/presentation/screens/supervisor_sent_notes_screen.dart (تعديل أو إنشاء — الاسم قد يختلف في المشروع)
+  3. lib/app/core/router/app_router.dart — ربط /supervisor/notes بالشاشة
+
+الخطوات:
+  1. getMySentNotes(): SELECT من notes WHERE sender_id = auth.uid() مع JOIN children لاسم الطفل؛ إدراج parent_reply و parent_replied_at.
+  2. الشاشة: قائمة ملاحظات (اسم الطفل، تاريخ، مقتطف)؛ ضغط → تفاصيل مع النص الكامل و"رد ولي الأمر" إن وُجد.
+  3. Router: استبدال redirect الـ placeholder بالشاشة الجديدة.
+
+معايير القبول: قائمة مرتبة بالأحدث؛ المشرف يرى فقط ملاحظاته؛ الرد يظهر في التفاصيل.
+
+--------------------------------------------------------------------------------
+٩) التحسين 5 — لوحة الإمام المحسّنة
+--------------------------------------------------------------------------------
+
+الوصف:
+  إحصائيات أوضح، Badge طلبات التصحيح، قسم تنبيه غياب (دالة مشتركة مع التحسين 6).
+
+هيكل الملفات (بالترتيب):
+  1. lib/app/features/mosque/data/repositories/mosque_repository.dart (أو مكان مشترك) — getAbsentStudents(mosqueId, days) (جديد/مشترك)
+  2. lib/app/features/imam/data/repositories/imam_repository.dart — getMosqueStats يُرجع pending_corrections و pending_join_requests (تعديل)
+  3. lib/app/features/imam/presentation/screens/imam_dashboard_screen.dart (تعديل)
+
+الخطوات:
+  1. getAbsentStudents(mosqueId, days): طلاب المسجد الذين لا حضور لهم في آخر X أيام (من mosque_children و attendance).
+  2. getMosqueStats: إرجاع today_attendance, total_students, pending_corrections, pending_join_requests.
+  3. لوحة الإمام: بطاقات إحصائيات، Badge على زر طلبات التصحيح، قسم "تنبيهات" باستدعاء getAbsentStudents(mosqueId, 3).
+
+معايير القبول: Badge صحيح؛ طالب غائب 3 أيام يظهر في التنبيهات.
+
+--------------------------------------------------------------------------------
+١٠) التحسين 6 — لوحة المشرف المحسّنة
+--------------------------------------------------------------------------------
+
+الوصف:
+  إحصائيات، تنبيه غياب، منتقي مسجد عند التعدد. استخدام نفس getAbsentStudents.
+
+هيكل الملفات (بالترتيب):
+  1. نفس getAbsentStudents من التحسين 5 (لا تكرار)
+  2. lib/app/features/supervisor/presentation/screens/supervisor_dashboard_screen.dart (تعديل)
+
+الخطوات:
+  1. عند أكثر من مسجد: Chip/Dropdown لاختيار المسجد؛ الإحصائيات والغياب حسب المسجد المختار.
+  2. قسم تنبيه غياب: getAbsentStudents(selectedMosqueId, 3) — قائمة مختصرة + "عرض الكل".
+  3. (اختياري) توحيد المسجد المختار مع scanner_screen عبر state مشترك أو تخزين محلي.
+
+معايير القبول: مشرف بمسجدين يرى منتقياً؛ قائمة الغائبين صحيحة.
+
+--------------------------------------------------------------------------------
+١١) التحسين 7 — Inbox الابن (ملاحظاتي + mark as read)
+--------------------------------------------------------------------------------
+
+الوصف:
+  شاشة للابن تعرض ملاحظاته فقط. يتطلب حساب ابن مستقل (login_user_id) و RLS موثقة على notes.
+
+هيكل الملفات (بالترتيب):
+  1. RLS على notes (فحص وتوثيق — لا إنشاء ملف جديد)
+  2. lib/app/features/notes/data/repositories/notes_repository.dart — getNotesForChild(childId), markAsRead (تعديل/إضافة)
+  3. lib/app/features/parent/presentation/screens/child_notes_screen.dart (جديد — شاشة الابن تحت parent في المشروع الحالي)
+  4. lib/app/features/parent/presentation/screens/child_view_screen.dart — زر "رسائلي" يفتح child_notes_screen (تعديل)
+
+الخطوات:
+  1. قبل التنفيذ: التحقق من RLS أن الابن يقرأ فقط notes WHERE child_id IN (SELECT id FROM children WHERE login_user_id = auth.uid()).
+  2. getNotesForChild(childId): SELECT WHERE child_id = childId مع is_read و created_at.
+  3. markAsRead(noteId): UPDATE is_read مع شرط child_id (RLS تحمي).
+  4. child_notes_screen: قائمة ملاحظات؛ تمييز غير مقروء؛ ضغط → تفاصيل + markAsRead.
+  5. من child_view_screen: زر "رسائلي" → دفع child_notes_screen (مع childId من _child.id).
+
+معايير القبول: الابن يرى ملاحظاته فقط؛ فتح الملاحظة يحدّث is_read.
+
+--------------------------------------------------------------------------------
+١٢) التحسين 8 — صحة الحساب لولي الأمر
+--------------------------------------------------------------------------------
+
+الوصف:
+  قسم في الملف الشخصي: اكتمال الاسم، البريد المفعّل، الهاتف، وجود أبناء، ربط كل ابن بمسجد.
+
+  التحقق من البريد المفعّل في Flutter:
+  supabase.auth.currentUser?.emailConfirmedAt != null
+  (أو الـ getter المكافئ في Supabase Flutter SDK للتحقق من تأكيد البريد.)
+
+هيكل الملفات (بالترتيب):
+  1. lib/app/features/profile/presentation/screens/profile_screen.dart (تعديل فقط)
+
+الخطوات:
+  1. عند دور parent: إضافة قسم "صحة الحساب" تحت بيانات المستخدم.
+  2. عناصر: الاسم (من users/currentUser)، البريد المفعّل (emailConfirmedAt != null)، الهاتف، أبناء (getMyChildren)، كل ابن بمسجد (getChildMosqueIds لكل ابن).
+  3. واجهة: شريط تقدم (عدد مكتمل/إجمالي)؛ لكل عنصر ناقص زر إجراء (تعديل بروفايل، إضافة ابن، فتح بطاقة ابن).
+  4. تحديث القسم عند العودة من شاشة فرعية (مثلاً في didPop أو عند ظهور الشاشة).
+
+معايير القبول: شريط تقدم صحيح؛ ابن بدون مسجد → تحذير + زر لبطاقة الابن؛ عودة من تعديل تحدّث القسم.
+
+--------------------------------------------------------------------------------
+نهاية الوثيقة — نسخة نهائية منظمة 2026-02-25
+--------------------------------------------------------------------------------

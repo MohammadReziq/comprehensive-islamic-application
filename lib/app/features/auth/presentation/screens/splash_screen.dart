@@ -47,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _resolveUnauthenticated() async {
     if (_navigated) return; // ← يمنع التكرار
     final prefs = await SharedPreferences.getInstance();
-    final seen  = prefs.getBool(AppStorageKeys.onboardingSeen) ?? false;
+    final seen = prefs.getBool(AppStorageKeys.onboardingSeen) ?? false;
     if (!mounted) return;
     _navigated = true;
     context.go(seen ? '/login' : '/onboarding');

@@ -163,4 +163,21 @@ class AnnouncementRepository {
       throw mapPostgresError(e);
     }
   }
+
+  /// تسجيل قراءة كل الإعلانات المعطاة (للوالد — عند دخول شاشة الإعلانات)
+  Future<void> markAllAsRead(List<String> announcementIds, String userId) async {
+    if (announcementIds.isEmpty) return;
+    final now = DateTime.now().toUtc().toIso8601String();
+    try {
+      for (final id in announcementIds) {
+        await supabase.from('announcement_reads').upsert({
+          'announcement_id': id,
+          'user_id': userId,
+          'read_at': now,
+        }, onConflict: 'announcement_id,user_id');
+      }
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
 }

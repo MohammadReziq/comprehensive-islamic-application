@@ -236,4 +236,26 @@ class CompetitionRepository {
       );
     }
   }
+
+  // ─────────────────────────────────────────────────────────
+  // المسابقات النشطة لعدة مساجد (لولي الأمر والابن)
+  // ─────────────────────────────────────────────────────────
+
+  Future<List<CompetitionModel>> getActiveForMosques(
+      List<String> mosqueIds) async {
+    if (mosqueIds.isEmpty) return [];
+    try {
+      final res = await supabase
+          .from('competitions')
+          .select()
+          .inFilter('mosque_id', mosqueIds)
+          .eq('is_active', true)
+          .order('start_date', ascending: false);
+      return (res as List)
+          .map((e) => CompetitionModel.fromJson(e))
+          .toList();
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
 }

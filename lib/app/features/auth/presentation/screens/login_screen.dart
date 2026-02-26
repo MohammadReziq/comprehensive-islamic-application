@@ -29,6 +29,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _forgotEmailController = TextEditingController();
 
+  /// true = نعرض نموذج البريد/كلمة المرور، false = الخيار الأساسي (Google فقط)
+  bool _showEmailLogin = false;
+
   // ─── Video via shared manager ────────────────────────────
   final _mgr = AuthVideoManager();
   bool _videoReady = false;
@@ -37,18 +40,30 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    _mgr.addListener(_onManagerChanged);
     _initVideo();
+  }
+
+  void _onManagerChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _initVideo() async {
     // If video was already loaded (coming from RegisterScreen), show instantly
     if (_mgr.isReady) {
-      if (mounted) setState(() { _videoReady = true; _videoOpacity = 1.0; });
+      if (mounted) {
+        setState(() {
+          _videoReady = true;
+          _videoOpacity = 1.0;
+        });
+      }
       return;
     }
     final ok = await _mgr.ensureReady();
     if (!mounted || !ok) return;
-    setState(() { _videoReady = true; });
+    setState(() {
+      _videoReady = true;
+    });
     Future.delayed(const Duration(milliseconds: 150), () {
       if (mounted) setState(() => _videoOpacity = 1.0);
     });
@@ -56,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _mgr.removeListener(_onManagerChanged);
     _emailController.dispose();
     _passwordController.dispose();
     _forgotEmailController.dispose();
@@ -84,6 +100,193 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// الخيار الأساسي: Google فقط + رابط لتسجيل الدخول بالبريد
+  Widget _buildGooglePrimary(AppResponsive r) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: r.buttonHeight,
+          child: OutlinedButton.icon(
+            onPressed: () => context.read<AuthBloc>().add(
+              const AuthLoginWithGoogleRequested(),
+            ),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              side: BorderSide(
+                color: Colors.white.withValues(alpha: 0.28),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(r.radiusMD),
+              ),
+            ),
+            icon: Text(
+              'G',
+              style: TextStyle(
+                fontSize: r.textLG,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            label: Text(
+              AppStrings.loginWithGoogle,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: r.textMD,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: r.vlg),
+        TextButton(
+          onPressed: () => setState(() => _showEmailLogin = true),
+          child: Text(
+            'تسجيل الدخول بالبريد الإلكتروني',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: r.textSM,
+              decoration: TextDecoration.underline,
+              decorationColor: Colors.white.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+        SizedBox(height: r.vsm),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              AppStrings.dontHaveAccount,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: r.textSM,
+              ),
+            ),
+            TextButton(
+              onPressed: () => context.push('/register'),
+              child: Text(
+                AppStrings.register,
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: r.textSM,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// نموذج تسجيل الدخول بالبريد وكلمة المرور (يظهر بعد الضغط على الرابط)
+  Widget _buildEmailLoginForm(
+    AppResponsive r,
+    Color fieldFill,
+    Color fieldBorder,
+    Color fieldIcon,
+    Color fieldHint,
+  ) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showEmailLogin = false),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 16,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+              label: Text(
+                'العودة',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: r.textSM,
+                ),
+              ),
+            ),
+          ),
+          AppTextField(
+            controller: _emailController,
+            label: AppStrings.email,
+            hint: 'example@email.com',
+            prefixIcon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            textDirection: TextDirection.ltr,
+            fillColor: fieldFill,
+            labelColor: Colors.white,
+            textColor: Colors.white,
+            borderColor: fieldBorder,
+            iconColor: fieldIcon,
+            hintColor: fieldHint,
+            validator: (v) {
+              if (v == null || v.isEmpty) return AppStrings.errorFieldRequired;
+              if (!v.contains('@')) return AppStrings.errorInvalidEmail;
+              return null;
+            },
+          ),
+          SizedBox(height: r.vmd),
+          AppTextField.password(
+            controller: _passwordController,
+            fillColor: fieldFill,
+            labelColor: Colors.white,
+            textColor: Colors.white,
+            borderColor: fieldBorder,
+            iconColor: fieldIcon,
+            hintColor: fieldHint,
+            validator: (v) {
+              if (v == null || v.isEmpty) return AppStrings.errorFieldRequired;
+              if (v.length < 6) return AppStrings.errorWeakPassword;
+              return null;
+            },
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: _showForgotPasswordDialog,
+              child: Text(
+                AppStrings.forgotPassword,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: r.textSM,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: r.vsm),
+          BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, state) {
+              final isLoading = state is AuthLoading;
+              return SizedBox(
+                height: r.buttonHeight,
+                child: AppButton(
+                  text: AppStrings.login,
+                  onPressed: isLoading ? null : _onLogin,
+                  isLoading: isLoading,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoLayer(VideoPlayerController ctrl) => SizedBox.expand(
+    child: FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: ctrl.value.size.width,
+        height: ctrl.value.size.height,
+        child: VideoPlayer(ctrl),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final r = AppResponsive(context);
@@ -94,8 +297,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final fieldBorder = Colors.white.withValues(alpha: 0.35);
     final fieldIcon = Colors.white.withValues(alpha: 0.65);
     final fieldHint = Colors.white.withValues(alpha: 0.4);
-
-    final ctrl = _mgr.controller;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -162,20 +363,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              // ─── Layer 2: Video (fades in when ready) ───
-              if (_videoReady && ctrl != null)
+              // ─── Layer 2: Video ping-pong (both textures always hot) ───
+              // Outer AnimatedOpacity: initial fade-in only (first load).
+              // Inner Opacity: INSTANT switch — no crossfade.
+              //   Both videos share identical frames at transition points,
+              //   so instant switch is seamless. 0.001 keeps GPU texture
+              //   warm so there's no cold-start flash on the next switch.
+              if (_videoReady)
                 AnimatedOpacity(
                   opacity: _videoOpacity,
                   duration: const Duration(milliseconds: 500),
-                  child: SizedBox.expand(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: ctrl.value.size.width,
-                        height: ctrl.value.size.height,
-                        child: VideoPlayer(ctrl),
-                      ),
-                    ),
+                  child: Stack(
+                    children: [
+                      if (_mgr.forwardController != null)
+                        Opacity(
+                          opacity: _mgr.isForward ? 1.0 : 0.001,
+                          child: _buildVideoLayer(_mgr.forwardController!),
+                        ),
+                      if (_mgr.reverseController != null)
+                        Opacity(
+                          opacity: _mgr.isForward ? 0.001 : 1.0,
+                          child: _buildVideoLayer(_mgr.reverseController!),
+                        ),
+                    ],
                   ),
                 ),
 
@@ -208,10 +418,31 @@ class _LoginScreenState extends State<LoginScreen> {
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       children: [
-                        SizedBox(height: r.isShortPhone ? r.vmd : r.vxl),
+                        SizedBox(height: r.isShortPhone ? r.vsm : r.vmd),
 
-                        // ─── Logo ───
-                        SizedBox(height: r.vxxl + 90),
+                        // ─── Header ───
+                        Text(
+                              'مرحباً بعودتك',
+                              style: TextStyle(
+                                fontSize: r.textXXL,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            )
+                            .animate()
+                            .fadeIn(duration: 700.ms)
+                            .slideY(begin: -0.3, curve: Curves.easeOut),
+
+                        const SizedBox(height: 8),
+
+                        Text(
+                          'تابع صلاة أبنائك بكل يسر',
+                          style: TextStyle(
+                            fontSize: r.textSM,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
 
                         SizedBox(height: r.isShortPhone ? r.vmd : r.vxl),
 
@@ -241,176 +472,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       width: 1.5,
                                     ),
                                   ),
-                                  child: Form(
-                                    key: _formKey,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        AppTextField(
-                                          controller: _emailController,
-                                          label: AppStrings.email,
-                                          hint: 'example@email.com',
-                                          prefixIcon: Icons.email_outlined,
-                                          keyboardType:
-                                              TextInputType.emailAddress,
-                                          textDirection: TextDirection.ltr,
-                                          fillColor: fieldFill,
-                                          labelColor: Colors.white,
-                                          textColor: Colors.white,
-                                          borderColor: fieldBorder,
-                                          iconColor: fieldIcon,
-                                          hintColor: fieldHint,
-                                          validator: (v) {
-                                            if (v == null || v.isEmpty) {
-                                              return AppStrings
-                                                  .errorFieldRequired;
-                                            }
-                                            if (!v.contains('@')) {
-                                              return AppStrings
-                                                  .errorInvalidEmail;
-                                            }
-                                            return null;
-                                          },
-                                        ),
-
-                                        SizedBox(height: r.vmd),
-
-                                        AppTextField.password(
-                                          controller: _passwordController,
-                                          fillColor: fieldFill,
-                                          labelColor: Colors.white,
-                                          textColor: Colors.white,
-                                          borderColor: fieldBorder,
-                                          iconColor: fieldIcon,
-                                          hintColor: fieldHint,
-                                          validator: (v) {
-                                            if (v == null || v.isEmpty) {
-                                              return AppStrings
-                                                  .errorFieldRequired;
-                                            }
-                                            if (v.length < 6) {
-                                              return AppStrings
-                                                  .errorWeakPassword;
-                                            }
-                                            return null;
-                                          },
-                                        ),
-
-                                        Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: TextButton(
-                                            onPressed:
-                                                _showForgotPasswordDialog,
-                                            child: Text(
-                                              AppStrings.forgotPassword,
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.7,
-                                                ),
-                                                fontSize: r.textSM,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-
-                                        SizedBox(height: r.vsm),
-
-                                        BlocBuilder<AuthBloc, AuthState>(
-                                          builder: (context, state) {
-                                            final isLoading =
-                                                state is AuthLoading;
-                                            return SizedBox(
-                                              height: r.buttonHeight,
-                                              child: AppButton(
-                                                text: AppStrings.login,
-                                                onPressed: isLoading
-                                                    ? null
-                                                    : _onLogin,
-                                                isLoading: isLoading,
-                                              ),
-                                            );
-                                          },
-                                        ),
-
-                                        SizedBox(height: r.vmd),
-
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Divider(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.2,
-                                                ),
-                                              ),
-                                            ),
-                                            Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: r.md,
-                                              ),
-                                              child: Text(
-                                                AppStrings.orLoginWith,
-                                                style: TextStyle(
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.5),
-                                                  fontSize: r.textSM,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Divider(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.2,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-
-                                        SizedBox(height: r.vmd),
-
-                                        SizedBox(
-                                          height: r.buttonHeight,
-                                          child: OutlinedButton.icon(
-                                            onPressed: () =>
-                                                context.read<AuthBloc>().add(
-                                                  const AuthLoginWithGoogleRequested(),
-                                                ),
-                                            style: OutlinedButton.styleFrom(
-                                              backgroundColor: Colors.white
-                                                  .withValues(alpha: 0.05),
-                                              side: BorderSide(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.22,
-                                                ),
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                      r.radiusMD,
-                                                    ),
-                                              ),
-                                            ),
-                                            icon: Text(
-                                              'G',
-                                              style: TextStyle(
-                                                fontSize: r.textLG,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            label: Text(
-                                              AppStrings.loginWithGoogle,
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: r.textMD,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                  child: _showEmailLogin
+                                      ? _buildEmailLoginForm(r, fieldFill, fieldBorder, fieldIcon, fieldHint)
+                                      : _buildGooglePrimary(r),
                                 ),
                               ),
                             )
@@ -419,31 +483,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             .slideY(begin: 0.1, curve: Curves.easeOut),
 
                         SizedBox(height: r.vmd),
-
-                        // ─── Register link ───
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              AppStrings.dontHaveAccount,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: r.textSM,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () => context.push('/register'),
-                              child: Text(
-                                AppStrings.register,
-                                style: TextStyle(
-                                  color: AppColors.accent,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: r.textSM,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ).animate().fadeIn(delay: 600.ms),
 
                         SizedBox(height: r.vsm),
                       ],

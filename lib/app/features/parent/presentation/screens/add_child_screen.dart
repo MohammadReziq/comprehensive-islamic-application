@@ -49,6 +49,28 @@ class _AddChildScreenState extends State<AddChildScreen> {
       );
       return;
     }
+    if (_createAccount) {
+      final email = _emailCtrl.text.trim();
+      final pass = _passCtrl.text.trim();
+      if (email.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('أدخل إيميل الابن لإنشاء الحساب'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      if (pass.length < 6) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('كلمة المرور 6 أحرف على الأقل'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
     setState(() => _loading = true);
     context.read<ChildrenBloc>().add(
       ChildrenAdd(
@@ -60,13 +82,100 @@ class _AddChildScreenState extends State<AddChildScreen> {
     );
   }
 
+  void _showCredentialsThenPop(
+    BuildContext context,
+    String email,
+    String password,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.key_rounded, color: Color(0xFF2E8B57)),
+              SizedBox(width: 8),
+              Text(
+                'بيانات دخول الابن',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'احتفظ بهذه البيانات — لن تظهر مرة أخرى',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              _credRow('الإيميل', email),
+              const SizedBox(height: 10),
+              _credRow('كلمة المرور', password),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                context.read<ChildrenBloc>().add(
+                  const ChildrenCredentialsShown(),
+                );
+                if (context.mounted) context.pop();
+              },
+              child: const Text('فهمت، أغلق'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _credRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A2B3C),
+            ),
+          ),
+        ),
+        Expanded(
+          child: SelectableText(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0D2137),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<ChildrenBloc, ChildrenState>(
       listener: (context, state) {
-        if (state is ChildrenLoaded || state is ChildrenLoadedWithCredentials) {
+        if (state is ChildrenLoaded) {
           setState(() => _loading = false);
           context.pop();
+        }
+        if (state is ChildrenLoadedWithCredentials) {
+          setState(() => _loading = false);
+          _showCredentialsThenPop(context, state.email, state.password);
         }
         if (state is ChildrenError) {
           setState(() => _loading = false);

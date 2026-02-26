@@ -276,4 +276,51 @@ class MosqueRepository {
 
     await supabase.from('mosques').update(updates).eq('id', mosqueId);
   }
+
+  /// طلاب غائبون — لا حضور في آخر [days] أيام (مشترك بين الإمام والمشرف)
+  Future<List<Map<String, dynamic>>> getAbsentStudents(
+    String mosqueId, {
+    int days = 3,
+  }) async {
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final cutoffStr =
+        '${cutoff.year}-${cutoff.month.toString().padLeft(2, '0')}-${cutoff.day.toString().padLeft(2, '0')}';
+
+    // كل طلاب المسجد النشطين
+    final studentsRaw = await supabase
+        .from('mosque_children')
+        .select('child_id, children(id, name)')
+        .eq('mosque_id', mosqueId)
+        .eq('is_active', true);
+    final students = studentsRaw as List;
+    if (students.isEmpty) return [];
+
+    final childIds =
+        students.map((s) => s['child_id'] as String).toList();
+
+    // حضور في الفترة
+    final attendanceRaw = await supabase
+        .from('attendance')
+        .select('child_id')
+        .eq('mosque_id', mosqueId)
+        .inFilter('child_id', childIds)
+        .gte('prayer_date', cutoffStr);
+    final attendedIds = (attendanceRaw as List)
+        .map((a) => a['child_id'] as String)
+        .toSet();
+
+    // فلترة الغائبين
+    final absent = <Map<String, dynamic>>[];
+    for (final s in students) {
+      final cid = s['child_id'] as String;
+      if (!attendedIds.contains(cid)) {
+        final child = s['children'] as Map<String, dynamic>?;
+        absent.add({
+          'child_id': cid,
+          'name': child?['name'] ?? 'بدون اسم',
+        });
+      }
+    }
+    return absent;
+  }
 }

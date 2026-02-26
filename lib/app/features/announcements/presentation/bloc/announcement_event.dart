@@ -71,3 +71,11 @@ class MarkAsRead extends AnnouncementEvent {
   @override
   List<Object?> get props => [announcementId];
 }
+
+/// تسجيل قراءة كل الإعلانات المعطاة (للوالد — عند دخول شاشة الإعلانات)
+class MarkAllAsRead extends AnnouncementEvent {
+  final List<String> announcementIds;
+  const MarkAllAsRead(this.announcementIds);
+  @override
+  List<Object?> get props => [announcementIds];
+}

@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/hadiths_prayer.dart';
 import '../../../../core/services/prayer_times_service.dart';
+import '../../../../core/services/realtime_service.dart';
 import '../../../../injection_container.dart';
 import '../../../../models/child_model.dart';
 import '../../../../models/attendance_model.dart';
@@ -13,10 +16,8 @@ import '../../../../models/competition_model.dart';
 import '../../../announcements/data/repositories/announcement_repository.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../competitions/data/repositories/competition_repository.dart';
-import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../../notes/data/repositories/notes_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../data/repositories/child_repository.dart';
@@ -44,7 +45,12 @@ class _HomeScreenState extends State<HomeScreen>
   CompetitionStatus _competitionStatus = CompetitionStatus.noCompetition;
   CompetitionModel? _competition;
   int _unreadCount = 0;
+  int _announcementsUnreadCount = 0;
   Timer? _countdownTimer;
+  int _hadithIndex = 0;
+  Timer? _hadithTimer;
+  bool _realtimeSubscribed = false;
+  List<ChildModel> _latestChildren = [];
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -71,6 +77,14 @@ class _HomeScreenState extends State<HomeScreen>
     _loadUnreadCount();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
+    });
+    _hadithIndex = Random().nextInt(HadithPrayer.list.length);
+    _hadithTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _hadithIndex = (_hadithIndex + 1) % HadithPrayer.list.length;
+        });
+      }
     });
   }
 
@@ -111,11 +125,17 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _loadCompetitionStatus() async {
     try {
-      final mosques = await sl<MosqueRepository>().getMyMosques();
-      if (mosques.isEmpty) return;
-      for (final mosque in mosques) {
+      // جلب مساجد الأبناء (ولي الأمر ليس في mosque_members)
+      final children = await sl<ChildRepository>().getMyChildren();
+      final mosqueIds = <String>{};
+      for (final c in children) {
+        final ids = await sl<ChildRepository>().getChildMosqueIds(c.id);
+        mosqueIds.addAll(ids);
+      }
+      if (mosqueIds.isEmpty) return;
+      for (final mosqueId in mosqueIds) {
         final result = await sl<CompetitionRepository>().getCompetitionStatus(
-          mosque.id,
+          mosqueId,
         );
         if (result.status != CompetitionStatus.noCompetition) {
           if (mounted) {
@@ -137,14 +157,18 @@ class _HomeScreenState extends State<HomeScreen>
       final notes = await sl<NotesRepository>().getNotesForMyChildren(childIds);
       final unreadNotes = notes.where((n) => !n.isRead).length;
 
-      final mosques = await sl<MosqueRepository>().getMyMosques();
-      final mosqueIds = mosques.map((m) => m.id).toList();
+      // جلب مساجد الأبناء (وليس mosque_members)
+      final mosqueIds = <String>{};
+      for (final c in children) {
+        final ids = await sl<ChildRepository>().getChildMosqueIds(c.id);
+        mosqueIds.addAll(ids);
+      }
       int unreadAnn = 0;
       if (mosqueIds.isNotEmpty) {
         final user = await sl<AuthRepository>().getCurrentUserProfile();
         if (user != null) {
           final anns = await sl<AnnouncementRepository>().getForParent(
-            mosqueIds,
+            mosqueIds.toList(),
           );
           final readIds = await sl<AnnouncementRepository>().getReadIds(
             user.id,
@@ -153,14 +177,34 @@ class _HomeScreenState extends State<HomeScreen>
         }
       }
 
-      if (mounted) setState(() => _unreadCount = unreadNotes + unreadAnn);
+      if (mounted) setState(() {
+        _unreadCount = unreadNotes;
+        _announcementsUnreadCount = unreadAnn;
+      });
     } catch (_) {}
+  }
+
+  void _startRealtime(List<String> childIds) {
+    _realtimeSubscribed = true;
+    // عند تسجيل حضور لأي ابن → تحديث قائمة اليوم فوراً
+    sl<RealtimeService>().subscribeAttendanceForChildIds(childIds, (_) {
+      if (!mounted) return;
+      _loadTodayAttendance(_latestChildren);
+    });
+    // عند وصول ملاحظة جديدة → تحديث عداد "الرسائل" فوراً
+    sl<RealtimeService>().subscribeNotesForChildren(childIds, (_) {
+      if (!mounted) return;
+      _loadUnreadCount();
+    });
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _hadithTimer?.cancel();
     _animController.dispose();
+    sl<RealtimeService>().unsubscribeAttendance();
+    sl<RealtimeService>().unsubscribeNotes();
     super.dispose();
   }
 
@@ -290,17 +334,23 @@ class _HomeScreenState extends State<HomeScreen>
 
     return BlocConsumer<ChildrenBloc, ChildrenState>(
       listener: (context, state) {
-        if (state is ChildrenLoaded) {
-          _loadTodayAttendance(state.children);
+        if (state is ChildrenLoaded || state is ChildrenLoadedWithCredentials) {
+          final children = state is ChildrenLoaded
+              ? state.children
+              : (state as ChildrenLoadedWithCredentials).children;
+          _latestChildren = children;
+          _loadTodayAttendance(children);
           if (!_animController.isCompleted) _animController.forward();
-        }
-        if (state is ChildrenLoadedWithCredentials) {
-          _loadTodayAttendance(state.children);
-          if (!_animController.isCompleted) _animController.forward();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted)
-              _showCredentialsDialog(context, state.email, state.password);
-          });
+          if (!_realtimeSubscribed && children.isNotEmpty) {
+            _startRealtime(children.map((c) => c.id).toList());
+          }
+          if (state is ChildrenLoadedWithCredentials) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _showCredentialsDialog(context, state.email, state.password);
+              }
+            });
+          }
         }
       },
       builder: (context, state) {
@@ -407,92 +457,22 @@ class _HomeScreenState extends State<HomeScreen>
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'أهلاً، $name',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      Text(
-                        'ولي الأمر',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.65),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white.withOpacity(0.18)),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      Icons.mosque_rounded,
-                      size: 42,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-
               // مواقيت الصلاة: بدون موقع أو فشل الشبكة نعرض المشكلة
-              _buildPrayerSection(context, nextPrayer, lat, lng, loadingPrayer, prayerLoadError),
-              const SizedBox(height: 14),
-
-              // Stats Row: أبنائي | حضور اليوم
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildHeroChip(
-                      icon: Icons.child_care_rounded,
-                      label: 'أبنائي',
-                      value: '${children.length} أبناء',
-                      onTap: () => context.push('/parent/children'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildHeroChip(
-                      icon: Icons.how_to_reg_rounded,
-                      label: 'حضور اليوم',
-                      value: _loadingAttendance
-                          ? '...'
-                          : '${_todayAttendance.length} صلاة',
-                      accentColor: _todayAttendance.isNotEmpty
-                          ? const Color(0xFF69F0AE)
-                          : null,
-                      onTap: () {},
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildHeroChip(
-                      icon: Icons.notifications_rounded,
-                      label: 'الملاحظات',
-                      value: 'عرض',
-                      onTap: () => context.push('/parent/notes'),
-                    ),
-                  ),
-                ],
+              _buildPrayerSection(
+                context,
+                nextPrayer,
+                lat,
+                lng,
+                loadingPrayer,
+                prayerLoadError,
               ),
+              const SizedBox(height: 14),
+              // بطاقة حديث تتغير عند الدخول وكل دقيقة
+              _buildHadithCard(),
             ],
           ),
         ),
@@ -522,12 +502,19 @@ class _HomeScreenState extends State<HomeScreen>
             SizedBox(
               width: 22,
               height: 22,
-              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
             ),
             SizedBox(width: 12),
             Text(
               'جاري جلب مواقيت الصلاة...',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -613,7 +600,12 @@ class _HomeScreenState extends State<HomeScreen>
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  Widget _buildPrayerCard(BuildContext context, dynamic nextPrayer, double lat, double lng) {
+  Widget _buildPrayerCard(
+    BuildContext context,
+    dynamic nextPrayer,
+    double lat,
+    double lng,
+  ) {
     final nameAr = nextPrayer?.nameAr ?? '—';
     final timeFormatted = nextPrayer?.timeFormatted ?? '—';
     // إعادة حساب المتبقي كل ثانية (بفضل Timer في initState)
@@ -624,10 +616,11 @@ class _HomeScreenState extends State<HomeScreen>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.push('/prayer-times', extra: {'lat': lat, 'lng': lng}),
+        onTap: () =>
+            context.push('/prayer-times', extra: {'lat': lat, 'lng': lng}),
         borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.13),
             borderRadius: BorderRadius.circular(18),
@@ -642,32 +635,10 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           child: Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.access_time_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'الصلاة القادمة',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.65),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
                     const SizedBox(height: 3),
                     Text(
                       '$nameAr  $timeFormatted',
@@ -682,7 +653,10 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               if (countdownText != '—')
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFD54F).withOpacity(0.25),
                     borderRadius: BorderRadius.circular(20),
@@ -691,7 +665,9 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   child: Text(
-                    countdownText == 'الآن' ? countdownText : 'بعد $countdownText',
+                    countdownText == 'الآن'
+                        ? countdownText
+                        : 'بعد $countdownText',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -706,57 +682,68 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildHeroChip({
-    required IconData icon,
-    required String label,
-    required String value,
-    required VoidCallback onTap,
-    Color? accentColor,
-  }) {
+  /// بطاقة حديث واحدة
+  Widget _buildHadithCard() {
+    final list = HadithPrayer.list;
+    if (list.isEmpty) return const SizedBox.shrink();
+    final hadith = list[_hadithIndex % list.length];
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        setState(() {
+          _hadithIndex = (_hadithIndex + 1) % list.length;
+        });
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.13),
+          color: Colors.white.withOpacity(0.12),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withOpacity(0.18)),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 13,
-                  color: accentColor ?? Colors.white.withOpacity(0.7),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    label,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 4),
+                  Text(
+                    hadith.text,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    hadith.source,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.7),
                       fontWeight: FontWeight.w500,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: accentColor ?? Colors.white,
-                letterSpacing: 0.3,
+                ],
               ),
+            ),
+            Icon(
+              Icons.shuffle_on_rounded,
+              size: 12,
+              color: Colors.white.withOpacity(0.4),
             ),
           ],
         ),
@@ -851,18 +838,14 @@ class _HomeScreenState extends State<HomeScreen>
         const Color(0xFF5C8BFF),
         () => context.push('/parent/children'),
       ),
-      _Action(
-        Icons.person_add_rounded,
-        'إضافة ابن',
-        const Color(0xFF4CAF50),
-        () => context.push('/parent/children/add'),
-      ),
-      _Action(
-        Icons.edit_note_rounded,
-        'طلب تصحيح',
-        const Color(0xFF9C27B0),
-        () => context.push('/parent/corrections'),
-      ),
+
+      if (_competitionStatus == CompetitionStatus.running)
+        _Action(
+          Icons.edit_note_rounded,
+          'طلب تصحيح',
+          const Color(0xFF9C27B0),
+          () => context.push('/parent/corrections'),
+        ),
       _Action(
         Icons.forum_rounded,
         'الرسائل',
@@ -874,10 +857,14 @@ class _HomeScreenState extends State<HomeScreen>
         badge: _unreadCount,
       ),
       _Action(
-        Icons.history_rounded,
-        'طلباتي',
-        const Color(0xFFFF7043),
-        () => context.push('/parent/corrections'),
+        Icons.campaign_rounded,
+        'الإعلانات',
+        const Color(0xFFFF9800),
+        () async {
+          await context.push('/parent/announcements');
+          _loadUnreadCount();
+        },
+        badge: _announcementsUnreadCount,
       ),
     ];
 
@@ -896,18 +883,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: actions.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.05,
-          ),
-          itemBuilder: (context, i) => _buildTile(actions[i]),
-        ),
+        Column(children: actions.map(_buildTile).toList()),
       ],
     );
   }
@@ -915,80 +891,72 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildTile(_Action a) {
     return GestureDetector(
       onTap: a.onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          _buildTileInner(a),
-          if (a.badge > 0)
-            Positioned(
-              top: -4,
-              left: -4,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: Text(
-                  a.badge > 99 ? '99+' : '${a.badge}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: a.color.withValues(alpha: 0.13),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: a.color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(a.icon, color: a.color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                a.label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A2B3C),
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTileInner(_Action a) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: a.color.withValues(alpha: 0.13),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: a.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
+            if (a.badge > 0) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${a.badge}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 16,
+              color: Colors.grey.shade400,
             ),
-            child: Icon(a.icon, color: a.color, size: 26),
-          ),
-          const SizedBox(height: 9),
-          Text(
-            a.label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1A2B3C),
-              height: 1.3,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

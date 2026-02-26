@@ -16,6 +16,7 @@ import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
+import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../data/repositories/supervisor_repository.dart';
 
 /// لوحة المشرف — نفس تصميم الإمام بصلاحيات المشرف فقط
@@ -33,6 +34,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
   int _statsRefreshKey = 0;
   String? _mosqueChildrenSubscribedForMosqueId;
   String? _prayerTimingsLoadedForMosqueId;
+  List<Map<String, dynamic>> _absentStudents = [];
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -100,6 +102,10 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
           sl<RealtimeService>().subscribeMosqueChildren(mosque.id, (_) {
             if (mounted) setState(() => _statsRefreshKey++);
           });
+          // جلب الغائبين
+          sl<MosqueRepository>().getAbsentStudents(mosque.id, days: 3).then((list) {
+            if (mounted) setState(() => _absentStudents = list);
+          });
         }
 
         if (mosque != null && !_animController.isCompleted) {
@@ -136,10 +142,19 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
                                   24,
                                 ),
                                 sliver: SliverToBoxAdapter(
-                                  child: _buildActionsGrid(
-                                    context,
-                                    mosque,
-                                    nextPrayer,
+                                  child: Column(
+                                    children: [
+                                      _buildActionsGrid(
+                                        context,
+                                        mosque,
+                                        nextPrayer,
+                                      ),
+                                      if (_absentStudents.isNotEmpty) ...[
+                                        const SizedBox(height: 16),
+                                        _AbsenceAlerts(
+                                            absentStudents: _absentStudents),
+                                      ],
+                                    ],
                                   ),
                                 ),
                               ),
@@ -826,6 +841,115 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
             icon: Icon(Icons.person_rounded),
             label: 'الملف الشخصي',
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Absence Alerts ───
+class _AbsenceAlerts extends StatelessWidget {
+  final List<Map<String, dynamic>> absentStudents;
+  const _AbsenceAlerts({required this.absentStudents});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFF7043).withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF7043).withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF7043).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.warning_amber_rounded,
+                    color: Color(0xFFFF7043), size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'تنبيهات الغياب',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A2B3C),
+                      ),
+                    ),
+                    Text(
+                      '${absentStudents.length} طالب بدون حضور 3 أيام',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...absentStudents.take(5).map((s) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF7043).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      (s['name'] as String).isNotEmpty
+                          ? (s['name'] as String)[0]
+                          : '؟',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFFF7043),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    s['name'] as String,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A2B3C),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )),
+          if (absentStudents.length > 5)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'و ${absentStudents.length - 5} طالب آخر...',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
         ],
       ),
     );

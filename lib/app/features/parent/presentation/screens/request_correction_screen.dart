@@ -23,7 +23,7 @@ class RequestCorrectionScreen extends StatefulWidget {
 
 class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
   ChildModel? _child;
-  List<String> _mosqueIds = [];
+  List<({String mosqueId, MosqueType type})> _linkedWithType = [];
   List<MosqueModel> _mosques = [];
   bool _loading = true;
 
@@ -56,14 +56,15 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
   Future<void> _loadData() async {
     try {
       final child = await sl<ChildRepository>().getMyChild(widget.childId);
-      final ids = await sl<ChildRepository>().getChildMosqueIds(widget.childId);
+      final linkedWithType = await sl<ChildRepository>().getChildMosquesWithType(widget.childId);
+      final ids = linkedWithType.map((e) => e.mosqueId).toList();
       final mosques = ids.isNotEmpty
           ? await sl<MosqueRepository>().getMosquesByIds(ids)
           : <MosqueModel>[];
       if (mounted) {
         setState(() {
           _child = child;
-          _mosqueIds = ids;
+          _linkedWithType = linkedWithType;
           _mosques = mosques;
           _loading = false;
           if (mosques.isNotEmpty) _selectedMosqueId = mosques.first.id;
@@ -268,6 +269,10 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
   }
 
   Widget _buildMosquePicker() {
+    MosqueType typeFor(String mosqueId) {
+      final list = _linkedWithType.where((e) => e.mosqueId == mosqueId).toList();
+      return list.isEmpty ? MosqueType.primary : list.first.type;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
@@ -279,7 +284,10 @@ class _RequestCorrectionScreenState extends State<RequestCorrectionScreen> {
           value: _selectedMosqueId,
           isExpanded: true,
           items: _mosques
-              .map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))
+              .map((m) => DropdownMenuItem<String>(
+                    value: m.id,
+                    child: Text('${m.name} (${typeFor(m.id).nameAr})'),
+                  ))
               .toList(),
           onChanged: (v) => setState(() => _selectedMosqueId = v),
         ),

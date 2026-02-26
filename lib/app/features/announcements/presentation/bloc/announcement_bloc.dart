@@ -11,6 +11,7 @@ class AnnouncementBloc extends Bloc<AnnouncementEvent, AnnouncementState> {
     on<LoadAnnouncements>(_onLoad);
     on<LoadForParent>(_onLoadForParent);
     on<MarkAsRead>(_onMarkAsRead);
+    on<MarkAllAsRead>(_onMarkAllAsRead);
     on<CreateAnnouncement>(_onCreate);
     on<UpdateAnnouncement>(_onUpdate);
     on<DeleteAnnouncement>(_onDelete);
@@ -60,6 +61,19 @@ class AnnouncementBloc extends Bloc<AnnouncementEvent, AnnouncementState> {
       final current = state;
       if (current is AnnouncementsLoaded) {
         final updated = current.readIds.toSet()..add(event.announcementId);
+        emit(AnnouncementsLoaded(current.announcements, readIds: updated));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _onMarkAllAsRead(MarkAllAsRead event, Emitter emit) async {
+    try {
+      final user = await _repo.getCurrentUser();
+      if (user == null) return;
+      await _repo.markAllAsRead(event.announcementIds, user.id);
+      final current = state;
+      if (current is AnnouncementsLoaded) {
+        final updated = current.readIds.toSet()..addAll(event.announcementIds);
         emit(AnnouncementsLoaded(current.announcements, readIds: updated));
       }
     } catch (_) {}

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/constants/app_enums.dart';
+import '../../../../injection_container.dart';
+import '../../../../models/correction_request_model.dart';
+import '../../../corrections/data/repositories/correction_repository.dart';
 
 class MyCorrectionsScreen extends StatefulWidget {
   const MyCorrectionsScreen({super.key});
@@ -9,8 +13,7 @@ class MyCorrectionsScreen extends StatefulWidget {
 }
 
 class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
-  // ⚠️ استبدل List<dynamic> بـ List<CorrectionRequestModel> بعد ربط CorrectionBloc
-  List<dynamic> _corrections = [];
+  List<CorrectionRequestModel> _corrections = [];
   bool _loading = true;
 
   @override
@@ -22,15 +25,13 @@ class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      // ⚠️ استدعي CorrectionRepository.getMyRequests() هنا
-      // final list = await sl<CorrectionRepository>().getMyRequests();
-      // if (mounted) setState(() => _corrections = list);
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted)
+      final list = await sl<CorrectionRepository>().getMyRequests();
+      if (mounted) {
         setState(() {
-          _corrections = [];
+          _corrections = list;
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -42,26 +43,29 @@ class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
-        body: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context)),
-            if (_loading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_corrections.isEmpty)
-              SliverFillRemaining(child: _buildEmpty())
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _buildCorrectionCard(_corrections[i]),
-                    childCount: _corrections.length,
+        body: RefreshIndicator(
+          onRefresh: _load,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader(context)),
+              if (_loading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_corrections.isEmpty)
+                SliverFillRemaining(child: _buildEmpty())
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _buildCorrectionCard(_corrections[i]),
+                      childCount: _corrections.length,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -87,7 +91,7 @@ class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.12),
+                    color: Colors.white.withValues(alpha:0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -98,12 +102,22 @@ class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
                 ),
               ),
               const SizedBox(width: 14),
-              const Text(
-                'طلبات التصحيح',
+              const Expanded(
+                child: Text(
+                  'طلبات التصحيح',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              Text(
+                '${_corrections.length}',
                 style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withValues(alpha:0.7),
                 ),
               ),
             ],
@@ -113,21 +127,37 @@ class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
     );
   }
 
-  Widget _buildCorrectionCard(dynamic correction) {
-    // ⚠️ استبدل بـ CorrectionRequestModel
+  Widget _buildCorrectionCard(CorrectionRequestModel c) {
+    const prayerNames = {
+      'fajr': 'الفجر',
+      'dhuhr': 'الظهر',
+      'asr': 'العصر',
+      'maghrib': 'المغرب',
+      'isha': 'العشاء',
+    };
     final statusColors = {
-      'pending': const Color(0xFFFFB300),
-      'approved': const Color(0xFF4CAF50),
-      'rejected': const Color(0xFFE53935),
+      CorrectionStatus.pending: const Color(0xFFFFB300),
+      CorrectionStatus.approved: const Color(0xFF4CAF50),
+      CorrectionStatus.rejected: const Color(0xFFE53935),
     };
     final statusLabels = {
-      'pending': 'معلق',
-      'approved': 'مقبول',
-      'rejected': 'مرفوض',
+      CorrectionStatus.pending: 'معلق',
+      CorrectionStatus.approved: 'مقبول',
+      CorrectionStatus.rejected: 'مرفوض',
     };
-    final status = correction['status'] as String? ?? 'pending';
-    final color = statusColors[status] ?? const Color(0xFFFFB300);
-    final label = statusLabels[status] ?? 'معلق';
+    final statusIcons = {
+      CorrectionStatus.pending: Icons.hourglass_empty_rounded,
+      CorrectionStatus.approved: Icons.check_circle_rounded,
+      CorrectionStatus.rejected: Icons.cancel_rounded,
+    };
+
+    final color = statusColors[c.status] ?? const Color(0xFFFFB300);
+    final label = statusLabels[c.status] ?? 'معلق';
+    final icon = statusIcons[c.status] ?? Icons.edit_note_rounded;
+    final prayerAr = prayerNames[c.prayer.value] ?? c.prayer.value;
+    final dateStr =
+        '${c.prayerDate.year}/${c.prayerDate.month.toString().padLeft(2, '0')}/${c.prayerDate.day.toString().padLeft(2, '0')}';
+    final childName = c.childName ?? 'ابن';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12, top: 4),
@@ -137,7 +167,7 @@ class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha:0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -146,44 +176,59 @@ class _MyCorrectionsScreenState extends State<MyCorrectionsScreen> {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: color.withValues(alpha:0.1),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(Icons.edit_note_rounded, color: color, size: 22),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  correction['child_name'] ?? 'ابن',
+                  childName,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1A2B3C),
                   ),
                 ),
+                const SizedBox(height: 3),
                 Text(
-                  '${correction['prayer'] ?? ''} · ${correction['prayer_date'] ?? ''}',
+                  'صلاة $prayerAr · $dateStr',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
+                if (c.note != null && c.note!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    c.note!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
+          const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: color,
               ),

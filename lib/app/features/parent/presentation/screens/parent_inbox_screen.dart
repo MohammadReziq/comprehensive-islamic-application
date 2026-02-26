@@ -25,6 +25,9 @@ class _InboxItem {
   final DateTime date;
   final bool isRead;
   final String? childName;
+  // رد ولي الأمر (التحسين 3)
+  final String? parentReply;
+  final DateTime? parentRepliedAt;
 
   const _InboxItem._({
     required this.id,
@@ -34,6 +37,8 @@ class _InboxItem {
     required this.date,
     required this.isRead,
     this.childName,
+    this.parentReply,
+    this.parentRepliedAt,
   });
 
   factory _InboxItem.fromNote(NoteModel n) => _InboxItem._(
@@ -44,6 +49,8 @@ class _InboxItem {
         date: n.createdAt,
         isRead: n.isRead,
         childName: n.childName,
+        parentReply: n.parentReply,
+        parentRepliedAt: n.parentRepliedAt,
       );
 
   factory _InboxItem.fromAnnouncement(AnnouncementModel a, bool isRead) =>
@@ -64,7 +71,23 @@ class _InboxItem {
         date: date,
         isRead: true,
         childName: childName,
+        parentReply: parentReply,
+        parentRepliedAt: parentRepliedAt,
       );
+
+  _InboxItem withReply(String reply, DateTime at) => _InboxItem._(
+        id: id,
+        type: type,
+        title: title,
+        body: body,
+        date: date,
+        isRead: true,
+        childName: childName,
+        parentReply: reply,
+        parentRepliedAt: at,
+      );
+
+  bool get hasReply => parentReply != null && parentReply!.isNotEmpty;
 }
 
 // ─── الشاشة الرئيسية ───
@@ -160,95 +183,28 @@ class _ParentInboxScreenState extends State<ParentInboxScreen>
     final accentColor =
         isNote ? const Color(0xFF00838F) : AppColors.primary;
 
+    if (!mounted) return;
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.55,
-        maxChildSize: 0.85,
-        minChildSize: 0.35,
-        builder: (_, ctrl) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-            ),
-            child: ListView(
-              controller: ctrl,
-              children: [
-                // Handle bar
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // نوع العنصر
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      isNote ? 'ملاحظة المشرف' : 'إعلان',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: accentColor,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1A2B3C),
-                  ),
-                ),
-                if (item.childName != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'الابن: ${item.childName}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                Text(
-                  item.body,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    height: 1.65,
-                    color: Color(0xFF3D4F5F),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  _fullDate(item.date),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-        ),
+      builder: (ctx) => _NoteDetailSheet(
+        item: item,
+        initialNote: null,
+        accentColor: accentColor,
+        fullDate: _fullDate,
+        onReplySent: (updatedNote) {
+          final idx = _allItems.indexWhere((i) => i.id == item.id);
+          if (idx != -1 && mounted) {
+            setState(() {
+              _allItems[idx] = item.withReply(
+                updatedNote.parentReply!,
+                updatedNote.parentRepliedAt!,
+              );
+            });
+          }
+        },
       ),
     );
   }
@@ -470,3 +426,238 @@ class _ParentInboxScreenState extends State<ParentInboxScreen>
     return '${d.day}/${d.month}/${d.year}  $h:$m';
   }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// ودجة تفاصيل الملاحظة + رد ولي الأمر (التحسين 3)
+// ─────────────────────────────────────────────────────────────────
+class _NoteDetailSheet extends StatefulWidget {
+  const _NoteDetailSheet({
+    required this.item,
+    required this.accentColor,
+    required this.fullDate,
+    required this.onReplySent,
+    this.initialNote,
+  });
+
+  final _InboxItem item;
+  final NoteModel? initialNote;
+  final Color accentColor;
+  final String Function(DateTime) fullDate;
+  final void Function(NoteModel) onReplySent;
+
+  @override
+  State<_NoteDetailSheet> createState() => _NoteDetailSheetState();
+}
+
+class _NoteDetailSheetState extends State<_NoteDetailSheet> {
+  final _ctrl = TextEditingController();
+  bool _sending = false;
+  NoteModel? _note;
+
+  @override
+  void initState() {
+    super.initState();
+    _note = widget.initialNote;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendReply() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _sending = true);
+    try {
+      final updated = await sl<NotesRepository>().updateParentReply(
+        noteId: widget.item.id,
+        replyText: text,
+      );
+      setState(() { _note = updated; _ctrl.clear(); });
+      widget.onReplySent(updated);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final color = widget.accentColor;
+    final hasReply = _note?.hasParentReply ?? item.hasReply;
+    final replyText = _note?.parentReply ?? item.parentReply;
+    final repliedAt = _note?.parentRepliedAt ?? item.parentRepliedAt;
+    final isNote = item.type == _ItemType.note;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      maxChildSize: 0.92,
+      minChildSize: 0.35,
+      builder: (_, ctrl) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          child: ListView(
+            controller: ctrl,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // نوع العنصر
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isNote ? 'ملاحظة المشرف' : 'إعلان',
+                    style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w700, color: color),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                item.title,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A2B3C)),
+              ),
+              if (item.childName != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'الابن: ${item.childName}',
+                  style: const TextStyle(
+                      fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Text(
+                item.body,
+                style: const TextStyle(fontSize: 15, height: 1.65, color: Color(0xFF3D4F5F)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.fullDate(item.date),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+
+              // ─── قسم الرد (للملاحظات فقط) ───
+              if (isNote) ...[
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 12),
+                if (hasReply) ...[
+                  // رد موجود — مقروء فقط
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F7F5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF2E7D62).withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.reply_rounded,
+                                size: 16, color: Color(0xFF2E7D62)),
+                            const SizedBox(width: 6),
+                            const Text('ردّك على الملاحظة',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF2E7D62))),
+                            const Spacer(),
+                            if (repliedAt != null)
+                              Text(
+                                widget.fullDate(repliedAt),
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(replyText ?? '',
+                            style: const TextStyle(
+                                fontSize: 14, color: Color(0xFF3D4F5F), height: 1.5)),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  // لم يُردّ بعد — حقل إدخال الرد
+                  Text(
+                    'ردّ على الملاحظة',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: color),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _ctrl,
+                    maxLines: 3,
+                    textDirection: TextDirection.rtl,
+                    decoration: InputDecoration(
+                      hintText: 'اكتب ردّك هنا...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _sending ? null : _sendReply,
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded),
+                      label: const Text('إرسال الرد'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: color,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

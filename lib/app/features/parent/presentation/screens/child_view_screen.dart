@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/realtime_service.dart';
 import '../../../../injection_container.dart';
 import '../../../../models/child_model.dart';
 import '../../../../models/attendance_model.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
-
 import '../../data/repositories/child_repository.dart';
+import '../../../notes/data/repositories/notes_repository.dart';
+import '../../../competitions/data/repositories/competition_repository.dart';
+import '../../../../models/competition_model.dart';
+import 'child_notes_screen.dart';
 
 /// 📁 lib/app/features/parent/presentation/screens/child_view_screen.dart
 /// شاشة الابن (دور child) — تصميم محسّن مطابق لأسلوب الإمام والمشرف
@@ -27,6 +32,8 @@ class _ChildViewScreenState extends State<ChildViewScreen>
   List<AttendanceModel> _todayAttendance = [];
   bool _loading = true;
   String? _error;
+  int _unreadNotesCount = 0;
+  List<CompetitionModel> _activeCompetitions = [];
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -47,9 +54,42 @@ class _ChildViewScreenState extends State<ChildViewScreen>
     _load();
   }
 
+  void _subscribeRealtime() {
+    if (_child == null) return;
+    sl<RealtimeService>().subscribeAttendanceForChildIds([_child!.id], (payload) {
+      if (!mounted) return;
+      _reloadAttendanceWithCelebration(payload);
+    });
+  }
+
+  Future<void> _reloadAttendanceWithCelebration(
+    PostgresChangePayload payload,
+  ) async {
+    final updated = await sl<ChildRepository>().getAttendanceForChildOnDate(
+      _child!.id,
+      DateTime.now(),
+    );
+    if (!mounted) return;
+    setState(() => _todayAttendance = updated);
+    if (payload.eventType == PostgresChangeEvent.insert) {
+      final points = (payload.newRecord['points_earned'] as num?)?.toInt() ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            points > 0 ? 'تم تسجيل حضورك! +$points نقطة 🎉' : 'تم تسجيل حضورك!',
+          ),
+          backgroundColor: const Color(0xFF4CAF50),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _animController.dispose();
+    sl<RealtimeService>().unsubscribeAttendance();
     super.dispose();
   }
 
@@ -86,6 +126,11 @@ class _ChildViewScreenState extends State<ChildViewScreen>
           _loading = false;
         });
         _animController.forward();
+        _subscribeRealtime();
+        // جلب عدد الملاحظات غير المقروءة
+        _loadUnreadNotes(child.id);
+        // جلب المسابقات النشطة
+        _loadCompetitions(child.id);
       }
     } catch (e) {
       if (mounted) {
@@ -124,6 +169,12 @@ class _ChildViewScreenState extends State<ChildViewScreen>
                               _buildStatsRow(),
                               const SizedBox(height: 16),
                               _buildQrCard(),
+                              const SizedBox(height: 16),
+                              if (_activeCompetitions.isNotEmpty) ...[
+                                _buildCompetitionsCard(),
+                                const SizedBox(height: 16),
+                              ],
+                              _buildNotesCard(),
                               const SizedBox(height: 16),
                               _buildTodayAttendance(),
                               const SizedBox(height: 16),
@@ -636,8 +687,201 @@ class _ChildViewScreenState extends State<ChildViewScreen>
     );
   }
 
+  Future<void> _loadUnreadNotes(String childId) async {
+    try {
+      final notes = await sl<NotesRepository>().getNotesForChild(childId);
+      final unread = notes.where((n) => !n.isRead).length;
+      if (mounted) setState(() => _unreadNotesCount = unread);
+    } catch (_) {}
+  }
+
+  Future<void> _loadCompetitions(String childId) async {
+    try {
+      final mosqueIds = await sl<ChildRepository>().getChildMosqueIds(childId);
+      if (mosqueIds.isEmpty) return;
+      final comps =
+          await sl<CompetitionRepository>().getActiveForMosques(mosqueIds);
+      if (mounted) setState(() => _activeCompetitions = comps);
+    } catch (_) {}
+  }
+
+  // ─── Notes Card ───
+  Widget _buildNotesCard() {
+    final child = _child!;
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChildNotesScreen(
+              childId: child.id,
+              childName: child.name,
+            ),
+          ),
+        );
+        // تحديث عدد غير المقروءة بعد العودة
+        _loadUnreadNotes(child.id);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.mail_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'رسائلي',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1A2B3C),
+                    ),
+                  ),
+                  Text(
+                    'ملاحظات المشرف',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            if (_unreadNotesCount > 0)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$_unreadNotesCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_left_rounded, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Active Competitions Card ───
+  Widget _buildCompetitionsCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFFB300).withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFB300).withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFB300).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.emoji_events_rounded,
+                    color: Color(0xFFFFB300), size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'مسابقات نشطة 🏆',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A2B3C),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._activeCompetitions.map((c) => Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.star_rounded,
+                    color: Color(0xFFFFB300), size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.nameAr,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A2B3C),
+                        ),
+                      ),
+                      Text(
+                        '${_dateStr(c.startDate)} → ${_dateStr(c.endDate)}',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
   // ─── Logout ───
   Widget _buildLogoutButton(BuildContext context) {
+
     return GestureDetector(
       onTap: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
       child: Container(

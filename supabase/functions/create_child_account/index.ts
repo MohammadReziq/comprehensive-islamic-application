@@ -46,7 +46,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")!;
 
     // عميل بجلسة ولي الأمر (للتحقق)
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
@@ -54,13 +54,23 @@ serve(async (req) => {
     });
 
     // 2) التحقق: هل هذا الشخص ولي أمر؟ وهل الطفل يخصه؟
+    console.log("Auth Header present:", !!authHeader);
+    const token = authHeader.replace("Bearer ", "");
+    
+    console.log("Fetching user from Supabase Auth...");
     const {
       data: { user: parentUser },
       error: userError,
-    } = await supabaseUser.auth.getUser();
+    } = await supabaseUser.auth.getUser(token);
+
     if (userError || !parentUser) {
+      console.error("Auth Error Details:", userError);
       return new Response(
-        JSON.stringify({ error: "جلسة غير صالحة" }),
+        JSON.stringify({ 
+          error: "جلسة غير صالحة أو JWT غير معروف", 
+          details: userError?.message,
+          suggestion: "جرب تسجيل الخروج والدخول مرة أخرى"
+        }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

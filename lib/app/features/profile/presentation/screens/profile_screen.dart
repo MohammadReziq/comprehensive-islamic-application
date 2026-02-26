@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_enums.dart';
@@ -129,39 +130,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (!_editingPhone) _phoneCtrl.text = user.phone ?? '';
 
             return Scaffold(
-            backgroundColor: const Color(0xFFF5F6FA),
-            body: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(child: _buildHero(user)),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        _buildInfoCard(user),
-                        const SizedBox(height: 16),
-                        if (user.role == UserRole.imam ||
-                            user.role == UserRole.supervisor)
-                          _MosqueSection(),
-                        if (user.role == UserRole.parent) ...[
-                          _ChildrenSection(),
+              backgroundColor: const Color(0xFFF5F6FA),
+              body: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(child: _buildHero(user)),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        children: [
+                          _buildInfoCard(user),
                           const SizedBox(height: 16),
+                          if (user.role == UserRole.imam ||
+                              user.role == UserRole.supervisor)
+                            _MosqueSection(),
+                          if (user.role == UserRole.parent) ...[
+                            _AccountHealthSection(user: user),
+                            const SizedBox(height: 16),
+                            _ChildrenSection(),
+                            const SizedBox(height: 16),
+                          ],
+                          if (_editingName || _editingPhone) ...[
+                            const SizedBox(height: 8),
+                            _buildSaveButton(user.id),
+                            const SizedBox(height: 16),
+                          ],
+                          _buildLogoutButton(context),
                         ],
-                        if (_editingName || _editingPhone) ...[
-                          const SizedBox(height: 8),
-                          _buildSaveButton(user.id),
-                          const SizedBox(height: 16),
-                        ],
-                        _buildLogoutButton(context),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -342,10 +345,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         'كلمة المرور',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
                       ),
                       Text(
                         'تغيير كلمة المرور',
@@ -826,6 +826,272 @@ class _ChildrenSection extends StatelessWidget {
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+/// قسم صحة الحساب لولي الأمر
+// ═══════════════════════════════════════════════════════════════════
+class _AccountHealthSection extends StatefulWidget {
+  final dynamic user;
+  const _AccountHealthSection({required this.user});
+  @override
+  State<_AccountHealthSection> createState() => _AccountHealthSectionState();
+}
+
+class _AccountHealthSectionState extends State<_AccountHealthSection> {
+  List<_HealthItem> _items = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _evaluate();
+  }
+
+  Future<void> _evaluate() async {
+    final user = widget.user;
+    final items = <_HealthItem>[];
+
+    // 1. الاسم
+    final hasName = user.name.isNotEmpty && user.name != 'مستخدم جديد';
+    items.add(_HealthItem(
+      label: 'الاسم',
+      icon: Icons.person_rounded,
+      ok: hasName,
+      hint: hasName ? user.name : 'لم يُحدد بعد',
+    ));
+
+    // 2. البريد المفعّل
+    final authUser = Supabase.instance.client.auth.currentUser;
+    final emailConfirmed = authUser?.emailConfirmedAt != null;
+    items.add(_HealthItem(
+      label: 'البريد المفعّل',
+      icon: Icons.email_rounded,
+      ok: emailConfirmed,
+      hint: emailConfirmed ? 'مفعّل ✓' : 'لم يتم التأكيد',
+    ));
+
+    // 3. الهاتف
+    final hasPhone = user.phone != null && (user.phone as String).isNotEmpty;
+    items.add(_HealthItem(
+      label: 'الهاتف',
+      icon: Icons.phone_rounded,
+      ok: hasPhone,
+      hint: hasPhone ? user.phone : 'غير محدد',
+    ));
+
+    // 4. أبناء
+    try {
+      final children = await sl<ChildRepository>().getMyChildren();
+      final hasChildren = children.isNotEmpty;
+      items.add(_HealthItem(
+        label: 'الأبناء',
+        icon: Icons.child_care_rounded,
+        ok: hasChildren,
+        hint: hasChildren ? '${children.length} أبناء' : 'لا يوجد أبناء',
+      ));
+
+      // 5. كل ابن مرتبط بمسجد
+      if (hasChildren) {
+        int linked = 0;
+        for (final c in children) {
+          final mosqueIds = await sl<ChildRepository>().getChildMosqueIds(c.id);
+          if (mosqueIds.isNotEmpty) linked++;
+        }
+        final allLinked = linked == children.length;
+        items.add(_HealthItem(
+          label: 'ربط بمسجد',
+          icon: Icons.mosque_rounded,
+          ok: allLinked,
+          hint: allLinked
+              ? 'كل الأبناء مرتبطون'
+              : '$linked/${children.length} مرتبطون',
+        ));
+      }
+    } catch (_) {
+      items.add(_HealthItem(
+        label: 'الأبناء',
+        icon: Icons.child_care_rounded,
+        ok: false,
+        hint: 'خطأ في الجلب',
+      ));
+    }
+
+    if (mounted) setState(() { _items = items; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    final doneCount = _items.where((i) => i.ok).length;
+    final total = _items.length;
+    final progress = total > 0 ? doneCount / total : 0.0;
+    final allDone = doneCount == total;
+    final progressColor = allDone
+        ? const Color(0xFF4CAF50)
+        : doneCount >= total - 1
+            ? const Color(0xFFFFB300)
+            : const Color(0xFFFF7043);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: progressColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.shield_rounded, color: progressColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'صحة الحساب',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A2B3C),
+                      ),
+                    ),
+                    Text(
+                      '$doneCount/$total مكتمل',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+              // Circular progress
+              SizedBox(
+                width: 40, height: 40,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation(progressColor),
+                      strokeWidth: 4,
+                    ),
+                    Text(
+                      '${(progress * 100).round()}%',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: progressColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              backgroundColor: Colors.grey.shade100,
+              valueColor: AlwaysStoppedAnimation(progressColor),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Items
+          ..._items.map((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: (item.ok ? const Color(0xFF4CAF50) : const Color(0xFFFF7043)).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    item.ok ? Icons.check_rounded : Icons.close_rounded,
+                    size: 16,
+                    color: item.ok ? const Color(0xFF4CAF50) : const Color(0xFFFF7043),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Icon(item.icon, size: 16, color: Colors.grey.shade500),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A2B3C),
+                    ),
+                  ),
+                ),
+                Text(
+                  item.hint,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: item.ok ? Colors.grey.shade500 : const Color(0xFFFF7043),
+                    fontWeight: item.ok ? FontWeight.w400 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthItem {
+  final String label;
+  final IconData icon;
+  final bool ok;
+  final String hint;
+  const _HealthItem({required this.label, required this.icon, required this.ok, required this.hint});
 }
 
 // ═══════════════════════════════════════════════════════════════════

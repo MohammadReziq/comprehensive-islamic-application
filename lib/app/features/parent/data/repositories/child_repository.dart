@@ -90,8 +90,12 @@ class ChildRepository {
             password: data?['password'] as String? ?? password,
           );
         }
-      } catch (_) {
-        // الابن مُدرج؛ إرجاع النتيجة بدون credentials
+        final errMsg = _parseEdgeFunctionError(res);
+        throw Exception(errMsg);
+      } on Exception {
+        rethrow;
+      } catch (e) {
+        throw Exception('فشل الاتصال أو إنشاء الحساب: ${e.toString()}');
       }
     }
     return AddChildResult(child);
@@ -124,16 +128,24 @@ class ChildRepository {
       next = (list.first['local_number'] as int) + 1;
     }
 
+    // المسجد الأول = أساسي، ما بعده = إضافي
+    final existingIds = await getChildMosqueIds(childId);
+    if (existingIds.contains(mosque.id)) {
+      throw Exception('الابن مرتبط بهذا المسجد مسبقاً');
+    }
+    final mosqueType =
+        existingIds.isEmpty ? MosqueType.primary : MosqueType.secondary;
+
     await supabase.from('mosque_children').insert({
       'mosque_id': mosque.id,
       'child_id': childId,
-      'type': MosqueType.primary.value,
+      'type': mosqueType.value,
       'local_number': next,
       'is_active': true,
     });
   }
 
-  /// مساجد الابن (المرتبط بها)
+  /// مساجد الابن (المرتبط بها) — يُرجع IDs فقط
   Future<List<String>> getChildMosqueIds(String childId) async {
     final res = await supabase
         .from('mosque_children')
@@ -141,6 +153,25 @@ class ChildRepository {
         .eq('child_id', childId)
         .eq('is_active', true);
     return (res as List).map((e) => e['mosque_id'] as String).toList();
+  }
+
+  /// مساجد الابن مع نوع كل مسجد (أساسي/إضافي)
+  Future<List<({String mosqueId, MosqueType type})>> getChildMosquesWithType(
+    String childId,
+  ) async {
+    final res = await supabase
+        .from('mosque_children')
+        .select('mosque_id, type')
+        .eq('child_id', childId)
+        .eq('is_active', true);
+    return (res as List)
+        .map(
+          (e) => (
+            mosqueId: e['mosque_id'] as String,
+            type: MosqueType.fromString(e['type'] as String),
+          ),
+        )
+        .toList();
   }
 
   /// حضور ابن واحد في تاريخ معيّن (للابن أو ولي الأمر — RLS يسمح للابن بحضوره فقط)
@@ -266,6 +297,25 @@ class ChildRepository {
       'attendance_rate': attendanceRate.round(),
       'by_prayer': byPrayer,
     };
+  }
+
+  static String _parseEdgeFunctionError(dynamic res) {
+    if (res.data is Map && res.data['error'] != null) {
+      final msg = res.data['error'].toString();
+      if (msg.isNotEmpty) return msg;
+    }
+    switch (res.status) {
+      case 401:
+        return 'انتهت الجلسة — سجّل دخولك من جديد ثم أعد المحاولة';
+      case 403:
+        return 'الطفل غير موجود أو لا يخصك';
+      case 404:
+        return 'الدالة غير متوفرة — تأكد من نشر create_child_account في Supabase';
+      case 500:
+        return 'خطأ من الخادم — جرّب لاحقاً أو راجع لوحة Supabase';
+      default:
+        return 'فشل إنشاء الحساب (${res.status})';
+    }
   }
 
   static String _dateStr(DateTime d) =>

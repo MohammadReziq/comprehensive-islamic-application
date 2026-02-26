@@ -48,7 +48,7 @@ class NotesRepository {
     try {
       if (childIds.isEmpty) return [];
 
-      // جلب الملاحظات مع اسم الابن من جدول children (JOIN)
+      // جلب الملاحظات مع اسم الابن + رد ولي الأمر
       final res = await supabase
           .from('notes')
           .select('*, children(name)')
@@ -62,10 +62,29 @@ class NotesRepository {
   }
 
   // ─────────────────────────────────────────────────────────
+  // ابن: ملاحظاته الخاصة (التحسين 7)
+  // ─────────────────────────────────────────────────────────
+
+  /// ملاحظات ابن معيّن — RLS تضمن أن الابن يقرأ فقط ملاحظاته
+  Future<List<NoteModel>> getNotesForChild(String childId) async {
+    try {
+      final res = await supabase
+          .from('notes')
+          .select('*, children(name)')
+          .eq('child_id', childId)
+          .order('created_at', ascending: false);
+
+      return (res as List).map((e) => NoteModel.fromJson(e)).toList();
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
   // مشرف: الملاحظات التي أرسلها
   // ─────────────────────────────────────────────────────────
 
-  /// ملاحظات أرسلها المستخدم (مشرف/إمام) — مع اسم الابن للعرض
+  /// ملاحظات أرسلها المستخدم (مشرف/إمام) — مع اسم الابن + رد ولي الأمر
   Future<List<NoteModel>> getMySentNotes() async {
     try {
       final user = await _authRepo.getCurrentUserProfile();
@@ -84,7 +103,46 @@ class NotesRepository {
   }
 
   // ─────────────────────────────────────────────────────────
-  // ولي الأمر: تحديث حالة القراءة
+  // ولي الأمر: رد على ملاحظة (مرة واحدة) — التحسين 3
+  // ─────────────────────────────────────────────────────────
+
+  /// يرسل رد ولي الأمر على ملاحظة معيّنة.
+  /// يفشل إن كان قد ردّ سابقاً (شرط parent_reply IS NULL في RLS/DB).
+  Future<NoteModel> updateParentReply({
+    required String noteId,
+    required String replyText,
+  }) async {
+    try {
+      final user = await _authRepo.getCurrentUserProfile();
+      if (user == null) throw const NotLoggedInFailure();
+
+      // الشرط parent_reply IS NULL يُطبّق على مستوى RLS أيضاً (Migration 034)
+      final res = await supabase
+          .from('notes')
+          .update({
+            'parent_reply':      replyText.trim(),
+            'parent_replied_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', noteId)
+          .isFilter('parent_reply', null)   // يمنع الكتابة فوق رد موجود
+          .select('*, children(name)')
+          .maybeSingle();
+
+      if (res == null) {
+        throw Exception('لا يمكن الرد: إما أن ردّك وُجد مسبقاً أو الملاحظة غير موجودة.');
+      }
+
+      return NoteModel.fromJson(res);
+    } on AppFailure {
+      rethrow;
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // تحديث حالة القراءة
   // ─────────────────────────────────────────────────────────
 
   Future<void> markAsRead(String noteId) async {
@@ -98,10 +156,7 @@ class NotesRepository {
     }
   }
 
-  // ─────────────────────────────────────────────────────────
-  // تحديث كل ملاحظات ابن كمقروءة
-  // ─────────────────────────────────────────────────────────
-
+  /// تحديث كل ملاحظات ابن كمقروءة
   Future<void> markAllReadForChild(String childId) async {
     try {
       await supabase

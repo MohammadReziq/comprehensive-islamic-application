@@ -47,17 +47,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    _mgr.addListener(_onManagerChanged);
     _initVideo();
+  }
+
+  void _onManagerChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _initVideo() async {
     // Video was already loaded by LoginScreen — show instantly, no flash
     if (_mgr.isReady) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _videoReady = true;
           _videoOpacity = 1.0;
         });
+      }
       return;
     }
     final ok = await _mgr.ensureReady();
@@ -95,6 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _mgr.removeListener(_onManagerChanged);
     _scrollDebounce?.cancel();
     _scrollCtrl.dispose();
     _confirmFocus.dispose();
@@ -118,6 +125,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Widget _buildVideoLayer(VideoPlayerController ctrl) => SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: ctrl.value.size.width,
+            height: ctrl.value.size.height,
+            child: VideoPlayer(ctrl),
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final r = AppResponsive(context);
@@ -128,8 +146,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final fieldBorder = Colors.white.withValues(alpha: 0.35);
     final fieldIcon = Colors.white.withValues(alpha: 0.65);
     final fieldHint = Colors.white.withValues(alpha: 0.4);
-
-    final ctrl = _mgr.controller;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -178,20 +194,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
 
-              // ─── Layer 2: Video (fades in when ready) ───
-              if (_videoReady && ctrl != null)
+              // ─── Layer 2: Video ping-pong (both textures always hot) ───
+              // Outer AnimatedOpacity: initial fade-in only (first load).
+              // Inner Opacity: INSTANT switch — no crossfade.
+              //   Both videos share identical frames at transition points,
+              //   so instant switch is seamless. 0.001 keeps GPU texture
+              //   warm so there's no cold-start flash on the next switch.
+              if (_videoReady)
                 AnimatedOpacity(
                   opacity: _videoOpacity,
                   duration: const Duration(milliseconds: 500),
-                  child: SizedBox.expand(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: ctrl.value.size.width,
-                        height: ctrl.value.size.height,
-                        child: VideoPlayer(ctrl),
-                      ),
-                    ),
+                  child: Stack(
+                    children: [
+                      if (_mgr.forwardController != null)
+                        Opacity(
+                          opacity: _mgr.isForward ? 1.0 : 0.001,
+                          child: _buildVideoLayer(_mgr.forwardController!),
+                        ),
+                      if (_mgr.reverseController != null)
+                        Opacity(
+                          opacity: _mgr.isForward ? 0.001 : 1.0,
+                          child: _buildVideoLayer(_mgr.reverseController!),
+                        ),
+                    ],
                   ),
                 ),
 
@@ -428,7 +453,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                             Expanded(
                                               child: _RoleCard(
                                                 emoji: Icon(
-                                                  Icons.church_outlined,
+                                                  Icons.mosque_outlined,
                                                   color: Colors.white,
                                                 ),
                                                 title: AppStrings.roleImam,

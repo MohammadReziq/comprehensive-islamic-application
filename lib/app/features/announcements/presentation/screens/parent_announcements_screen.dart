@@ -19,6 +19,8 @@ class ParentAnnouncementsScreen extends StatefulWidget {
 }
 
 class _ParentAnnouncementsScreenState extends State<ParentAnnouncementsScreen> {
+  bool _hasMarkedAllRead = false;
+
   @override
   void initState() {
     super.initState();
@@ -52,7 +54,22 @@ class _ParentAnnouncementsScreenState extends State<ParentAnnouncementsScreen> {
             onPressed: () => context.pop(),
           ),
         ),
-        body: BlocBuilder<AnnouncementBloc, AnnouncementState>(
+        body: BlocConsumer<AnnouncementBloc, AnnouncementState>(
+          listener: (context, state) {
+            if (state is AnnouncementsLoaded &&
+                !_hasMarkedAllRead &&
+                state.announcements.isNotEmpty) {
+              final unreadIds = state.announcements
+                  .map((a) => a.id)
+                  .where((id) => !state.readIds.contains(id))
+                  .toList();
+              if (unreadIds.isNotEmpty) {
+                _hasMarkedAllRead = true;
+                context.read<AnnouncementBloc>().add(MarkAllAsRead(unreadIds));
+              }
+            }
+          },
+          buildWhen: (_, __) => true,
           builder: (context, state) {
             if (state is AnnouncementLoading && state is! AnnouncementsLoaded) {
               return const Center(child: CircularProgressIndicator());

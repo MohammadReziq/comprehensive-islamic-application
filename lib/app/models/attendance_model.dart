@@ -13,6 +13,8 @@ class AttendanceModel extends Equatable {
   final DateTime prayerDate;
   final bool syncedOffline;
   final DateTime recordedAt;
+  /// مصدر الحضور: 'mosque' (QR/رقم مباشر) أو 'correction' (تصحيح مقبول)
+  final String source;
 
   const AttendanceModel({
     required this.id,
@@ -25,6 +27,7 @@ class AttendanceModel extends Equatable {
     required this.prayerDate,
     this.syncedOffline = false,
     required this.recordedAt,
+    this.source = 'mosque',
   });
 
   factory AttendanceModel.fromJson(Map<String, dynamic> json) {
@@ -39,6 +42,7 @@ class AttendanceModel extends Equatable {
       prayerDate: DateTime.parse(json['prayer_date'] as String),
       syncedOffline: json['synced_offline'] as bool? ?? false,
       recordedAt: DateTime.parse(json['recorded_at'] as String),
+      source: json['source'] as String? ?? 'mosque',
     );
   }
 
@@ -54,6 +58,7 @@ class AttendanceModel extends Equatable {
       'prayer_date': prayerDate.toIso8601String().split('T').first,
       'synced_offline': syncedOffline,
       'recorded_at': recordedAt.toIso8601String(),
+      'source': source,
     };
   }
 
@@ -68,6 +73,7 @@ class AttendanceModel extends Equatable {
     DateTime? prayerDate,
     bool? syncedOffline,
     DateTime? recordedAt,
+    String? source,
   }) {
     return AttendanceModel(
       id: id ?? this.id,
@@ -80,12 +86,17 @@ class AttendanceModel extends Equatable {
       prayerDate: prayerDate ?? this.prayerDate,
       syncedOffline: syncedOffline ?? this.syncedOffline,
       recordedAt: recordedAt ?? this.recordedAt,
+      source: source ?? this.source,
     );
   }
+
+  /// هل الحضور من تصحيح مقبول؟
+  bool get isFromCorrection => source == 'correction';
 
   @override
   List<Object?> get props => [
         id, childId, mosqueId, recordedById, prayer,
         locationType, pointsEarned, prayerDate, syncedOffline, recordedAt,
+        source,
       ];
 }

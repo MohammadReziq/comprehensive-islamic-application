@@ -35,14 +35,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
     super.dispose();
   }
 
-  void _loadIfNeeded(BuildContext context) {
-    final mosqueState = context.read<MosqueBloc>().state;
-    if (mosqueState is! MosqueLoaded) return;
-    final approved = mosqueState.mosques.where((m) => m.status == MosqueStatus.approved).firstOrNull;
-    if (approved == null) return;
-
-    final lat = approved.lat;
-    final lng = approved.lng;
+  void _loadForMosque(BuildContext context, MosqueModel mosque) {
+    final lat = mosque.lat;
+    final lng = mosque.lng;
     if (lat == null || lng == null) return;
 
     sl<PrayerTimesService>().loadTimingsFor(lat, lng).then((_) {
@@ -51,11 +46,62 @@ class _ScannerScreenState extends State<ScannerScreen> {
       if (nextPrayer == null) return;
       final date = DateTime.now();
       context.read<ScannerBloc>().add(ScannerLoad(
-            mosqueId: approved.id,
+            mosqueId: mosque.id,
             prayer: nextPrayer.prayer,
             date: date,
           ));
     });
+  }
+
+  void _loadIfNeeded(BuildContext context) {
+    final mosqueState = context.read<MosqueBloc>().state;
+    if (mosqueState is! MosqueLoaded) return;
+    final approved = mosqueState.mosques
+        .where((m) => m.status == MosqueStatus.approved)
+        .toList();
+    if (approved.isEmpty) return;
+    if (approved.length == 1) {
+      _loadForMosque(context, approved.first);
+      return;
+    }
+    _showMosquePicker(context, approved);
+  }
+
+  void _showMosquePicker(BuildContext context, List<MosqueModel> mosques) {
+    showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 20, 16, 12),
+                child: Text(
+                  'اختر المسجد لهذه الجلسة',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                ),
+              ),
+              ...mosques.map((m) => ListTile(
+                    leading: const Icon(Icons.mosque_rounded, color: Color(0xFF2E8B57)),
+                    title: Text(m.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: m.address != null && m.address!.isNotEmpty
+                        ? Text(m.address!, maxLines: 1, overflow: TextOverflow.ellipsis)
+                        : null,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _loadForMosque(context, m);
+                    },
+                  )),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
