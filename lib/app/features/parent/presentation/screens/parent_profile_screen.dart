@@ -71,7 +71,6 @@ class ParentProfileScreen extends StatelessWidget {
                             phone: user.phone,
                           ),
                           const SizedBox(height: 16),
-                          const _ChildrenSection(),
                           const SizedBox(height: 16),
                           _AccountHealthSection(user: user),
                           const SizedBox(height: 16),
@@ -204,8 +203,7 @@ class _ChildrenSection extends StatelessWidget {
                   ),
                   Text(
                     '${c.age} سنة · ${c.totalPoints} نقطة',
-                    style:
-                        TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                   ),
                 ],
               ),
@@ -213,8 +211,7 @@ class _ChildrenSection extends StatelessWidget {
             // streak badge
             if (c.currentStreak > 0)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFF7043).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -240,7 +237,11 @@ class _ChildrenSection extends StatelessWidget {
                 ),
               ),
             const SizedBox(width: 4),
-            Icon(Icons.chevron_left_rounded, size: 18, color: Colors.grey.shade400),
+            Icon(
+              Icons.chevron_left_rounded,
+              size: 18,
+              color: Colors.grey.shade400,
+            ),
           ],
         ),
       ),
@@ -323,8 +324,9 @@ class _AccountHealthSectionState extends State<_AccountHealthSection> {
       // 5. كل ابن مرتبط بمسجد
       if (hasChildren) {
         final childIds = children.map((c) => c.id).toList();
-        final linkedIds =
-            await sl<ChildRepository>().getLinkedChildIds(childIds);
+        final linkedIds = await sl<ChildRepository>().getLinkedChildIds(
+          childIds,
+        );
         final linked = linkedIds.length;
         final allLinked = linked == children.length;
         items.add(
@@ -390,8 +392,8 @@ class _AccountHealthSectionState extends State<_AccountHealthSection> {
     final progressColor = allDone
         ? const Color(0xFF4CAF50)
         : doneCount >= total - 1
-            ? const Color(0xFFFFB300)
-            : const Color(0xFFFF7043);
+        ? const Color(0xFFFFB300)
+        : const Color(0xFFFF7043);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -489,8 +491,9 @@ class _AccountHealthSectionState extends State<_AccountHealthSection> {
           // Items
           ..._items.map(
             (item) => GestureDetector(
-              onTap:
-                  item.route != null ? () => context.push(item.route!) : null,
+              onTap: item.route != null
+                  ? () => context.push(item.route!)
+                  : null,
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
@@ -499,10 +502,11 @@ class _AccountHealthSectionState extends State<_AccountHealthSection> {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: (item.ok
-                                ? const Color(0xFF4CAF50)
-                                : const Color(0xFFFF7043))
-                            .withValues(alpha: 0.1),
+                        color:
+                            (item.ok
+                                    ? const Color(0xFF4CAF50)
+                                    : const Color(0xFFFF7043))
+                                .withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
@@ -533,8 +537,7 @@ class _AccountHealthSectionState extends State<_AccountHealthSection> {
                         color: item.ok
                             ? Colors.grey.shade500
                             : const Color(0xFFFF7043),
-                        fontWeight:
-                            item.ok ? FontWeight.w400 : FontWeight.w600,
+                        fontWeight: item.ok ? FontWeight.w400 : FontWeight.w600,
                       ),
                     ),
                     if (item.route != null) ...[

@@ -102,6 +102,95 @@ class CompetitionRepository {
   }
 
   // ─────────────────────────────────────────────────────────
+  // إمام: تعديل مسابقة (الاسم، تواريخ البداية/النهاية)
+  // ─────────────────────────────────────────────────────────
+
+  Future<CompetitionModel> update(
+    String competitionId, {
+    String? nameAr,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      final comp = await supabase
+          .from('competitions')
+          .select('mosque_id')
+          .eq('id', competitionId)
+          .single();
+      final user = await _authRepo.getCurrentUserProfile();
+      if (user == null) throw const NotLoggedInFailure();
+      await _requireOwnerRole(comp['mosque_id'] as String, user.id);
+
+      final updates = <String, dynamic>{};
+      if (nameAr != null) updates['name_ar'] = nameAr;
+      if (startDate != null) updates['start_date'] = _dateStr(startDate);
+      if (endDate != null) updates['end_date'] = _dateStr(endDate);
+
+      if (updates.isEmpty) {
+        final current = await supabase
+            .from('competitions')
+            .select()
+            .eq('id', competitionId)
+            .single();
+        return CompetitionModel.fromJson(current);
+      }
+
+      final row = await supabase
+          .from('competitions')
+          .update(updates)
+          .eq('id', competitionId)
+          .select()
+          .single();
+
+      return CompetitionModel.fromJson(row);
+    } on AppFailure {
+      rethrow;
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // إمام: حذف مسابقة (يمنع الحذف إذا هناك حضور مرتبط)
+  // ─────────────────────────────────────────────────────────
+
+  Future<void> delete(String competitionId) async {
+    try {
+      final comp = await supabase
+          .from('competitions')
+          .select('mosque_id')
+          .eq('id', competitionId)
+          .single();
+      final user = await _authRepo.getCurrentUserProfile();
+      if (user == null) throw const NotLoggedInFailure();
+      await _requireOwnerRole(comp['mosque_id'] as String, user.id);
+
+      // فحص وجود حضور مرتبط — إذا موجود نمنع الحذف
+      final attendanceCount = await supabase
+          .from('attendance')
+          .select('id')
+          .eq('competition_id', competitionId)
+          .count();
+
+      if (attendanceCount.count > 0) {
+        throw const UnauthorizedActionFailure(
+          'لا يمكن حذف المسابقة — يوجد سجلات حضور مرتبطة. '
+          'يمكنك إيقافها (أرشفة) بدلاً من الحذف.',
+        );
+      }
+
+      await supabase
+          .from('competitions')
+          .delete()
+          .eq('id', competitionId);
+    } on AppFailure {
+      rethrow;
+    } catch (e) {
+      throw mapPostgresError(e);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
   // المسابقة النشطة للمسجد
   // ─────────────────────────────────────────────────────────
 

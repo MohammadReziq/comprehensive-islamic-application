@@ -929,10 +929,10 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       _Action(
         Icons.forum_rounded,
-        'الرسائل',
+        'الملاحظات',
         const Color(0xFF00BCD4),
         () async {
-          await context.push('/parent/inbox');
+          await context.push('/parent/notes');
           _loadUnreadCount();
         },
         badge: _unreadCount,

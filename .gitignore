@@ -59,3 +59,7 @@ supabase/.env.*
 
 # Node (Supabase CLI - لا ترفع node_modules)
 node_modules/
+
+# ملفات ضخمة (GitHub حد 100MB)
+assets/videos/Antigravity.exe
+**/*.exe
