@@ -44,10 +44,12 @@ class PointsService {
   }
 
   /// حساب مكافأة السلسلة (إن وُجدت)
+  /// streak7Bonus يُمنح كل 7 أيام متتالية (7, 14, 21, ...)
+  /// streak30Bonus و streak100Bonus: مرة واحدة عند بلوغ الرقم بالضبط
   int? getStreakBonus(int currentStreak) {
-    if (currentStreak == 7) return streak7Bonus;
     if (currentStreak == 30) return streak30Bonus;
     if (currentStreak == 100) return streak100Bonus;
+    if (currentStreak > 0 && currentStreak % 7 == 0) return streak7Bonus;
     return null;
   }
 

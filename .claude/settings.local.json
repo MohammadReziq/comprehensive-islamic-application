@@ -6,7 +6,8 @@
       "Bash(\"$FFMPEG\" -i \"c:/development/comprehensive_islamic_application/assets/videos/mosque.mp4\" -vf reverse -af areverse -preset fast \"c:/development/comprehensive_islamic_application/assets/videos/mosque_reverse.mp4\" -y)",
       "Bash(flutter analyze lib/app/core/services/auth_video_manager.dart lib/app/features/auth/presentation/screens/login_screen.dart lib/app/features/auth/presentation/screens/register_screen.dart)",
       "Bash(flutter analyze lib/app/core/services/auth_video_manager.dart)",
-      "Bash(flutter analyze lib/app/features/parent/presentation/screens/home_screen.dart)"
+      "Bash(flutter analyze lib/app/features/parent/presentation/screens/home_screen.dart)",
+      "Bash(del \"c:\\\\development\\\\comprehensive_islamic_application\\\\lib\\\\app\\\\features\\\\parent\\\\presentation\\\\screens\\\\notes_inbox_screen.dart\")"
     ]
   }
 }

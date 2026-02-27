@@ -87,50 +87,125 @@ class _AddChildScreenState extends State<AddChildScreen> {
     String email,
     String password,
   ) {
+    bool obscurePassword = true;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.key_rounded, color: Color(0xFF2E8B57)),
-              SizedBox(width: 8),
-              Text(
-                'بيانات دخول الابن',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'احتفظ بهذه البيانات — لن تظهر مرة أخرى',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              _credRow('الإيميل', email),
-              const SizedBox(height: 10),
-              _credRow('كلمة المرور', password),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                context.read<ChildrenBloc>().add(
-                  const ChildrenCredentialsShown(),
-                );
-                if (context.mounted) context.pop();
-              },
-              child: const Text('فهمت، أغلق'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
             ),
-          ],
+            title: const Row(
+              children: [
+                Icon(Icons.key_rounded, color: Color(0xFF2E8B57)),
+                SizedBox(width: 8),
+                Text(
+                  'بيانات دخول الابن',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF8E1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFFCC02)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          color: Color(0xFFF57F17), size: 16),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'احتفظ بهذه البيانات — لن تظهر مرة أخرى',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFE65100),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _credRow('الإيميل', email),
+                const SizedBox(height: 10),
+                // كلمة المرور مع إخفاء/إظهار + نسخ
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 90,
+                      child: Text(
+                        'كلمة المرور',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A2B3C),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        obscurePassword ? '••••••••' : password,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0D2137),
+                        ),
+                      ),
+                    ),
+                    // نسخ
+                    GestureDetector(
+                      onTap: () => Clipboard.setData(
+                        ClipboardData(text: password),
+                      ),
+                      child: const Tooltip(
+                        message: 'نسخ',
+                        child: Icon(Icons.copy_rounded,
+                            size: 17, color: Colors.grey),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // إخفاء / إظهار
+                    GestureDetector(
+                      onTap: () => setDialogState(
+                          () => obscurePassword = !obscurePassword),
+                      child: Icon(
+                        obscurePassword
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        size: 17,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  context.read<ChildrenBloc>().add(
+                    const ChildrenCredentialsShown(),
+                  );
+                  if (context.mounted) context.pop();
+                },
+                child: const Text('فهمت، حفظتها'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -138,10 +213,10 @@ class _AddChildScreenState extends State<AddChildScreen> {
 
   Widget _credRow(String label, String value) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 100,
+          width: 90,
           child: Text(
             label,
             style: const TextStyle(
@@ -159,6 +234,15 @@ class _AddChildScreenState extends State<AddChildScreen> {
               fontWeight: FontWeight.w700,
               color: Color(0xFF0D2137),
             ),
+          ),
+        ),
+        // نسخ
+        GestureDetector(
+          onTap: () => Clipboard.setData(ClipboardData(text: value)),
+          child: const Tooltip(
+            message: 'نسخ',
+            child:
+                Icon(Icons.copy_rounded, size: 17, color: Colors.grey),
           ),
         ),
       ],

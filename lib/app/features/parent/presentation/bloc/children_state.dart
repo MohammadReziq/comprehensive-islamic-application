@@ -34,8 +34,13 @@ class ChildrenLoadedWithCredentials extends ChildrenState {
   final String email;
   final String password;
 
+  // لا نُضمِّن email/password في props لمنع الظهور في BLoC observer logs
   @override
-  List<Object?> get props => [children, email, password];
+  List<Object?> get props => [children];
+
+  @override
+  String toString() =>
+      'ChildrenLoadedWithCredentials { children: ${children.length}, email: ****, password: **** }';
 }
 
 class ChildrenError extends ChildrenState {

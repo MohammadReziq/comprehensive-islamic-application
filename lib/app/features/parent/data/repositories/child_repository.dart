@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/network/supabase_client.dart';
 import '../../../../models/child_model.dart';
@@ -136,13 +137,60 @@ class ChildRepository {
     final mosqueType =
         existingIds.isEmpty ? MosqueType.primary : MosqueType.secondary;
 
-    await supabase.from('mosque_children').insert({
-      'mosque_id': mosque.id,
-      'child_id': childId,
-      'type': mosqueType.value,
-      'local_number': next,
-      'is_active': true,
-    });
+    // Retry على تعارض local_number (race condition D1) — حتى 3 محاولات
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        await supabase.from('mosque_children').insert({
+          'mosque_id': mosque.id,
+          'child_id': childId,
+          'type': mosqueType.value,
+          'local_number': next,
+          'is_active': true,
+        });
+        return; // نجح
+      } on PostgrestException catch (e) {
+        if (e.code == '23505' && attempt < 2) {
+          // unique violation — أعد حساب local_number
+          final fresh = await supabase
+              .from('mosque_children')
+              .select('local_number')
+              .eq('mosque_id', mosque.id)
+              .order('local_number', ascending: false)
+              .limit(1);
+          next = (fresh as List).isNotEmpty
+              ? (fresh.first['local_number'] as int) + 1
+              : 1;
+        } else {
+          rethrow;
+        }
+      }
+    }
+  }
+
+  /// تعديل بيانات الابن (الاسم والعمر)
+  Future<void> updateChild({
+    required String childId,
+    required String name,
+    required int age,
+  }) async {
+    final user = await _authRepo.getCurrentUserProfile();
+    if (user == null) throw Exception('يجب تسجيل الدخول');
+    await supabase
+        .from('children')
+        .update({'name': name, 'age': age})
+        .eq('id', childId)
+        .eq('parent_id', user.id);
+  }
+
+  /// أي الأبناء لديهم مسجد مرتبط — Batch query بدل N+1
+  Future<Set<String>> getLinkedChildIds(List<String> childIds) async {
+    if (childIds.isEmpty) return {};
+    final res = await supabase
+        .from('mosque_children')
+        .select('child_id')
+        .inFilter('child_id', childIds)
+        .eq('is_active', true);
+    return {for (final row in (res as List)) row['child_id'] as String};
   }
 
   /// مساجد الابن (المرتبط بها) — يُرجع IDs فقط

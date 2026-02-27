@@ -32,6 +32,30 @@ class NotesInboxScreen extends StatelessWidget {
             title: const Text('ملاحظات المشرف'),
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
+            actions: [
+              BlocBuilder<NotesBloc, NotesState>(
+                builder: (context, state) {
+                  final hasUnread = state is NotesLoaded &&
+                      state.notes.any((n) => !n.isRead);
+                  if (!hasUnread) return const SizedBox.shrink();
+                  return TextButton(
+                    onPressed: () {
+                      // نُطلق MarkAllNotesRead لكل ابن على حدة
+                      for (final id in childIds) {
+                        context.read<NotesBloc>().add(MarkAllNotesRead(id));
+                      }
+                    },
+                    child: const Text(
+                      'قراءة الكل',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           body: BlocBuilder<NotesBloc, NotesState>(
             builder: (context, state) {

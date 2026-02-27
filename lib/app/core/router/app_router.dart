@@ -13,6 +13,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/first_entry_screen.dart';
 import '../../features/parent/presentation/screens/home_screen.dart';
 import '../../features/prayer_times/presentation/screens/prayer_time_screen.dart';
 import '../../core/services/prayer_times_service.dart';
@@ -219,6 +220,11 @@ class AppRouter {
         path: '/child-view',
         name: 'childView',
         builder: (context, state) => const ChildViewScreen(),
+      ),
+      GoRoute(
+        path: '/parent/first-entry',
+        name: 'parentFirstEntry',
+        builder: (context, state) => const FirstEntryScreen(),
       ),
       GoRoute(
         path: '/parent/children',

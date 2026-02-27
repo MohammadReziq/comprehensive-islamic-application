@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/hadiths_prayer.dart';
 import '../../../../core/services/prayer_times_service.dart';
@@ -19,7 +20,7 @@ import '../../../competitions/data/repositories/competition_repository.dart';
 import '../../../notes/data/repositories/notes_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../../profile/presentation/screens/profile_screen.dart';
+import 'parent_profile_screen.dart';
 import '../../data/repositories/child_repository.dart';
 import '../bloc/children_bloc.dart';
 import '../bloc/children_event.dart';
@@ -177,10 +178,11 @@ class _HomeScreenState extends State<HomeScreen>
         }
       }
 
-      if (mounted) setState(() {
-        _unreadCount = unreadNotes;
-        _announcementsUnreadCount = unreadAnn;
-      });
+      if (mounted)
+        setState(() {
+          _unreadCount = unreadNotes;
+          _announcementsUnreadCount = unreadAnn;
+        });
     } catch (_) {}
   }
 
@@ -351,6 +353,17 @@ class _HomeScreenState extends State<HomeScreen>
               }
             });
           }
+          // شاشة الترحيب للأب الجديد بدون أبناء — تظهر مرة واحدة فقط
+          if (children.isEmpty) {
+            final router = GoRouter.of(context);
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted) return;
+              final prefs = await SharedPreferences.getInstance();
+              final seen = prefs.getBool('first_entry_shown') ?? false;
+              if (!mounted) return;
+              if (!seen) router.push('/parent/first-entry');
+            });
+          }
         }
       },
       builder: (context, state) {
@@ -397,6 +410,13 @@ class _HomeScreenState extends State<HomeScreen>
                                 sliver: SliverToBoxAdapter(
                                   child: Column(
                                     children: [
+                                      if (state is ChildrenError) ...[
+                                        const SizedBox(height: 12),
+                                        _buildChildrenErrorBanner(
+                                          context,
+                                          state.message,
+                                        ),
+                                      ],
                                       _buildActionsGrid(context, children),
                                       if (_competitionStatus !=
                                           CompetitionStatus.noCompetition) ...[
@@ -413,13 +433,54 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                       ),
-                const ProfileScreen(),
+                const ParentProfileScreen(),
               ],
             ),
             bottomNavigationBar: _buildBottomNav(),
           ),
         );
       },
+    );
+  }
+
+  // ─── Children Error Banner ───
+  Widget _buildChildrenErrorBanner(BuildContext context, String message) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: Colors.red.shade400, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'تعذّر تحميل بيانات الأبناء',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.red.shade700,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => context.read<ChildrenBloc>().add(const ChildrenLoad()),
+            child: Text(
+              'إعادة المحاولة',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.red.shade600,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1225,7 +1286,7 @@ class _HomeScreenState extends State<HomeScreen>
         selectedItemColor: AppColors.primary,
         unselectedItemColor: const Color(0xFFB0B8C4),
         backgroundColor: Colors.transparent,
-        elevation: 0,
+        elevation: 1,
         selectedLabelStyle: const TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 12,

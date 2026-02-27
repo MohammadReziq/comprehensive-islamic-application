@@ -15,7 +15,7 @@ import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
-import '../../../profile/presentation/screens/profile_screen.dart';
+import 'supervisor_profile_screen.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../data/repositories/supervisor_repository.dart';
 
@@ -162,7 +162,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
                           ),
                         ),
                       ),
-                const ProfileScreen(),
+                const SupervisorProfileScreen(),
               ],
             ),
             bottomNavigationBar: _buildBottomNav(),

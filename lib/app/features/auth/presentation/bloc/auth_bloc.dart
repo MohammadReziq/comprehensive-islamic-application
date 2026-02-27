@@ -195,6 +195,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   /// تسجيل دخول بـ Google (داخل التطبيق إن وُجد Web Client ID، وإلا عبر المتصفح)
+  /// بعد النجاح: إن وُجدت جلسة (تسجيل داخلي) نستدعي فحص الجلسة حتى لا يبقى المستخدم على "جاري التحميل".
+  /// إن لم تُنشأ جلسة (مثلاً خطأ من Credential Manager) نعيد المستخدم لشاشة الدخول مع رسالة.
   Future<void> _onLoginWithGoogleRequested(
     AuthLoginWithGoogleRequested event,
     Emitter<AuthState> emit,
@@ -202,13 +204,29 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
     try {
       await _authRepository.signInWithGoogle();
-      // النجاح: onAuthStateChange يطلق signedIn ثم AuthCheckRequested
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      if (_authRepository.isLoggedIn) {
+        add(const AuthCheckRequested());
+        return;
+      }
+      // لم تُنشأ جلسة (قد يكون إلغاء أو خطأ من النظام مثل GetCredentialResponse error)
+      emit(const AuthUnauthenticated());
     } on AuthException catch (e) {
       emit(AuthError(_mapAuthError(e.message)));
     } on GoogleSignInCancelledException {
       emit(const AuthUnauthenticated());
     } catch (e) {
-      emit(AuthError('حدث خطأ أثناء تسجيل الدخول بـ Google: ${e.toString()}'));
+      final msg = e.toString();
+      if (msg.contains('Credential') ||
+          msg.contains('GetCredential') ||
+          msg.contains('sign_in_failed') ||
+          msg.contains('SIGN_IN_FAILED')) {
+        emit(AuthError(
+          'لم يكتمل تسجيل الدخول بحساب Google. تأكد من إعداد التطبيق في Google Cloud (SHA-1، Client ID) أو جرّب تسجيل الدخول بالبريد.',
+        ));
+      } else {
+        emit(AuthError('حدث خطأ أثناء تسجيل الدخول بـ Google: ${msg.replaceFirst('Exception: ', '')}'));
+      }
     }
   }
 

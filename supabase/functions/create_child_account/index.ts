@@ -156,9 +156,9 @@ serve(async (req) => {
       );
     }
 
-    // 6) النتيجة
+    // 6) النتيجة — password لا يُرجَع أبداً للعميل (يبقى في Supabase Auth فقط)
     return new Response(
-      JSON.stringify({ email, password }),
+      JSON.stringify({ email }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

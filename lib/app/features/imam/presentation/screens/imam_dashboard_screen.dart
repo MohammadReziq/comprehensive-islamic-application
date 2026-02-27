@@ -13,7 +13,7 @@ import '../../../../models/mosque_model.dart';
 import '../../../../models/other_models.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
-import '../../../profile/presentation/screens/profile_screen.dart';
+import 'imam_profile_screen.dart';
 import '../../../supervisor/data/repositories/supervisor_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
@@ -287,7 +287,7 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen>
                           ),
                         ),
                       ),
-                const ProfileScreen(),
+                const ImamProfileScreen(),
               ],
             ),
             bottomNavigationBar: _buildBottomNav(),

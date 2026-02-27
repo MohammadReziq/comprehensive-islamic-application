@@ -238,6 +238,15 @@ class AuthRepository {
     }
   }
 
+  /// حذف الحساب الحالي وكل البيانات المرتبطة به
+  /// تستدعي RPC (delete_my_account) التي تعمل بصلاحية SECURITY DEFINER
+  Future<void> deleteMyAccount() async {
+    final result = await supabase.rpc('delete_my_account');
+    if (result is Map && result['ok'] == false) {
+      throw Exception(result['error'] ?? 'فشل حذف الحساب');
+    }
+  }
+
   /// تحديث دور المستخدم
   Future<void> updateUserRole({
     required String userId,

@@ -54,8 +54,10 @@ class AuthVideoManager extends ChangeNotifier {
     }
     _initializing = true;
     try {
-      _fwdCtrl = VideoPlayerController.asset(_fwdAsset);
-      _revCtrl = VideoPlayerController.asset(_revAsset);
+      // mixWithOthers: true يمنع أخذ audio focus من التطبيقات الأخرى (مثل تشغيل القرآن)
+      final videoOpts = VideoPlayerOptions(mixWithOthers: true);
+      _fwdCtrl = VideoPlayerController.asset(_fwdAsset, videoPlayerOptions: videoOpts);
+      _revCtrl = VideoPlayerController.asset(_revAsset, videoPlayerOptions: videoOpts);
 
       // Initialize both in parallel
       await Future.wait([
