@@ -1,0 +1,627 @@
+================================================================================
+       الدراسة النهائية الشاملة — صلاتي حياتي
+       خريطة كل السيناريوهات + الخطة القادمة
+================================================================================
+الإصدار: 2.0 — نهائي
+التاريخ: 2026-02-27
+النطاق: كل الأدوار ما عدا السوبر أدمن (حسب الطلب)
+المنهجية: تحليل 39 route + 45 شاشة + 9 repositories + 15 feature module + 8 enums + كل الخدمات
+
+================================================================================
+الجزء الأول: خريطة كل السيناريوهات حسب الدور
+================================================================================
+
+----------------------------------------------------------------------
+1. تدفق المصادقة (كل الأدوار)
+----------------------------------------------------------------------
+
+المسار                  الشاشة                     الوصف
+/splash                 SplashScreen                فحص الجلسة + جلب الـ profile
+/onboarding             OnboardingScreen            عرض مرة واحدة (SharedPrefs)
+/login                  LoginScreen                 إيميل + كلمة سر أو Google
+/register               RegisterScreen              إنشاء حساب جديد
+/verify-email           → redirect /login           (التحقق عبر Edge Function)
+
+التدفق الكامل:
+  فتح التطبيق
+  → SplashScreen: فحص auth session
+    → لا جلسة:
+      → هل شاف الـ onboarding؟
+        → لا → /onboarding → /login
+        → نعم → /login
+    → جلسة موجودة:
+      → جلب الـ profile (getCurrentUserProfile)
+        → نجاح → حسب الدور:
+          - parent → /home
+          - child → /child-view
+          - imam/supervisor → /mosque (بوابة المسجد)
+          - super_admin → /admin
+        → فشل (لا سجل في users) → يحاول ensureProfileFromAuthSession
+          → نجاح → إعادة توجيه حسب الدور
+          → فشل → /login
+
+حالات حدية للمصادقة:
+  [1] المستخدم يسجل ثم يغلق قبل التفعيل → AuthAwaitingEmailVerification → redirect /verify-email → (حالياً يعيد توجيه لـ /login)
+  [2] Google Sign-In يُلغى → GoogleSignInCancelledException → لا خطأ يُعرض
+  [3] إيميل موجود مسبقاً → Supabase يرجع خطأ → يجب عرض رسالة واضحة
+  [4] الـ profile = null بعد تسجيل الدخول → ensureProfileAfterSignUp ينشئ السجل
+  [5] تسجيل خروج → AuthBloc (LazyS singleton) يبقى في الذاكرة → [مشكلة] الـ state القديم قد يظهر لحظياً عند دخول مستخدم آخر
+
+----------------------------------------------------------------------
+2. ولي الأمر (Parent) — 12 مسار
+----------------------------------------------------------------------
+
+المسار                                      الشاشة                      الوصف
+/home                                       HomeScreen                  الصفحة الرئيسية (1300 سطر)
+/parent/first-entry                         FirstEntryScreen            أول دخول بعد التسجيل
+/parent/children                            ChildrenScreen              قائمة أبنائي
+/parent/children/add                        AddChildScreen              إضافة ابن
+/parent/children/:id/card                   ChildCardScreen             بطاقة الابن (1184 سطر)
+/parent/children/:id/request-correction     RequestCorrectionScreen     طلب تصحيح حضور
+/parent/corrections                         MyCorrectionsScreen         طلبات التصحيح المقدمة
+/parent/notes                               NotesInboxScreen            ملاحظات المشرف/الإمام لأبنائي
+/parent/announcements                       ParentAnnouncementsScreen   إعلانات مساجد أبنائي
+/parent/inbox                               ParentInboxScreen           [مكرر — يجب حذفه]
+/prayer-times                               PrayerTimeScreen            مواقيت الصلاة
+
+--- HomeScreen (الرئيسية) ---
+
+المحتويات:
+  - Hero: اسم المستخدم + التحية + الأيقونة
+  - شبكة الإجراءات: أبنائي، المسابقة، مواقيت الصلاة، الرسائل، الإعلانات، طلبات التصحيح
+  - بانر المسابقة: حالة أول مسابقة من مساجد الأبناء
+  - بطاقة الصلاة القادمة: مواقيت الصلاة اليوم + العد التنازلي
+  - BottomNav: الرئيسية، أبنائي، الملف الشخصي
+
+السيناريوهات:
+  [P-H1] ولي أمر بدون أبناء:
+    - الحالة الحالية: BLoC يرجع ChildrenLoaded بقائمة فارغة
+    - المطلوب: عرض رسالة "أضف ابنك الأول" مع زر "إضافة ابن" + إخفاء بانر المسابقة
+    - الوضع الحالي: [سلوك غير محدد — يُوصى بالتحديد]
+
+  [P-H2] ChildrenError:
+    - الحالة الحالية: BLoC يرجع ChildrenError → الشاشة لا تتعامل معه → [مشكلة] شاشة فارغة
+    - المطلوب: عرض رسالة خطأ + زر "إعادة المحاولة"
+
+  [P-H3] بانر المسابقة بدون اسم المسجد:
+    - الحالة الحالية: يظهر "المسابقة جارية" أو "قادمة" بدون ذكر أي مسجد
+    - المطلوب: "مسابقة جارية في مسجد [الاسم]"
+
+  [P-H4] ابن في مسجدين وأحدهما فيه مسابقة:
+    - الحالة الحالية: يأخذ أول مسابقة غير noCompetition من أي مسجد
+    - المطلوب: عرض واضح: "ابنك [الاسم] في مسابقة في مسجد [الاسم]"
+
+  [P-H5] مواقيت الصلاة — الموقع معطّل:
+    - تم إصلاحه: timeout 12 ثانية + فحص isLocationServiceEnabled
+    - يعرض رسالة "تعذّر جلب المواقيت"
+
+  [P-H6] عدادات غير المقروء (ملاحظات / إعلانات):
+    - الملاحظات: عداد من NotesBloc
+    - الإعلانات: عداد من AnnouncementBloc
+    - المطلوب: تحديثها عند العودة من الشاشة + Real-time subscription
+
+  [P-H7] زر "الرسائل" vs "الملاحظات":
+    - الحالة الحالية: زر "الرسائل" يفتح ParentInboxScreen (ملاحظات + إعلانات)
+    - المطلوب: تسميته "الملاحظات" ويفتح /parent/notes (ملاحظات فقط)
+    - تأثير: حذف ParentInboxScreen (618 سطر) + إزالة المسار /parent/inbox
+
+--- ChildrenScreen (أبنائي) ---
+
+السيناريوهات:
+  [P-C1] لا أبناء → عرض رسالة "لم تضف أبناء بعد" + زر إضافة
+  [P-C2] أبناء بدون ربط بمسجد → [مشكلة] لا يظهر حالة الارتباط
+    - المطلوب: شارة "غير مرتبط" حمراء على بطاقة الابن + "ابنك غير مرتبط بأي مسجد. اضغط للربط"
+  [P-C3] أبناء مرتبطين → [مشكلة] لا يظهر اسم المسجد
+    - المطلوب: شارة خضراء "مرتبط بمسجد [الاسم]"
+  [P-C4] Pull-to-refresh: غير موجود حالياً → المطلوب: RefreshIndicator
+  [P-C5] تعديل الابن (اسم/عمر): موجود في API (updateChild) لكن غير مستخدم بشكل بارز في الواجهة
+
+--- AddChildScreen (إضافة ابن) ---
+
+السيناريوهات:
+  [P-A1] إدخال الاسم والعمر فقط (بدون إيميل) → ينشئ ابن بدون حساب login
+  [P-A2] إدخال اسم + عمر + إيميل + كلمة سر → ينشئ auth user ثم children record
+    - [مشكلة أمنية] كلمة المرور غير مخفية (obscureText)
+    - [مشكلة أمنية] credentials تبقى في BLoC state
+    - [مشكلة] ليس في DB transaction — إذا فشل children insert يبقى auth user يتيم
+  [P-A3] زر العمر (-):
+    - [مشكلة] لا يتوقف عند الحد الأدنى → ينزل تحت 3 سنوات
+    - المطلوب: تعطيل عند age <= 3
+
+--- ChildCardScreen (بطاقة الابن) ---
+
+السيناريوهات:
+  [P-CC1] الابن غير مرتبط بأي مسجد:
+    - [مشكلة] فورم "أدخل كود المسجد" يظهر حتى لو مرتبط
+    - المطلوب: 0 مساجد = فورم الربط فقط
+  [P-CC2] الابن مرتبط بمسجد واحد:
+    - المطلوب: عرض تفاصيل المسجد (الاسم، الرقم المحلي، حالة المسابقة)
+    - زر "إضافة مسجد فرعي" مخفي أو ثانوي
+  [P-CC3] الابن في مسجدين:
+    - المطلوب: قائمة مساجد قابلة للتوسيع + حالة مسابقة لكل مسجد
+  [P-CC4] طلب التصحيح:
+    - [مشكلة] يظهر دائماً حتى بدون مسابقة جارية
+    - المطلوب: فقط عند مسابقة جارية في أحد المساجد
+  [P-CC5] تاريخ الحضور السريع:
+    - [مفقود] لا يوجد شريط حضور آخر 7 أيام
+    - المطلوب: دوائر (حضر/لا) لآخر 7 أيام
+  [P-CC6] مشاركة QR Code:
+    - [مفقود] لا يوجد زر مشاركة QR عبر واتسآب
+  [P-CC7] شريط تقدم المستوى:
+    - [مفقود] API جاهز (GamificationRepository.getChildLevel) لكن غير مربوط
+
+--- RequestCorrectionScreen (طلب تصحيح حضور) ---
+
+السيناريوهات:
+  [P-RC1] اختيار الابن → اختيار المسجد → اختيار الصلاة → إرسال
+  [P-RC2] مسجد بدون مسابقة جارية:
+    - [مشكلة] يظهر في القائمة
+    - المطلوب: إظهار فقط المساجد التي فيها مسابقة جارية
+  [P-RC3] لا مساجد بمسابقة جارية:
+    - المطلوب: رسالة "لا توجد مسابقة جارية لـ [الابن] في أي مسجد"
+  [P-RC4] نسختين من الشاشة:
+    - [مشكلة] parent/screens/request_correction_screen.dart (287 سطر)
+      + corrections/screens/request_correction_screen.dart (418 سطر)
+    - المطلوب: الاحتفاظ بنسخة واحدة فقط
+
+--- NotesInboxScreen (الملاحظات) ---
+
+السيناريوهات:
+  [P-N1] لا ملاحظات → رسالة فارغة
+  [P-N2] ملاحظات جديدة غير مقروءة → عداد في الأيقونة
+  [P-N3] زر "تحديد الكل كمقروء":
+    - [مشكلة] BLoC event موجود لكن لا زر في الواجهة
+    - المطلوب: إضافة زر في أعلى الشاشة
+  [P-N4] رد ولي الأمر:
+    - يعمل عبر updateParentReply (مرة واحدة فقط)
+    - [مفقود] المشرف لا يتلقى إشعار عند الرد
+
+--- ParentAnnouncementsScreen (إعلانات) ---
+
+السيناريوهات:
+  [P-AN1] لا أبناء → لا إعلانات
+  [P-AN2] أبناء بدون مساجد → لا إعلانات (mosqueIds فارغة)
+  [P-AN3] إعلانات مثبتة → تظهر في المقدمة
+  [P-AN4] قراءة الإعلان → يسجل read_at في announcement_reads
+    - [مشكلة أداء] markAllAsRead يرسل N طلبات متتابعة
+  [P-AN5] Real-time: اشتراك في إعلانات جديدة عبر RealtimeService
+
+--- البروفايل (ParentProfileScreen) ---
+
+السيناريوهات:
+  [P-PR1] تعديل الاسم والهاتف → updateUserProfile
+  [P-PR2] تغيير كلمة المرور → ChangePasswordDialog → updatePassword
+  [P-PR3] حذف الحساب → ConfirmDialog → deleteMyAccount (RPC)
+  [P-PR4] تسجيل الخروج → signOut → redirect /login
+  [P-PR5] صحة الحساب (AccountHealthSection):
+    - [مشكلة] تقيّم مرة واحدة في initState → بعد ربط ابن بمسجد والعودة تبقى قديمة
+    - المطلوب: إعادة _evaluate() عند ظهور الشاشة
+  [P-PR6] قسم الأبناء:
+    - [مشكلة] "_ChildrenSection" غير مستخدم (Dead Code)
+    - المطلوب: تفعيله أو حذفه
+
+----------------------------------------------------------------------
+3. الابن (Child) — مسار واحد
+----------------------------------------------------------------------
+
+المسار              الشاشة              الوصف
+/child-view         ChildViewScreen      لوحة الابن (897 سطر)
+
+السيناريوهات:
+  [CH1] ابن بدون مسجد → لا حضور ولا نقاط ولا مسابقة → رسالة "انتظر ولي أمرك يربطك بمسجد"
+  [CH2] ابن في مسجد → عرض النقاط + السلسلة + حضور اليوم
+  [CH3] مساحة مهدورة:
+    - [مفقود] لوحة الشرف (Leaderboard)
+    - [مفقود] معرض الشارات (Badges Gallery)
+    - [مفقود] تقويم الحضور الشهري
+    - API جاهز: getChildLevel(), getChildBadges(), getMosqueLeaderboard()
+    - [مشكلة] GamificationRepository غير مسجّل في DI
+  [CH4] ملاحظات الابن:
+    - API: getNotesForChild(childId) موجود
+    - [سلوك غير محدد] هل الابن يرى ملاحظاته في الواجهة؟
+
+----------------------------------------------------------------------
+4. الإمام (Imam) — 8 مسارات
+----------------------------------------------------------------------
+
+المسار                                          الشاشة                              الوصف
+/mosque                                         MosqueGateScreen                    بوابة اختيار/إنشاء مسجد
+/mosque/create                                  CreateMosqueScreen                  إنشاء مسجد جديد
+/mosque/join                                    JoinMosqueScreen                    طلب الانضمام
+/imam/dashboard                                 ImamDashboardScreen                 لوحة الإمام (1285 سطر)
+/imam/corrections/:mosqueId                     ImamCorrectionsScreen               طلبات التصحيح
+/imam/competitions/:mosqueId                    ImamCompetitionsScreen               إدارة المسابقة
+/imam/mosque/:mosqueId/prayer-points            PrayerPointsSettingsScreen          إعدادات نقاط الصلوات
+/imam/mosque/:mosqueId/settings                 ImamMosqueSettingsScreen            إعدادات المسجد
+/imam/mosque/:mosqueId/attendance-report         ImamAttendanceReportScreen          تقارير الحضور
+/imam/mosque/:mosqueId/supervisors-performance   ImamSupervisorsPerformanceScreen     أداء المشرفين
+/imam/announcements/:mosqueId                   ImamAnnouncementsScreen              إعلانات المسجد
+
+--- ImamDashboardScreen (1285 سطر — [يحتاج إعادة كتابة]) ---
+
+السيناريوهات:
+  [I-D1] الإمام ينشئ مسجد جديد → MosqueGateScreen → CreateMosqueScreen
+    - الحالة: pending → ينتظر موافقة السوبر أدمن
+    - بعد الموافقة: approved → يظهر في لوحة الإمام
+  [I-D2] الإمام يطلب الانضمام لمسجد → JoinMosqueScreen
+    - يرسل طلب → MosqueJoinRequestModel (status: pending → approved/rejected)
+  [I-D3] تسجيل الحضور:
+    - [تصميم] الإمام يرى "تسجيل الحضور" كإجراء رئيسي → المطلوب: تخفيفه (نقله لقسم ثانوي)
+    - السبب: المشرف هو من يسجّل الحضور عادة
+  [I-D4] [مشكلة] 80% من الكود مكرر مع SupervisorDashboardScreen
+    - المطلوب: استخراج SharedDashboardWidgets
+
+--- إدارة المسابقة (ImamCompetitionsScreen) ---
+
+السيناريوهات:
+  [I-C1] إنشاء مسابقة: اسم + تاريخ بداية + تاريخ نهاية → حالة "قادمة"
+  [I-C2] تفعيل المسابقة: activate(competitionId) → حالة "جارية"
+  [I-C3] إيقاف المسابقة: deactivate(competitionId) → حالة "منتهية"
+  [I-C4] تعديل المسابقة:
+    - [مفقود] لا يوجد update() في CompetitionRepository
+    - المطلوب: تعديل الاسم، التواريخ (تأجيل)
+  [I-C5] حذف المسابقة:
+    - [مفقود] لا يوجد delete() في CompetitionRepository
+    - المطلوب: حذف (مع فحص attendance مرتبط → منع أو أرشفة)
+  [I-C6] عرض لوحة المتصدرين: getLeaderboard(competitionId)
+
+حالات المسابقة (من CompetitionRepository.getCompetitionStatus):
+  noCompetition → لا مسابقات في المسجد
+  upcoming      → مسابقة بتاريخ مستقبلي وغير مفعّلة
+  running       → مسابقة مفعّلة (is_active=true) واليوم ضمن [start, end]
+  finished      → انتهت أو أُوقفت
+
+--- الإعلانات (ImamAnnouncementsScreen) ---
+
+السيناريوهات:
+  [I-A1] إنشاء إعلان: عنوان + نص + تثبيت (اختياري)
+  [I-A2] تعديل إعلان: update(announcementId, {title, body, isPinned})
+  [I-A3] حذف إعلان: delete(announcementId)
+  [I-A4] تثبيت/إلغاء تثبيت: togglePin(announcementId, isPinned)
+  [I-A5] [مفقود] اختيار الجمهور المستهدف:
+    - حالياً: الإعلانات تذهب لأولياء الأمور فقط (عبر mosque_children)
+    - المطلوب: target_audience: 'parents' | 'supervisors' | 'all'
+    - التنفيذ: عمود جديد في DB + radio buttons في الواجهة + getForSupervisor()
+
+--- طلبات التصحيح (ImamCorrectionsScreen) ---
+
+السيناريوهات:
+  [I-CR1] عرض طلبات التصحيح للمسجد
+  [I-CR2] قبول طلب → status: approved → تحديث الحضور
+  [I-CR3] رفض طلب → status: rejected → إشعار ولي الأمر
+
+--- إعدادات المسجد (ImamMosqueSettingsScreen) ---
+
+السيناريوهات:
+  [I-S1] تعديل اسم المسجد، العنوان، الموقع
+  [I-S2] عرض كود المسجد للمشاركة
+
+--- نقاط الصلوات (PrayerPointsSettingsScreen) ---
+
+السيناريوهات:
+  [I-PP1] تعديل نقاط كل صلاة (فجر، ظهر، عصر، مغرب، عشاء)
+  [I-PP2] تعديل النقاط حسب المكان (مسجد vs منزل)
+
+----------------------------------------------------------------------
+5. المشرف (Supervisor) — 8 مسارات
+----------------------------------------------------------------------
+
+المسار                                      الشاشة                          الوصف
+/mosque                                     MosqueGateScreen                بوابة اختيار/انضمام
+/mosque/join                                JoinMosqueScreen                طلب الانضمام لمسجد
+/supervisor/dashboard                       SupervisorDashboardScreen       لوحة المشرف (941 سطر)
+/supervisor/scan                            ScannerScreen                   تسجيل الحضور (452 سطر)
+/supervisor/students                        StudentsScreen                  قائمة الطلاب
+/supervisor/child/:id                       ChildProfileScreen              ملف الطالب
+/supervisor/corrections/:mosqueId           CorrectionsListScreen           طلبات التصحيح
+/supervisor/notes/send/:mosqueId            SendNoteScreen                  إرسال ملاحظة
+/supervisor/notes                           SupervisorPlaceholderScreen     [كود ميت — يجب حذفه]
+
+--- SupervisorDashboardScreen (941 سطر) ---
+
+السيناريوهات:
+  [S-D1] مشرف في مسجد واحد → عرض مباشر لبيانات هذا المسجد
+  [S-D2] مشرف في أكثر من مسجد:
+    - [مشكلة] يظهر بيانات أول مسجد فقط
+    - المطلوب: قائمة/بطاقات مساجد → اختيار مسجد → كل الإجراءات في سياقه
+  [S-D3] تسجيل الحضور بدون مسابقة:
+    - [مشكلة] زر "تسجيل الحضور" يظهر حتى لو المسابقة لم تبدأ
+    - المطلوب: رسالة توجيهية "لا مسابقة جارية" أو "المسابقة تبدأ في [التاريخ]"
+  [S-D4] حالات المسابقة في لوحة المشرف:
+    - noCompetition → "لا مسابقة حالياً"
+    - upcoming → "مسابقة قادمة — تبدأ في [التاريخ]"
+    - running → "المسابقة جارية — حتى [التاريخ]" + تسجيل حضور بارز
+    - finished → "انتهت المسابقة"
+
+--- ScannerScreen (تسجيل حضور) ---
+
+السيناريوهات:
+  [S-SC1] مسح QR Code → AttendanceMethod.qrScan
+  [S-SC2] إدخال رقم الطالب → AttendanceMethod.number
+  [S-SC3] بحث بالاسم → AttendanceMethod.nameSearch
+  [S-SC4] ضغط من القائمة → AttendanceMethod.manualTap
+  [S-SC5] حضور مكرر (نفس الطالب نفس الصلاة نفس اليوم) → خطأ واضح
+  [S-SC6] بدون إنترنت:
+    - [مفقود] OfflineSyncService موجود لكن غير مستخدم
+    - سلوك حالي: يفشل الطلب
+    - المطلوب: تصميم offline حقيقي أو رسالة واضحة
+
+--- StudentsScreen (الطلاب) ---
+
+السيناريوهات:
+  [S-ST1] عرض طلاب المسجد مع الأسماء والأرقام المحلية
+  [S-ST2] البحث بالاسم
+  [S-ST3] الضغط على طالب → ChildProfileScreen
+
+--- SendNoteScreen (إرسال ملاحظة) ---
+
+السيناريوهات:
+  [S-N1] اختيار الطالب → كتابة الملاحظة → إرسال
+  [S-N2] [مفقود] إشعار ولي الأمر بملاحظة جديدة (Push)
+  [S-N3] [مفقود] عرض الملاحظات المرسلة سابقاً مع ردود أولياء الأمور
+    - API موجود: getMySentNotes()
+    - [مفقود] إخطار المشرف عند رد ولي الأمر
+
+--- SupervisorPlaceholderScreen ---
+
+  [S-PH1] [كود ميت] يستخدم في /supervisor/notes لكنه placeholder فارغ
+    - المطلوب: حذفه + ربط /supervisor/notes بشاشة عرض الملاحظات المرسلة (SupervisorSentNotesScreen)
+
+----------------------------------------------------------------------
+6. خريطة التدفقات الكاملة (End-to-End Flows)
+----------------------------------------------------------------------
+
+تدفق 1: ولي أمر يضيف ابن ويربطه بمسجد
+  /home → /parent/children → /parent/children/add
+  → إدخال الاسم + العمر (+ إيميل اختياري)
+  → نجاح: ChildrenLoadedWithCredentials (إن أنشأ حساب) أو ChildrenLoaded
+  → /parent/children/:id/card
+  → إدخال كود المسجد → linkChildToMosque
+    → نجاح: يربط + يعطي local_number
+    → فشل: "كود غير صحيح" أو "المسجد غير موجود"
+  → العودة للـ /home أو /parent/children
+  → [مشكلة] صحة الحساب لا تتحدث
+
+تدفق 2: ولي أمر يطلب تصحيح حضور
+  /home → زر "طلب تصحيح" أو /parent/children/:id/card → "طلب تصحيح"
+  → /parent/children/:id/request-correction
+  → اختيار المسجد (المطلوب: فقط مساجد بمسابقة جارية)
+  → اختيار الصلاة → إرسال
+  → نجاح: طلب بحالة pending
+  → العودة
+
+تدفق 3: إمام ينشئ ويدير مسابقة
+  /imam/dashboard → "المسابقات" → /imam/competitions/:mosqueId
+  → إنشاء مسابقة (اسم + تواريخ) → حالة upcoming
+  → تفعيل → حالة running
+    → ولي الأمر يرى "المسابقة جارية" + يقدر يطلب تصحيح
+    → المشرف يرى تسجيل حضور بارز
+  → إيقاف → حالة finished
+    → ولي الأمر يرى "انتهت المسابقة" + لا تصحيح
+  → [مفقود] تعديل التواريخ أو الاسم
+  → [مفقود] حذف المسابقة
+
+تدفق 4: مشرف يسجل حضور
+  /supervisor/dashboard → "تسجيل الحضور" → /supervisor/scan
+  → اختيار الصلاة
+  → مسح QR / إدخال رقم / بحث بالاسم / ضغط من القائمة
+  → تأكيد → تسجيل في attendance
+    → نقاط حسب إعدادات المسجد (PrayerPoints)
+    → streak يُحدّث
+
+تدفق 5: إمام ينشر إعلان
+  /imam/dashboard → "الإعلانات" → /imam/announcements/:mosqueId
+  → إنشاء إعلان (عنوان + نص + تثبيت)
+  → [مفقود] اختيار الجمهور (أولياء أمور / مشرفين / الكل)
+  → الإعلان يظهر لأولياء الأمور في /parent/announcements
+
+تدفق 6: مشرف يرسل ملاحظة
+  /supervisor/dashboard → "إرسال ملاحظة" → /supervisor/notes/send/:mosqueId
+  → اختيار الطالب → كتابة الملاحظة → إرسال
+  → ولي الأمر يرى الملاحظة في /parent/notes
+  → ولي الأمر يرد (مرة واحدة)
+  → [مفقود] المشرف لا يعلم بالرد
+
+================================================================================
+الجزء الثاني: الفجوات — سيناريوهات غير مغطاة في الخطة الحالية
+================================================================================
+
+(مقارنة مع plan_multi_mosque_competition_ux.md + ux_improvement_plan.md)
+
+[فجوة 1] GamificationRepository غير مسجّل في DI → نظام الحوافز بالكامل معطّل
+  - غير مذكور في أي خطة
+  - الحل بسيط: سطر واحد في injection_container.dart
+
+[فجوة 2] OfflineSyncService: 246 سطر كود ميت
+  - غير مذكور — يجب حذفه
+
+[فجوة 3] other_models.dart: God File (392 سطر, 8+ models)
+  - غير مذكور — يجب تقسيمه + حل التكرار مع note_model.dart و announcement_model.dart
+
+[فجوة 4] AuthBloc/MosqueBloc مسجلين LazyS singleton
+  - المشكلة: بعد تسجيل الخروج الـ state القديم يبقى
+  - غير مذكور في الخطة
+
+[فجوة 5] SupervisorPlaceholderScreen: كود ميت
+  - غير مذكور
+
+[فجوة 6] ParentInboxScreen: مكررة مع الإعلانات
+  - مذكور في plan_multi_mosque لكن لم يُنفذ
+
+[فجوة 7] SupervisorSentNotesScreen: موجود كملف لكن غير مربوط في الـ router
+  - /supervisor/notes يفتح placeholder بدلاً من شاشة الملاحظات المرسلة
+
+[فجوة 8] RequestCorrectionScreen و MyCorrectionsScreen: نسختين في مجلدين مختلفين
+  - غير مذكور
+
+[فجوة 9] تسجيل الحضور بدون إنترنت:
+  - OfflineSyncService موجود لكن معطّل
+  - لا خطة واضحة للتعامل مع offline
+
+[فجوة 10] الابن: واجهة فقيرة
+  - شاشة واحدة (897 سطر) بدون شارات/ترتيب/تقويم
+  - API جاهز لكن غير مربوط
+
+[فجوة 11] إشعارات Push:
+  - NotificationService مسجّل في DI لكن لا يُستخدم بشكل واضح في الواجهات
+  - لا إشعار عند: ملاحظة جديدة، رد على ملاحظة، إعلان جديد، تغير حالة تصحيح
+
+[فجوة 12] PrayerTimesService: مسجّل في DI لكن نمط استخدامه مباشر في الشاشات
+  - ليس عبر BLoC — يمكن أن يسبب مشاكل consistency
+
+================================================================================
+الجزء الثالث: مشاكل تقنية (معمارية + أداء + أمان)
+================================================================================
+
+--- معمارية ---
+
+[ARCH-1] GamificationRepository غير مسجّل في DI
+  الحل: sl.registerLazySingleton(() => GamificationRepository(sl<AuthRepository>()));
+
+[ARCH-2] other_models.dart: God File (8+ models في ملف واحد, 392 سطر)
+  الحل: ملف لكل model + حذف التكرار + تحديث imports
+
+[ARCH-3] AuthBloc + MosqueBloc = LazySingle ton → stale state بعد logout
+  الحل: Factory بدل LazyS ingleton، أو reset() عند signOut
+
+[ARCH-4] لا Abstract Interfaces للـ repositories
+  الحل (مستقبلي): abstract class لكل repository للـ testing والـ mocking
+
+[ARCH-5] FutureBuilder في الـ Router (عدة أماكن)
+  الأماكن: /parent/notes, /supervisor/notes/send/:mosqueId
+  المشكلة: loading state يظهر كل مرة يدخل الشاشة
+  الحل: نقل البيانات لـ BLoC أو تمرير عبر extra
+
+--- أداء ---
+
+[PERF-1] markAllAsRead: N sequential upserts
+  الحل: batch upsert واحد أو RPC
+
+[PERF-2] getChildLevel: يجلب كل attendance rows ثم يجمع في Client
+  الحل: SELECT SUM(points_earned) في Supabase أو RPC
+
+[PERF-3] getMosqueLeaderboard: يجلب كل الحضور ثم يجمع + يرتب في Client
+  الحل: RPC واحد مع GROUP BY + SUM + ORDER BY
+
+[PERF-4] _getCurrentStreak: يجلب كل تواريخ الحضور ثم يحسب في Client
+  الحل: RPC مع window function أو حساب على الـ server
+
+--- أمان ---
+
+[SEC-1] كلمة مرور الابن مكشوفة في State + TextField
+  الحل: obscureText + SecureStorage + مسحها من BLoC state
+
+[SEC-2] Race Condition في local_number
+  الحل: RPC مع FOR UPDATE أو DB sequence
+
+[SEC-3] إنشاء الابن ليس في DB Transaction
+  الحل: Edge Function واحدة
+
+[SEC-4] Streak Bonus: if (streak == 7) → مرة واحدة فقط
+  الحل: if (streak % 7 == 0 && streak > 0)
+
+================================================================================
+الجزء الرابع: الميزات المفقودة (يجب إضافتها)
+================================================================================
+
+[FEAT-1] إعلانات الإمام للمشرفين
+  - عمود target_audience ENUM('parents', 'supervisors', 'all')
+  - تعديل API: getForMosque, getForParent + إنشاء getForSupervisor
+  - واجهة: radio/dropdown في إنشاء الإعلان
+
+[FEAT-2] تعديل وحذف المسابقة
+  - CompetitionRepository: update(id, {nameAr, start, end}) + delete(id)
+  - واجهة: أزرار تعديل/حذف في ImamCompetitionsScreen
+
+[FEAT-3] ربط Gamification بالواجهة
+  - تسجيل في DI
+  - ChildViewScreen: مستوى + XP bar + شارات + ترتيب
+  - ChildCardScreen: mini leaderboard
+
+[FEAT-4] تحديث البيانات عند العودة
+  - RouteAware أو IndexedStack callback
+  - الأماكن: ProfileScreen, HomeScreen, ChildrenScreen
+
+[FEAT-5] حذف الابن (Soft Delete)
+  - عمود deleted_at + تحديث RLS + واجهة تأكيد
+  - ChildRepository: markChildAsDeleted(childId)
+
+[FEAT-6] إخطار المشرف عند رد ولي الأمر
+  - Push notification + badge عداد ردود جديدة
+
+[FEAT-7] شاشة الملاحظات المرسلة للمشرف
+  - ربط SupervisorSentNotesScreen بالـ router بدل placeholder
+
+[FEAT-8] تقويم الحضور الشهري (للابن ولولي الأمر)
+  - API: getAttendanceHistory موجود
+  - واجهة: calendar grid ملون
+
+[FEAT-9] مشاركة QR Code عبر واتسآب (share_plus)
+
+[FEAT-10] إعدادات الإشعارات (إيقاف/تشغيل)
+
+================================================================================
+الجزء الخامس: خارطة الطريق المقترحة
+================================================================================
+
+Sprint 0 — التنظيف (يوم واحد)
+  [0.1] حذف OfflineSyncService + إزالة من DI (246 سطر)
+  [0.2] حذف ParentInboxScreen + redirect /parent/inbox → /parent/notes (618 سطر)
+  [0.3] حذف SupervisorPlaceholderScreen + ربط /supervisor/notes بـ SupervisorSentNotesScreen
+  [0.4] تسجيل GamificationRepository في DI (سطر واحد)
+  [0.5] حذف RequestCorrectionScreen + MyCorrectionsScreen المكررين (~700 سطر)
+  [0.6] تقسيم other_models.dart (392 سطر) → ملف لكل model
+  [0.7] تغيير زر "الرسائل" → "الملاحظات" في HomeScreen
+
+Sprint 1 — إصلاح الأمان والمنطق (يومين)
+  [1.1] obscureText + SecureStorage لكلمة مرور الابن
+  [1.2] Race Condition fix: local_number عبر RPC
+  [1.3] streak % 7 بدل == 7
+  [1.4] معالجة ChildrenError في HomeScreen
+  [1.5] تعطيل زر العمر (-) عند <= 3
+  [1.6] إضافة update() + delete() لـ CompetitionRepository
+
+Sprint 2 — توحيد الكود وتقسيم الملفات (يومين)
+  [2.1] استخراج SharedDashboardWidgets (Hero, PrayerCard, ActionTile, BottomNav)
+  [2.2] إعادة كتابة ImamDashboardScreen باستخدام shared widgets
+  [2.3] إعادة كتابة SupervisorDashboardScreen باستخدام shared widgets
+  [2.4] تقسيم HomeScreen (1300 سطر) → widgets أصغر
+  [2.5] تقسيم ChildCardScreen (1184 سطر) → widgets أصغر
+
+Sprint 3 — UX والميزات الجديدة (3 أيام)
+  [3.1] إعلانات للمشرفين: target_audience + واجهة + API
+  [3.2] Data Refresh: RouteAware / IndexedStack callback
+  [3.3] Conditional rendering في ChildCardScreen
+  [3.4] إخفاء "طلب تصحيح" عند عدم مسابقة جارية
+  [3.5] اسم المسجد في بانر المسابقة
+  [3.6] زر "تحديد الكل كمقروء" في الملاحظات
+  [3.7] رسالة توجيهية للمشرف حسب حالة المسابقة
+  [3.8] المشرف في أكثر من مسجد: شاشة اختيار / dropdown
+
+Sprint 4 — Gamification (يومين)
+  [4.1] إصلاح أداء getChildLevel + getMosqueLeaderboard (RPC)
+  [4.2] ChildViewScreen: المستوى + XP Bar
+  [4.3] معرض الشارات (badges gallery)
+  [4.4] لوحة الشرف (leaderboard)
+  [4.5] تقويم الحضور الشهري
+
+Sprint 5 — ميزات فاخرة (يومين)
+  [5.1] Soft Delete للابن
+  [5.2] إشعار المشرف عند رد ولي الأمر
+  [5.3] واجهة إدارة كاملة للمسابقة (تعديل/تأجيل/حذف)
+  [5.4] markAllAsRead بـ batch upsert
+  [5.5] مشاركة QR Code (share_plus)
+
+================================================================================
+ملاحظات ختامية
+================================================================================
+
+1. Sprint 0 هو الأهم: حذف الكود الميت وتنظيف التكرار يُسهّل كل العمل اللاحق.
+2. كل sprint مستقل: يمكن تنفيذهم بالترتيب أو حسب الأولوية.
+3. لا تغيير في الكود في هذه الوثيقة: فقط توثيق وخطة.
+4. كل سيناريو مرقّم (مثل P-H1, I-C4, S-D2) لسهولة الرجوع.
+5. [مفقود] = ميزة غير موجودة بالكامل.
+   [مشكلة] = موجود لكن يعمل بشكل خاطئ أو ناقص.
+   [سلوك غير محدد] = لم يُحدد ماذا يحصل في هذه الحالة.
+
+================================================================================

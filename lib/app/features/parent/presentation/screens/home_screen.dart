@@ -97,21 +97,41 @@ class _HomeScreenState extends State<HomeScreen>
     double? lat;
     double? lng;
     try {
+      // إذا خدمة الموقع معطّلة → نوقف التحميل فوراً ونعرض الرسالة
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          setState(() {
+            _prayerLat = null;
+            _prayerLng = null;
+            _loadingPrayer = false;
+          });
+        }
+        return;
+      }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
+        // حد زمني 12 ثانية — حتى لا يبقى "جاري جلب المواقيت" إلى الأبد إذا الجهاز لا يحدد الموقع
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.medium,
           ),
+        ).timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => throw TimeoutException('تعذّر تحديد الموقع في الوقت المحدد'),
         );
         lat = pos.latitude;
         lng = pos.longitude;
       }
-    } catch (_) {}
+    } catch (_) {
+      // صلاحية مرفوضة أو انتهت المهلة أو خطأ شبكة — نعرض رسالة واضحة
+      lat = null;
+      lng = null;
+    }
     if (!mounted) return;
     setState(() {
       _prayerLat = lat;

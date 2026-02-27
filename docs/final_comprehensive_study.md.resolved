@@ -1,0 +1,370 @@
+# 🔬 الدراسة النهائية الشاملة — صلاتي حياتي
+
+> **الإصدار:** 1.0 — تدقيق معمّق وشامل لكل شاردة وواردة  
+> **النطاق:** كل المشروع ما عدا السوبر أدمن  
+> **المنهجية:** فحص 45 شاشة + 9 مستودعات + 15 وحدة + كل الخدمات والنماذج والموجّه
+
+---
+
+## الفهرس
+
+| # | القسم | الوصف |
+|---|-------|-------|
+| **A** | [كود ميت وملفات يجب حذفها/إعادة كتابتها](#a) | ملفات موجودة بس مش مستخدمة أو بحاجة إعادة من الصفر |
+| **B** | [مشاكل معمارية خطيرة](#b) | مشاكل DI، Singleton vs Factory، ملف إلهي |
+| **C** | [مشاكل أداء (Performance)](#c) | N+1 Queries، حسابات في الـ Client بدل الـ DB |
+| **D** | [كود مكرر يجب توحيده](#d) | dashboards متشابهة، شاشات تصحيح مكررة |
+| **E** | [ثغرات أمنية وسلامة بيانات](#e) | كلمة السر مكشوفة، Race Condition، RLS |
+| **F** | [ميزات مفقودة (لازم تنزاد)](#f) | إعلانات للمشرفين، تعديل/حذف مسابقة، Gamification، إلخ |
+| **G** | [تجربة مستخدم (UX) — مشاكل ونقص](#g) | بيانات قديمة، شاشات فارغة، منطق غير متسق |
+| **H** | [خارطة الطريق المقترحة](#h) | ترتيب الأولويات |
+
+---
+
+<a id="a"></a>
+## A. كود ميت وملفات يجب حذفها أو إعادة كتابتها
+
+### A.1 [OfflineSyncService](file:///c:/development/comprehensive_islamic_application/lib/app/core/services/offline_sync_service.dart#9-246) — 246 سطر كود ميت بالكامل 🗑️
+
+| الملف | [offline_sync_service.dart](file:///c:/development/comprehensive_islamic_application/lib/app/core/services/offline_sync_service.dart) |
+|-------|------|
+| **المشكلة** | مسجّل في DI (`injection_container.dart:39`) لكن **لا أحد يستدعيه** — لا [init()](file:///c:/development/comprehensive_islamic_application/lib/app/core/services/offline_sync_service.dart#17-35) ولا [enqueueOperation()](file:///c:/development/comprehensive_islamic_application/lib/app/core/services/offline_sync_service.dart#79-95) ولا [syncPendingOperations()](file:///c:/development/comprehensive_islamic_application/lib/app/core/services/offline_sync_service.dart#98-146) من أي شاشة أو repository |
+| **التأثير** | يحمّل `sqflite` بلا فائدة، يخلق قاعدة بيانات محلية لا تُستخدم |
+| **القرار** | **حذف الملف** وإزالة تسجيله من DI. إذا أردنا offline حقيقي لاحقاً نبنيه من الصفر بتصميم أفضل |
+
+### A.2 `ParentInboxScreen` — شاشة مكررة مع الإعلانات
+
+| الملف | [parent_inbox_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/parent_inbox_screen.dart) (618 سطر) |
+|-------|------|
+| **المشكلة** | تعرض "الكل" + "إعلانات" + "ملاحظات" في نفس الشاشة — **نفس الإعلانات تظهر مرتين** (هنا + `ParentAnnouncementsScreen`) |
+| **القرار** | حذف الشاشة وإعادة توجيه `/parent/inbox` إلى `/parent/notes`، تغيير زر "الرسائل" في الرئيسية إلى **"الملاحظات"** |
+
+### A.3 `SupervisorPlaceholderScreen` — placeholder لم يُزال
+
+| الملف | [supervisor_placeholder_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/supervisor/presentation/screens/supervisor_placeholder_screen.dart) |
+|-------|------|
+| **القرار** | حذف الملف وإزالة مساره من الروتر |
+
+### A.4 [other_models.dart](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart) — ملف إلهي يجب تقسيمه (القسم B.2)
+
+### A.5 ملفات تحتاج إعادة كتابة من الصفر
+
+| الملف | الأسطر | السبب |
+|-------|--------|-------|
+| [imam_dashboard_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/imam/presentation/screens/imam_dashboard_screen.dart) | **1,285** | مكرر ~80% مع [supervisor_dashboard_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/supervisor/presentation/screens/supervisor_dashboard_screen.dart). يجب استخراج shared sections |
+| [home_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart) | **1,300** | حجم ضخم — يجب تقسيمه إلى widgets أصغر (Hero, Actions Grid, Competition Banner, Prayer Card) |
+| [child_card_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/child_card_screen.dart) | **1,184** | شاشة واحدة ضخمة — يجب تقسيمها |
+| [child_view_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/child_view_screen.dart) | **897** | مساحة مهدورة — يحتاج Gamification UI |
+
+---
+
+<a id="b"></a>
+## B. مشاكل معمارية خطيرة
+
+### B.1 [GamificationRepository](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#9-201) غير مسجّل في DI 🚨
+
+| المشكلة | [GamificationRepository](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#9-201) (201 سطر: levels, badges, leaderboard) **موجود لكن غير مسجّل** في [injection_container.dart](file:///c:/development/comprehensive_islamic_application/lib/app/injection_container.dart) |
+|---------|------|
+| **النتيجة** | لا يمكن استخدامه من أي شاشة عبر `sl<GamificationRepository>()` — كل نظام الحوافز **معطّل** |
+| **الحل** | `sl.registerLazySingleton(() => GamificationRepository(sl<AuthRepository>()));` |
+
+### B.2 [other_models.dart](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart) — ملف إلهي (God File) 🏗️
+
+| **الحجم** | 392 سطر تحتوي 8+ models غير مرتبطة |
+|-----------|------|
+| **المحتويات** | [MosqueMemberModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#5-48), [MosqueJoinRequestModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#68-103), [MosqueChildModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#105-150), [BadgeModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#152-188), [RewardModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#190-235), [CorrectionModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#237-303), [NoteModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#305-350), [AnnouncementModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#352-392) |
+| **المشكلة** | [NoteModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#305-350) و [AnnouncementModel](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart#352-392) لهم ملفات مستقلة أيضاً في `models/` — **تكرار وتناقض محتمل** |
+| **الحل** | تقسيم كل model في ملف مستقل، حذف التكرار، التأكد أن كل import يشير للملف الصحيح |
+
+### B.3 [AuthBloc](file:///c:/development/comprehensive_islamic_application/lib/app/features/auth/presentation/bloc/auth_bloc.dart#9-345) و `MosqueBloc` مسجلين `LazySingleton`
+
+| **المشكلة** | الـ BLoC يبقى في الذاكرة طوال عمر التطبيق — بعد تسجيل الخروج وإعادة الدخول **يبقى الـ state القديم** |
+|-------------|------|
+| **الحل** | تحويلهم إلى `Factory` أو عمل [reset()](file:///c:/development/comprehensive_islamic_application/lib/app/features/auth/data/repositories/auth_repository.dart#126-133) عند تسجيل الخروج |
+
+### B.4 لا توجد Abstract Interfaces للمستودعات
+
+| **المشكلة** | كل repository هو concrete class — لا يمكن عمل mock للـ testing ولا استبدال implementation |
+| **الحل (مستقبلي)** | إضافة abstract class لكل repository (`AuthRepositoryBase`, `ChildRepositoryBase`, إلخ) |
+
+---
+
+<a id="c"></a>
+## C. مشاكل أداء
+
+### C.1 `AnnouncementRepository.markAllAsRead` — N sequential upserts 🐌
+
+```dart
+// الكود الحالي — يرسل N طلبات متتابعة للسيرفر:
+for (final id in announcementIds) {
+  await supabase.from('announcement_reads').upsert({...});
+}
+```
+
+| **الحل** | استبدال بـ **batch upsert واحد** أو `rpc` واحد يقبل array |
+
+### C.2 `GamificationRepository.getChildLevel` — يجلب كل سجلات الحضور
+
+```dart
+// يجلب كل attendance rows ثم يجمع في الـ client:
+final res = await supabase
+    .from('attendance')
+    .select('points_earned')
+    .eq('child_id', childId);
+```
+
+| **الحل** | استخدام `.select('points_earned.sum()')` من Supabase أو RPC يرجع `SUM(points_earned)` بدل جلب كل الصفوف |
+
+### C.3 `GamificationRepository.getMosqueLeaderboard` — يجلب كل الحضور ثم يجمع في الـ Client
+
+| **المشكلة** | يجلب **كل سجلات الحضور لكل أبناء المسجد** ثم يعمل groupBy + sort في Dart |
+|-------------|------|
+| **الحل** | RPC function واحدة في Supabase تعمل `GROUP BY child_id` + `SUM` + `ORDER BY` |
+
+### C.4 [_AccountHealthSection](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/parent_profile_screen.dart#254-260) — N+1 لكل ابن
+
+| **المشكلة** | يجلب الأبناء ثم يستدعي [getLinkedChildIds](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/data/repositories/child_repository.dart#185-195) — أفضل لكن ممكن يتوسّع |
+| **ملاحظة** | تم إصلاحه جزئياً بالفعل — [getLinkedChildIds](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/data/repositories/child_repository.dart#185-195) يعمل batch query |
+
+---
+
+<a id="d"></a>
+## D. كود مكرر يجب توحيده
+
+### D.1 [ImamDashboardScreen](file:///c:/development/comprehensive_islamic_application/lib/app/features/imam/presentation/screens/imam_dashboard_screen.dart#21-27) و [SupervisorDashboardScreen](file:///c:/development/comprehensive_islamic_application/lib/app/features/supervisor/presentation/screens/supervisor_dashboard_screen.dart#23-30) — تكرار ~80%
+
+| العنصر | المتشابه | المختلف |
+|--------|----------|---------|
+| Hero Section | 95% متطابق | عنوان "لوحة الإمام" vs "لوحة المشرف" |
+| Prayer Card | 100% متطابق | — |
+| Actions Grid | ~70% | الإمام لديه 11 إجراء، المشرف 5 فقط |
+| Bottom Nav | 100% متطابق | — |
+| Absence Alerts | 100% متطابق | — |
+| Info Chips | 95% متطابق | — |
+
+| **الحل** | استخراج `SharedDashboardWidgets` يحتوي: `DashboardHeroSection`, [PrayerCard](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart#664-745), [HeroInfoChip](file:///c:/development/comprehensive_islamic_application/lib/app/features/imam/presentation/screens/imam_dashboard_screen.dart#540-603), `DashboardBottomNav`, [AbsenceAlerts](file:///c:/development/comprehensive_islamic_application/lib/app/features/supervisor/presentation/screens/supervisor_dashboard_screen.dart#851-958), [ActionTile](file:///c:/development/comprehensive_islamic_application/lib/app/features/supervisor/presentation/screens/supervisor_dashboard_screen.dart#757-807) — ثم كل dashboard يستخدمهم مع الاختلافات فقط |
+
+### D.2 `RequestCorrectionScreen` — نسختين!
+
+| الملف 1 | [parent/presentation/screens/request_correction_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/request_correction_screen.dart) (287 سطر) |
+|---------|------|
+| الملف 2 | `corrections/presentation/screens/request_correction_screen.dart` (418 سطر) |
+| **المشكلة** | نسختين من نفس الشاشة في مجلدين مختلفين |
+| **الحل** | الاحتفاظ بنسخة واحدة (الأكمل) وحذف الأخرى |
+
+### D.3 `MyCorrectionScreen` — نفس المشكلة
+
+| الملف 1 | [parent/presentation/screens/my_corrections_screen.dart](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/my_corrections_screen.dart) |
+|---------|------|
+| الملف 2 | `corrections/presentation/screens/my_corrections_screen.dart` |
+| **القرار** | الاحتفاظ بواحدة فقط |
+
+---
+
+<a id="e"></a>
+## E. ثغرات أمنية وسلامة بيانات
+
+### E.1 كلمة مرور الابن مكشوفة في الـ State
+
+| **الموقع** | `ChildrenBloc` → `ChildrenLoadedWithCredentials` state |
+|------------|------|
+| **المشكلة** | بعد إنشاء حساب الابن، كلمة السر تبقى في الـ BLoC state — أي rebuild يمكن أن يعرضها |
+| **الحل** | نقل credentials إلى `SecureStorage` فوراً + عرضها مرة واحدة فقط ثم مسحها من الـ state |
+
+### E.2 `AddChildScreen` — كلمة المرور غير مخفية
+
+| **المشكلة** | حقل كلمة المرور بدون `obscureText: true` |
+| **الحل** | إضافة `obscureText` + زر عين للإظهار/الإخفاء |
+
+### E.3 Race Condition في `local_number`
+
+| **المشكلة** | عند إضافة ابن لمسجد، الرقم المحلي يُحسب بـ [count(*)](file:///c:/development/comprehensive_islamic_application/lib/app/features/auth/data/repositories/auth_repository.dart#241-249) + 1 — إذا أضاف وليان ابن بنفس اللحظة يتكرر الرقم |
+| **الحل** | استخدام Supabase RPC مع `SELECT MAX(local_number) + 1 ... FOR UPDATE` أو DB sequence |
+
+### E.4 إنشاء الابن ليس في Database Transaction
+
+| **المشكلة** | إنشاء الابن يتم على خطوتين (auth user → children table) — إذا فشلت الخطوة الثانية تبقى حسابات auth يتيمة |
+| **الحل** | Edge Function واحدة تعمل كل شيء في transaction |
+
+---
+
+<a id="f"></a>
+## F. ميزات مفقودة (ضرورية)
+
+### F.1 الإمام ينشر إعلانات للمشرفين أيضاً 🆕
+
+| **الوضع الحالي** | الإعلانات تذهب **فقط لأولياء الأمور** (عبر مساجد أبنائهم) |
+|-------------------|------|
+| **المطلوب** | الإمام يختار **الجمهور المستهدف**: "أولياء الأمور"، "المشرفين"، أو "الكل" |
+| **التنفيذ** | إضافة عمود `target_audience ENUM('parents', 'supervisors', 'all')` لجدول `announcements` + تعديل [getForMosque](file:///c:/development/comprehensive_islamic_application/lib/app/features/announcements/data/repositories/announcement_repository.dart#42-63) و [getForParent](file:///c:/development/comprehensive_islamic_application/lib/app/features/announcements/data/repositories/announcement_repository.dart#121-138) + إنشاء `getForSupervisor` |
+| **الواجهة** | في شاشة إنشاء الإعلان — radio buttons أو dropdown للجمهور |
+
+### F.2 تعديل وحذف المسابقة (CompetitionRepository) 🆕
+
+| **الوضع الحالي** | يوجد: [create](file:///c:/development/comprehensive_islamic_application/lib/app/features/announcements/data/repositories/announcement_repository.dart#15-41), [activate](file:///c:/development/comprehensive_islamic_application/lib/app/features/competitions/data/repositories/competition_repository.dart#54-76), [deactivate](file:///c:/development/comprehensive_islamic_application/lib/app/features/competitions/data/repositories/competition_repository.dart#81-103), [getActive](file:///c:/development/comprehensive_islamic_application/lib/app/features/competitions/data/repositories/competition_repository.dart#108-122), [getAllForMosque](file:///c:/development/comprehensive_islamic_application/lib/app/features/competitions/data/repositories/competition_repository.dart#127-140), [getLeaderboard](file:///c:/development/comprehensive_islamic_application/lib/app/features/competitions/data/repositories/competition_repository.dart#145-186), [getCompetitionStatus](file:///c:/development/comprehensive_islamic_application/lib/app/features/competitions/data/repositories/competition_repository.dart#191-223) |
+|-------------------|------|
+| **المفقود** | [update(competitionId, {nameAr, startDate, endDate})](file:///c:/development/comprehensive_islamic_application/lib/app/features/announcements/data/repositories/announcement_repository.dart#64-92) + [delete(competitionId)](file:///c:/development/comprehensive_islamic_application/lib/app/features/announcements/data/repositories/announcement_repository.dart#93-104) |
+| **السبب** | الإمام لازم يقدر يأجّل المسابقة (تعديل تواريخ) أو يعدّل اسمها أو يحذفها |
+| **الحذف** | يجب التحقق: إذا هناك attendance مرتبط → منع الحذف أو أرشفة |
+
+### F.3 Gamification غير مربوط بالواجهة 🆕
+
+| **الوضع الحالي** | [GamificationRepository](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#9-201) جاهز بـ: [getChildLevel()](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#16-46), [getChildBadges()](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#49-91), [getMosqueLeaderboard()](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#94-141) — لكنه **غير مسجّل في DI وغير مستخدم في أي شاشة** |
+|-------------------|------|
+| **المطلوب** |
+| 1 | تسجيل في DI |
+| 2 | `ChildViewScreen`: عرض المستوى + شريط تقدم XP + معرض الشارات |
+| 3 | `ChildCardScreen`: عرض الترتيب في المسجد (mini leaderboard) |
+| 4 | لوحة شرف المسجد (يراها الإمام/المشرف/ولي الأمر) |
+
+### F.4 تحديث البيانات عند العودة (Data Refresh) 🆕
+
+| **المشكلة** | [_AccountHealthSection](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/parent_profile_screen.dart#254-260) في بروفايل ولي الأمر يقيّم مرة واحدة في [initState](file:///c:/development/comprehensive_islamic_application/lib/app/features/imam/presentation/screens/imam_dashboard_screen.dart#49-74) — إذا ربط الابن بمسجد وعاد تبقى البيانات قديمة |
+|-------------|------|
+| **أماكن أخرى** | قائمة الأبناء في البروفايل، عدادات الرئيسية، حالة المسابقة |
+| **الحل** | عند تغيير tab في `IndexedStack` → `setState` يُعيد تحميل البيانات. أو `RouteAware` |
+
+### F.5 حذف الطالب (Soft Delete) 🆕
+
+| **الوضع الحالي** | لا يوجد حذف ابن — لا من الواجهة ولا من الـ API |
+|-------------------|------|
+| **المطلوب** | عمود `deleted_at TIMESTAMP` + تحديث RLS + واجهة تأكيد خطرة + `markChildAsDeleted(childId)` |
+
+### F.6 الملاحظات: إخطار المشرف بالرد 🆕
+
+| **الوضع الحالي** | ولي الأمر يرد على ملاحظة ([updateParentReply](file:///c:/development/comprehensive_islamic_application/lib/app/features/notes/data/repositories/notes_repository.dart#109-143)) — لكن المشرف لا يعرف أنه ردّ |
+|-------------------|------|
+| **المطلوب** | Push notification + badge عداد للردود الجديدة في لوحة المشرف |
+
+### F.7 Streak Bonus خطأ منطقي
+
+| **الوضع الحالي** | `if (streak == 7)` يعطي المكافأة **مرة واحدة فقط** |
+| **الحل** | `if (streak % 7 == 0 && streak > 0)` |
+
+---
+
+<a id="g"></a>
+## G. تجربة المستخدم (UX) — مشاكل ونقص
+
+### G.1 الملاحظات vs الإعلانات — تكرار مربك
+
+| **الحالي** | زر "الرسائل" (inbox) يعرض ملاحظات + إعلانات معاً → **نفس الإعلانات تظهر في شاشة الإعلانات** |
+|------------|------|
+| **الحل** | تسمية الزر **"الملاحظات"** → يفتح `NotesInboxScreen` (ملاحظات فقط). حذف `ParentInboxScreen` |
+
+### G.2 المشرف وتسجيل الحضور بدون مسابقة
+
+| **المشكلة** | المشرف يفتح ويرى "تسجيل الحضور" حتى لو **المسابقة لم تبدأ بعد** — التباس |
+| **الحل** | إظهار رسالة توجيهية حسب حالة المسابقة: "لا مسابقة جارية" أو "المسابقة تبدأ في [التاريخ]" |
+
+### G.3 ChildCardScreen — واجهة مضللة
+
+| **المشكلة** | مربع "أدخل كود المسجد" يظهر **حتى لو الابن مرتبط بمسجد** |
+| **الحل** | Conditional rendering: 0 مساجد = فورم الربط، 1+ = تفاصيل المسجد |
+
+### G.4 طلب التصحيح يظهر دائماً
+
+| **المشكلة** | زر "طلب تصحيح" يظهر طوال الوقت — حتى بدون مسابقة جارية |
+| **الحل** | إظهاره **فقط عند وجود مسابقة جارية** + تمرير اسم المسجد |
+
+### G.5 [ChildrenError](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart#447-486) بدون معالجة في الـ Home
+
+| **المشكلة** | `ChildrenBloc` يمكن يرجع [ChildrenError](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart#447-486) — لكن الـ UI لا يتعامل معه → **شاشة فارغة** |
+| **الحل** | إضافة `BlocBuilder` case لـ [ChildrenError](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart#447-486) مع رسالة + زر إعادة محاولة |
+
+### G.6 زر العمر ينزل تحت 3 سنوات
+
+| **المشكلة** | في `AddChildScreen`، زر `-` للعمر لا يتوقف عند الحد الأدنى |
+| **الحل** | تعطيل الزر عند `age <= 3` |
+
+### G.7 `MarkAllNotesRead` — BLoC event بدون زر
+
+| **المشكلة** | Event موجود في `NotesBloc` لكن **لا يوجد زر** في الواجهة يستدعيه |
+| **الحل** | إضافة زر "تحديد الكل كمقروء" في أعلى شاشة الملاحظات |
+
+### G.8 المشرف في أكثر من مسجد — لا سياق واضح
+
+| **المشكلة** | الـ dashboard يفترض مسجد واحد — لو المشرف في مسجدين تظهر بيانات أول مسجد فقط |
+| **الحل** | إذا مسجد واحد → كما هو. إذا 2+ → شاشة اختيار مسجد أو dropdown |
+
+### G.9 بانر المسابقة — بدون اسم المسجد
+
+| **المشكلة** | في الرئيسية تظهر حالة المسابقة (جارية/قادمة/منتهية) **بدون ذكر أي مسجد** |
+| **الحل** | إضافة `mosqueName` مع حالة المسابقة: "مسابقة جارية في مسجد النور" |
+
+---
+
+<a id="h"></a>
+## H. خارطة الطريق المقترحة
+
+### Sprint 0 — التنظيف والإنقاذ (يوم واحد) 🔴
+
+| # | المهمة | الأثر |
+|---|--------|-------|
+| 1 | حذف [OfflineSyncService](file:///c:/development/comprehensive_islamic_application/lib/app/core/services/offline_sync_service.dart#9-246) + إزالة من DI | كود ميت 246 سطر |
+| 2 | حذف `ParentInboxScreen` + إعادة توجيه `/parent/inbox` | إزالة تكرار 618 سطر |
+| 3 | حذف `SupervisorPlaceholderScreen` | كود ميت |
+| 4 | تسجيل [GamificationRepository](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#9-201) في DI | **فك حظر** نظام الحوافز |
+| 5 | حذف تكرار `RequestCorrectionScreen` و `MyCorrectionScreen` | إزالة ~700 سطر مكرر |
+| 6 | تقسيم [other_models.dart](file:///c:/development/comprehensive_islamic_application/lib/app/models/other_models.dart) إلى ملفات مستقلة | حل الـ god file |
+| 7 | تغيير زر "الرسائل" → "الملاحظات" في [HomeScreen](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart#30-36) | UX |
+
+### Sprint 1 — إصلاح الأمان والمنطق (يومين) 🟡
+
+| # | المهمة |
+|---|--------|
+| 1 | إخفاء كلمة مرور الابن (`obscureText`) + SecureStorage |
+| 2 | إصلاح Race Condition في `local_number` (RPC واحد) |
+| 3 | إصلاح Streak Bonus (`% 7` بدل `== 7`) |
+| 4 | معالجة [ChildrenError](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart#447-486) في [HomeScreen](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart#30-36) |
+| 5 | تعطيل زر `-` عمر عند الحد الأدنى |
+| 6 | إضافة [update](file:///c:/development/comprehensive_islamic_application/lib/app/features/announcements/data/repositories/announcement_repository.dart#64-92) و [delete](file:///c:/development/comprehensive_islamic_application/lib/app/features/announcements/data/repositories/announcement_repository.dart#93-104) لـ [CompetitionRepository](file:///c:/development/comprehensive_islamic_application/lib/app/features/competitions/data/repositories/competition_repository.dart#8-262) |
+
+### Sprint 2 — توحيد الكود (يومين) 🟢
+
+| # | المهمة |
+|---|--------|
+| 1 | استخراج `SharedDashboardWidgets` من imam/supervisor dashboards |
+| 2 | إعادة كتابة [ImamDashboardScreen](file:///c:/development/comprehensive_islamic_application/lib/app/features/imam/presentation/screens/imam_dashboard_screen.dart#21-27) و [SupervisorDashboardScreen](file:///c:/development/comprehensive_islamic_application/lib/app/features/supervisor/presentation/screens/supervisor_dashboard_screen.dart#23-30) باستخدام الـ shared widgets |
+| 3 | تقسيم [HomeScreen](file:///c:/development/comprehensive_islamic_application/lib/app/features/parent/presentation/screens/home_screen.dart#30-36) إلى widgets أصغر |
+| 4 | تقسيم `ChildCardScreen` إلى widgets أصغر |
+
+### Sprint 3 — UX والميزات الجديدة (3 أيام) 🔵
+
+| # | المهمة |
+|---|--------|
+| 1 | **إعلانات للمشرفين**: عمود `target_audience` + واجهة الاختيار + عرض الإعلان |
+| 2 | تحديث البيانات عند العودة (`RouteAware` / `IndexedStack` callback) |
+| 3 | Conditional rendering في `ChildCardScreen` (حسب عدد المساجد) |
+| 4 | إخفاء "طلب تصحيح" عند عدم وجود مسابقة جارية |
+| 5 | إضافة اسم المسجد في بانر المسابقة |
+| 6 | "تحديد الكل كمقروء" في شاشة الملاحظات |
+| 7 | رسالة توجيهية للمشرف عند عدم وجود مسابقة |
+
+### Sprint 4 — Gamification والتلعيب (يومين) ⭐
+
+| # | المهمة |
+|---|--------|
+| 1 | إصلاح أداء [getChildLevel](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#16-46) و [getMosqueLeaderboard](file:///c:/development/comprehensive_islamic_application/lib/app/features/gamification/data/repositories/gamification_repository.dart#94-141) (RPC) |
+| 2 | عرض المستوى + XP Bar في `ChildViewScreen` |
+| 3 | معرض الشارات (badges gallery) |
+| 4 | لوحة الشرف (leaderboard) في `ChildViewScreen` |
+| 5 | تقويم الحضور الشهري |
+
+### Sprint 5 — ميزات فاخرة (يومين) 💎
+
+| # | المهمة |
+|---|--------|
+| 1 | حذف الابن (Soft Delete) |
+| 2 | إشعار المشرف عند رد ولي الأمر على ملاحظة |
+| 3 | المشرف في أكثر من مسجد — شاشة اختيار مسجد |
+| 4 | [markAllAsRead](file:///c:/development/comprehensive_islamic_application/lib/app/features/announcements/data/repositories/announcement_repository.dart#167-183) بـ batch upsert بدل loop |
+| 5 | واجهة إدارة كاملة للمسابقة (تعديل، تأجيل، حذف) |
+
+---
+
+> [!IMPORTANT]
+> **Sprint 0 هو الأهم** — حذف الكود الميت وتنظيف الملفات يجعل كل sprint لاحق أسهل. ابدأ منه.
+
+> [!TIP]  
+> كل sprint مستقل — يمكنك تنفيذهم بالترتيب أو حسب الأولوية.
