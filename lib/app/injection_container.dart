@@ -1,7 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/services/notification_service.dart';
-import 'core/services/offline_sync_service.dart';
+
 import 'core/services/prayer_times_service.dart';
 import 'core/services/points_service.dart';
 import 'core/services/realtime_service.dart';
@@ -36,7 +36,7 @@ Future<void> initDependencies() async {
   // ─── Core Services ───
   sl.registerLazySingleton(() => ConnectivityService());
   sl.registerLazySingleton(() => NotificationService());
-  sl.registerLazySingleton(() => OfflineSyncService(sl<ConnectivityService>()));
+
   sl.registerLazySingleton(() => PrayerTimesService());
   sl.registerLazySingleton(() => PointsService());
   sl.registerLazySingleton(() => RealtimeService());

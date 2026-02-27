@@ -38,7 +38,7 @@ import '../../features/imam/presentation/screens/prayer_points_settings_screen.d
 import '../../features/imam/presentation/bloc/imam_bloc.dart';
 import '../../models/mosque_model.dart';
 import '../../features/supervisor/presentation/screens/supervisor_dashboard_screen.dart';
-import '../../features/supervisor/presentation/screens/supervisor_placeholder_screen.dart';
+
 import '../../features/supervisor/presentation/screens/students_screen.dart';
 import '../../features/corrections/presentation/screens/corrections_list_screen.dart';
 import '../../features/corrections/presentation/bloc/correction_bloc.dart';
@@ -46,7 +46,7 @@ import '../../features/corrections/presentation/screens/request_correction_scree
 import '../../features/corrections/presentation/screens/my_corrections_screen.dart';
 import '../../features/notes/presentation/screens/notes_inbox_screen.dart';
 import '../../features/notes/presentation/screens/send_note_screen.dart';
-import '../../features/parent/presentation/screens/parent_inbox_screen.dart';
+
 import '../../features/competitions/presentation/screens/manage_competition_screen.dart';
 import '../../features/supervisor/data/repositories/supervisor_repository.dart';
 import '../../features/supervisor/data/models/mosque_student_model.dart';
@@ -352,9 +352,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/supervisor/notes',
-        name: 'supervisorNotes',
-        builder: (context, state) =>
-            const SupervisorPlaceholderScreen(title: 'الملاحظات'),
+        redirect: (_, __) => '/supervisor/dashboard',
       ),
       GoRoute(
         path: '/imam/competitions/:mosqueId',
@@ -456,8 +454,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/parent/inbox',
-        name: 'parentInbox',
-        builder: (context, state) => const ParentInboxScreen(),
+        redirect: (_, __) => '/parent/notes',
       ),
     ],
   );
