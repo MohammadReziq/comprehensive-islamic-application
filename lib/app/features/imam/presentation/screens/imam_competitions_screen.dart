@@ -262,6 +262,135 @@ class _ImamCompetitionsScreenState extends State<ImamCompetitionsScreen> {
     );
   }
 
+  Future<void> _showEditDialog(CompetitionModel comp) async {
+    final nameCtrl = TextEditingController(text: comp.nameAr);
+    DateTime? startDate = comp.startDate;
+    DateTime? endDate = comp.endDate;
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: Text('تعديل المسابقة', style: GoogleFonts.cairo(fontWeight: FontWeight.w700)),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'اسم المسابقة',
+                      labelStyle: GoogleFonts.cairo(),
+                      border: const OutlineInputBorder(),
+                    ),
+                    style: GoogleFonts.cairo(),
+                    validator: (v) => v == null || v.trim().isEmpty ? 'أدخل اسماً' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  _DatePickerField(
+                    label: 'تاريخ البداية',
+                    value: startDate,
+                    onPicked: (d) => setStateDialog(() => startDate = d),
+                  ),
+                  const SizedBox(height: 8),
+                  _DatePickerField(
+                    label: 'تاريخ النهاية',
+                    value: endDate,
+                    onPicked: (d) => setStateDialog(() => endDate = d),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text('إلغاء', style: GoogleFonts.cairo()),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  if (endDate!.isBefore(startDate!)) {
+                    _showSnack('تاريخ النهاية قبل البداية', AppColors.error);
+                    return;
+                  }
+                  Navigator.of(ctx).pop();
+                  await _editCompetition(comp.id, nameCtrl.text.trim(), startDate!, endDate!);
+                },
+                child: Text('حفظ', style: GoogleFonts.cairo()),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editCompetition(String id, String name, DateTime start, DateTime end) async {
+    setState(() => _loadingMap[id] = true);
+    try {
+      await sl<CompetitionRepository>().update(id, nameAr: name, startDate: start, endDate: end);
+      if (mounted) {
+        setState(() => _loadingMap.remove(id));
+        _showSnack('تم تحديث المسابقة ✅', AppColors.success);
+        _loadCompetitions();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingMap.remove(id));
+        _showSnack('فشل: ${e.toString().replaceFirst('Exception: ', '')}', AppColors.error);
+      }
+    }
+  }
+
+  Future<void> _confirmDelete(CompetitionModel comp) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Text('حذف المسابقة', style: GoogleFonts.cairo(fontWeight: FontWeight.w700)),
+          content: Text(
+            'هل تريد حذف "${comp.nameAr}"؟\nلا يمكن التراجع عن هذا الإجراء.',
+            style: GoogleFonts.cairo(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text('إلغاء', style: GoogleFonts.cairo()),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text('حذف', style: GoogleFonts.cairo(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed == true) await _deleteCompetition(comp);
+  }
+
+  Future<void> _deleteCompetition(CompetitionModel comp) async {
+    setState(() => _loadingMap[comp.id] = true);
+    try {
+      await sl<CompetitionRepository>().delete(comp.id);
+      if (mounted) {
+        setState(() => _loadingMap.remove(comp.id));
+        _showSnack('تم حذف المسابقة', AppColors.warning);
+        _loadCompetitions();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingMap.remove(comp.id));
+        _showSnack('فشل: ${e.toString().replaceFirst('Exception: ', '')}', AppColors.error);
+      }
+    }
+  }
+
   Future<void> _createCompetition(
     String name,
     DateTime start,
@@ -362,6 +491,8 @@ class _ImamCompetitionsScreenState extends State<ImamCompetitionsScreen> {
                     onActivate: () => _activate(comp),
                     onDeactivate: () => _deactivate(comp),
                     onViewLeaderboard: () => _showLeaderboard(comp),
+                    onEdit: () => _showEditDialog(comp),
+                    onDelete: () => _confirmDelete(comp),
                   );
                 },
               ),

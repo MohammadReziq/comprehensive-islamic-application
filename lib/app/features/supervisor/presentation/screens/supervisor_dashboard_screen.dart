@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/shared_dashboard_widgets.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_enums.dart';
@@ -17,6 +18,8 @@ import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
 import 'supervisor_profile_screen.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
+import '../../../competitions/data/repositories/competition_repository.dart';
+import '../../../../models/competition_model.dart';
 import '../../data/repositories/supervisor_repository.dart';
 
 /// لوحة المشرف — نفس تصميم الإمام بصلاحيات المشرف فقط
@@ -35,6 +38,9 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
   String? _mosqueChildrenSubscribedForMosqueId;
   String? _prayerTimingsLoadedForMosqueId;
   List<Map<String, dynamic>> _absentStudents = [];
+  CompetitionStatus _competitionStatus = CompetitionStatus.noCompetition;
+  CompetitionModel? _competition;
+  String? _competitionLoadedForMosqueId;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -108,6 +114,19 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
           });
         }
 
+        // جلب حالة المسابقة عند تغيّر المسجد
+        if (mosque != null && mosque.id != _competitionLoadedForMosqueId) {
+          _competitionLoadedForMosqueId = mosque.id;
+          sl<CompetitionRepository>().getCompetitionStatus(mosque.id).then((result) {
+            if (mounted) {
+              setState(() {
+                _competitionStatus = result.status;
+                _competition = result.competition;
+              });
+            }
+          });
+        }
+
         if (mosque != null && !_animController.isCompleted) {
           _animController.forward();
         }
@@ -149,9 +168,13 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
                                         mosque,
                                         nextPrayer,
                                       ),
+                                      if (_competitionStatus != CompetitionStatus.noCompetition) ...[
+                                        const SizedBox(height: 16),
+                                        _buildCompetitionBanner(),
+                                      ],
                                       if (_absentStudents.isNotEmpty) ...[
                                         const SizedBox(height: 16),
-                                        _AbsenceAlerts(
+                                        DashboardAbsenceAlerts(
                                             absentStudents: _absentStudents),
                                       ],
                                     ],
@@ -401,14 +424,14 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
               const SizedBox(height: 22),
 
               // Prayer Card
-              _buildPrayerCard(nextPrayer),
+              DashboardPrayerCard(nextPrayer: nextPrayer),
               const SizedBox(height: 14),
 
               // Info Row: كود المسجد + إحصائيات
               Row(
                 children: [
                   Expanded(
-                    child: _buildHeroInfoChip(
+                    child: DashboardHeroInfoChip(
                       icon: Icons.tag_rounded,
                       label: 'كود المسجد',
                       value: mosque.code,
@@ -434,152 +457,6 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
     );
   }
 
-  Widget _buildPrayerCard(dynamic nextPrayer) {
-    final nameAr = nextPrayer?.nameAr ?? '—';
-    final timeFormatted = nextPrayer?.timeFormatted ?? '—';
-    final remaining = nextPrayer?.remaining;
-    final remainingMin = remaining?.inMinutes;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.13),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.22)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.access_time_rounded,
-              color: Colors.white,
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'الصلاة القادمة',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white.withOpacity(0.65),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '$nameAr  $timeFormatted',
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (remainingMin != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFD54F).withOpacity(0.25),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFFFFD54F).withOpacity(0.5),
-                ),
-              ),
-              child: Text(
-                'بعد ${remainingMin}د',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFFFFD54F),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeroInfoChip({
-    required IconData icon,
-    required String label,
-    required String value,
-    required VoidCallback onTap,
-    Color? accentColor,
-    bool hasBadge = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.13),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: hasBadge
-                ? const Color(0xFFFFB74D).withOpacity(0.5)
-                : Colors.white.withOpacity(0.18),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 14,
-                  color: accentColor ?? Colors.white.withOpacity(0.7),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white.withOpacity(0.6),
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: accentColor ?? Colors.white,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildStatsChips(MosqueModel mosque) {
     final repo = sl<SupervisorRepository>();
@@ -678,7 +555,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
     if (mosque == null) return const SizedBox.shrink();
 
     final actions = [
-      _ActionItem(
+      DashboardActionItem(
         icon: Icons.qr_code_scanner_rounded,
         title: 'التحضير',
         color: const Color(0xFF4CAF50),
@@ -686,7 +563,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
           if (mounted) setState(() => _statsRefreshKey++);
         }),
       ),
-      _ActionItem(
+      DashboardActionItem(
         icon: Icons.people_rounded,
         title: AppStrings.students,
         color: const Color(0xFFFF7043),
@@ -694,7 +571,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
           if (mounted) setState(() => _statsRefreshKey++);
         }),
       ),
-      _ActionItem(
+      DashboardActionItem(
         icon: Icons.edit_note_rounded,
         title: 'طلبات التصحيح',
         color: const Color(0xFF9C27B0),
@@ -703,14 +580,19 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
               if (mounted) setState(() => _statsRefreshKey++);
             }),
       ),
-      _ActionItem(
+      DashboardActionItem(
         icon: Icons.note_alt_outlined,
-        title: 'الملاحظات',
+        title: 'إرسال ملاحظة',
         color: const Color(0xFF00BCD4),
         onTap: () => context.push('/supervisor/notes/send/${mosque.id}'),
       ),
-
-      _ActionItem(
+      DashboardActionItem(
+        icon: Icons.mark_chat_read_outlined,
+        title: 'الملاحظات المرسلة',
+        color: const Color(0xFF26A69A),
+        onTap: () => context.push('/supervisor/notes'),
+      ),
+      DashboardActionItem(
         icon: Icons.add_home_work_rounded,
         title: 'انضم لمسجد',
         color: const Color(0xFF5C8BFF),
@@ -748,223 +630,24 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
             mainAxisSpacing: 12,
             childAspectRatio: 1.05,
           ),
-          itemBuilder: (context, i) => _buildActionTile(context, actions[i]),
+          itemBuilder: (context, i) => DashboardActionTile(item: actions[i]),
         ),
       ],
     );
   }
 
-  Widget _buildActionTile(BuildContext context, _ActionItem item) {
-    return GestureDetector(
-      onTap: item.onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: item.color.withOpacity(0.13),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: item.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(item.icon, color: item.color, size: 26),
-            ),
-            const SizedBox(height: 9),
-            Text(
-              item.title,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A2B3C),
-                height: 1.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
+  Widget _buildCompetitionBanner() => CompetitionStatusBanner(
+        status: _competitionStatus,
+        competition: _competition,
+      );
 
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.07),
-            blurRadius: 16,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (i) => setState(() => _selectedIndex = i),
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: const Color(0xFFB0B8C4),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        selectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 11,
-        ),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
-            label: 'لوحة المشرف',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'الملف الشخصي',
-          ),
-        ],
-      ),
+    return DashboardBottomNav(
+      currentIndex: _selectedIndex,
+      onTap: (i) => setState(() => _selectedIndex = i),
+      dashboardLabel: 'لوحة المشرف',
     );
   }
 }
 
-// ─── Absence Alerts ───
-class _AbsenceAlerts extends StatelessWidget {
-  final List<Map<String, dynamic>> absentStudents;
-  const _AbsenceAlerts({required this.absentStudents});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFF7043).withOpacity(0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF7043).withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF7043).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFFF7043), size: 20),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'تنبيهات الغياب',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A2B3C),
-                      ),
-                    ),
-                    Text(
-                      '${absentStudents.length} طالب بدون حضور 3 أيام',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...absentStudents.take(5).map((s) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                Container(
-                  width: 28, height: 28,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF7043).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      (s['name'] as String).isNotEmpty
-                          ? (s['name'] as String)[0]
-                          : '؟',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFFF7043),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    s['name'] as String,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A2B3C),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )),
-          if (absentStudents.length > 5)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'و ${absentStudents.length - 5} طالب آخر...',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionItem {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final VoidCallback onTap;
-  const _ActionItem({
-    required this.icon,
-    required this.title,
-    required this.color,
-    required this.onTap,
-  });
-}

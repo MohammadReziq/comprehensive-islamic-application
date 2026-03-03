@@ -1,124 +1,16 @@
+// مكونات مشتركة للبروفايل — barrel + ProfileInfoCard + ChangePasswordDialog
+
+export 'profile_hero_section.dart';
+export 'profile_action_buttons.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_enums.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-
-/// ═══════════════════════════════════════════════════════════════════
-/// مكونات مشتركة للبروفايل — تُستخدم في كل البروفايلات المفصولة
-/// ═══════════════════════════════════════════════════════════════════
-
-// ─── ألوان كل دور ───
-const _roleColors = <UserRole, Color>{
-  UserRole.parent: Color(0xFF5C6BC0),
-  UserRole.imam: Color(0xFF2E8B57),
-  UserRole.supervisor: Color(0xFF1B5E8A),
-  UserRole.superAdmin: Color(0xFF6A1B9A),
-  UserRole.child: Color(0xFF00897B),
-};
-
-// ═══════════════════════════════════════════════════════════════════
-/// Hero Section — Avatar + اسم + دور
-// ═══════════════════════════════════════════════════════════════════
-class ProfileHeroSection extends StatelessWidget {
-  final String name;
-  final String? avatarUrl;
-  final UserRole role;
-
-  const ProfileHeroSection({
-    super.key,
-    required this.name,
-    this.avatarUrl,
-    required this.role,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final accentColor = _roleColors[role] ?? const Color(0xFF2E8B57);
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF0D2137),
-            const Color(0xFF1B5E8A),
-            accentColor,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 36),
-          child: Column(
-            children: [
-              // Avatar
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    width: 2.5,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    name.isNotEmpty ? name[0] : '؟',
-                    style: const TextStyle(
-                      fontSize: 38,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(20),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  role.nameAr,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════════
 /// بطاقة المعلومات — اسم + إيميل + هاتف + تغيير كلمة المرور
@@ -236,7 +128,6 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
       ),
       child: Column(
         children: [
-          // الاسم
           _buildEditRow(
             icon: Icons.person_rounded,
             label: 'الاسم',
@@ -253,14 +144,12 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
             }),
           ),
           const Divider(height: 24),
-          // الإيميل — عرض فقط
           _buildInfoRow(
             icon: Icons.email_rounded,
             label: 'الإيميل',
             value: widget.email ?? '—',
           ),
           const Divider(height: 24),
-          // الهاتف
           _buildEditRow(
             icon: Icons.phone_rounded,
             label: 'الهاتف',
@@ -278,7 +167,6 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
             }),
           ),
           const Divider(height: 24),
-          // تغيير كلمة المرور
           GestureDetector(
             onTap: _showChangePasswordDialog,
             child: Row(
@@ -301,10 +189,8 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'كلمة المرور',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
+                      Text('كلمة المرور',
+                          style: TextStyle(fontSize: 11, color: Colors.grey)),
                       Text(
                         'تغيير كلمة المرور',
                         style: TextStyle(
@@ -320,7 +206,6 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
               ],
             ),
           ),
-          // زر حفظ
           if (_editingName || _editingPhone) ...[
             const SizedBox(height: 16),
             SizedBox(
@@ -332,8 +217,7 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                      borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
                 ),
                 child: _saving
@@ -341,14 +225,11 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
+                            color: Colors.white, strokeWidth: 2),
                       )
                     : const Text(
                         'حفظ التعديلات',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w800),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                       ),
               ),
             ),
@@ -379,17 +260,14 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-              ),
+              Text(label,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A2B3C),
-                ),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A2B3C)),
               ),
             ],
           ),
@@ -440,18 +318,15 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      label,
-                      style:
-                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                    ),
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500)),
                     Text(
                       value,
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A2B3C),
-                      ),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A2B3C)),
                     ),
                   ],
                 ),
@@ -475,204 +350,6 @@ class _ProfileInfoCardState extends State<ProfileInfoCard> {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-/// زر تسجيل الخروج
-// ═══════════════════════════════════════════════════════════════════
-class ProfileLogoutButton extends StatelessWidget {
-  const ProfileLogoutButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red.shade100),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.logout_rounded, color: Colors.red.shade400, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'تسجيل الخروج',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Colors.red.shade400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-/// زر حذف الحساب مع dialog التأكيد
-// ═══════════════════════════════════════════════════════════════════
-class ProfileDeleteAccountButton extends StatelessWidget {
-  const ProfileDeleteAccountButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showDeleteDialog(context),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red.shade200),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.delete_forever_rounded,
-                color: Colors.red.shade700, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'حذف الحساب نهائياً',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.red.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showDeleteDialog(BuildContext context) {
-    final confirmCtrl = TextEditingController();
-    bool deleting = false;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: Row(
-              children: [
-                Icon(Icons.warning_rounded,
-                    color: Colors.red.shade700, size: 22),
-                const SizedBox(width: 8),
-                const Text(
-                  'حذف الحساب نهائياً',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.shade200),
-                  ),
-                  child: const Text(
-                    'سيُحذف حسابك وبيانات أبنائك وسجلات الحضور نهائياً.\nهذا الإجراء لا يمكن التراجع عنه.',
-                    style: TextStyle(fontSize: 12, color: Colors.red),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'اكتب "حذف حسابي" للتأكيد:',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: confirmCtrl,
-                  onChanged: (_) => setDlg(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'حذف حسابي',
-                    filled: true,
-                    fillColor: const Color(0xFFF5F6FA),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
-                    isDense: true,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: deleting ? null : () => Navigator.pop(ctx),
-                child: const Text('إلغاء'),
-              ),
-              FilledButton(
-                style:
-                    FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-                onPressed:
-                    (deleting || confirmCtrl.text.trim() != 'حذف حسابي')
-                        ? null
-                        : () async {
-                            setDlg(() => deleting = true);
-                            try {
-                              await sl<AuthRepository>().deleteMyAccount();
-                              if (ctx.mounted) Navigator.pop(ctx);
-                              if (context.mounted) {
-                                context
-                                    .read<AuthBloc>()
-                                    .add(const AuthLogoutRequested());
-                              }
-                            } catch (e) {
-                              setDlg(() => deleting = false);
-                              if (ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(
-                                    content: Text(e
-                                        .toString()
-                                        .replaceFirst('Exception: ', '')),
-                                    backgroundColor: AppColors.error,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                child: deleting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('احذف حسابي'),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -731,8 +408,8 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
     }
     setState(() => _loading = true);
     context.read<AuthBloc>().add(
-      AuthChangePasswordFromProfileRequested(newPassword: newPass),
-    );
+          AuthChangePasswordFromProfileRequested(newPassword: newPass),
+        );
   }
 
   @override
@@ -741,12 +418,8 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       textDirection: TextDirection.rtl,
       child: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state is AuthPasswordChangeSuccess) {
-            widget.onSuccess();
-          }
-          if (state is AuthError) {
-            setState(() => _loading = false);
-          }
+          if (state is AuthPasswordChangeSuccess) widget.onSuccess();
+          if (state is AuthError) setState(() => _loading = false);
         },
         child: AlertDialog(
           title: const Text('تغيير كلمة المرور'),
@@ -760,15 +433,14 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   decoration: InputDecoration(
                     labelText: 'كلمة المرور الجديدة',
                     suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureNew ? Icons.visibility_off : Icons.visibility,
-                      ),
+                      icon: Icon(_obscureNew
+                          ? Icons.visibility_off
+                          : Icons.visibility),
                       onPressed: () =>
                           setState(() => _obscureNew = !_obscureNew),
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -778,17 +450,14 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   decoration: InputDecoration(
                     labelText: 'تأكيد كلمة المرور',
                     suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirm
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                      ),
+                      icon: Icon(_obscureConfirm
+                          ? Icons.visibility_off
+                          : Icons.visibility),
                       onPressed: () =>
                           setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ],

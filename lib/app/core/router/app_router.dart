@@ -38,7 +38,7 @@ import '../../features/imam/presentation/screens/prayer_points_settings_screen.d
 import '../../features/imam/presentation/bloc/imam_bloc.dart';
 import '../../models/mosque_model.dart';
 import '../../features/supervisor/presentation/screens/supervisor_dashboard_screen.dart';
-
+import '../../features/supervisor/presentation/screens/supervisor_sent_notes_screen.dart';
 import '../../features/supervisor/presentation/screens/students_screen.dart';
 import '../../features/corrections/presentation/screens/corrections_list_screen.dart';
 import '../../features/corrections/presentation/bloc/correction_bloc.dart';
@@ -200,7 +200,7 @@ class AppRouter {
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      GoRoute(path: '/verify-email', redirect: (_, __) => '/login'),
+      GoRoute(path: '/verify-email', redirect: (_, _) => '/login'),
       GoRoute(
         path: '/home',
         name: 'home',
@@ -315,7 +315,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/supervisor/corrections',
-        redirect: (_, __) => '/supervisor/dashboard',
+        redirect: (_, _) => '/supervisor/dashboard',
       ),
       GoRoute(
         path: '/supervisor/corrections/:mosqueId',
@@ -352,7 +352,8 @@ class AppRouter {
       ),
       GoRoute(
         path: '/supervisor/notes',
-        redirect: (_, __) => '/supervisor/dashboard',
+        name: 'supervisorNotes',
+        builder: (context, state) => const SupervisorSentNotesScreen(),
       ),
       GoRoute(
         path: '/imam/competitions/:mosqueId',
@@ -454,7 +455,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/parent/inbox',
-        redirect: (_, __) => '/parent/notes',
+        redirect: (_, _) => '/parent/notes',
       ),
     ],
   );

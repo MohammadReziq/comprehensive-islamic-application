@@ -12,6 +12,8 @@ class CompetitionCard extends StatelessWidget {
     this.onActivate,
     this.onDeactivate,
     this.onViewLeaderboard,
+    this.onEdit,
+    this.onDelete,
   });
 
   /// الحقول: id, name_ar, start_date, end_date, is_active
@@ -20,6 +22,8 @@ class CompetitionCard extends StatelessWidget {
   final VoidCallback? onActivate;
   final VoidCallback? onDeactivate;
   final VoidCallback? onViewLeaderboard;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   bool get _isActive => competition['is_active'] as bool? ?? false;
   String get _name => competition['name_ar'] as String? ?? '';
@@ -131,15 +135,32 @@ class CompetitionCard extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onViewLeaderboard,
                   icon: const Icon(Icons.leaderboard_outlined, size: 16),
-                  label: Text(
-                    'الترتيب',
-                    style: GoogleFonts.cairo(fontSize: 13),
-                  ),
+                  label: Text('الترتيب', style: GoogleFonts.cairo(fontSize: 13)),
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
                 ),
+                // زر تعديل
+                if (!_isActive) ...[
+                  IconButton(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    color: AppColors.textSecondary,
+                    tooltip: 'تعديل',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                  // زر حذف
+                  IconButton(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    color: AppColors.error,
+                    tooltip: 'حذف',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
                 const Spacer(),
                 // زر تفعيل / إيقاف
                 if (isLoading)
@@ -152,10 +173,7 @@ class CompetitionCard extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onDeactivate,
                     icon: const Icon(Icons.pause_circle_outline, size: 16),
-                    label: Text(
-                      'إيقاف',
-                      style: GoogleFonts.cairo(fontSize: 13),
-                    ),
+                    label: Text('إيقاف', style: GoogleFonts.cairo(fontSize: 13)),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.warning,
                     ),
@@ -164,10 +182,7 @@ class CompetitionCard extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onActivate,
                     icon: const Icon(Icons.play_circle_outline, size: 16),
-                    label: Text(
-                      'تفعيل',
-                      style: GoogleFonts.cairo(fontSize: 13),
-                    ),
+                    label: Text('تفعيل', style: GoogleFonts.cairo(fontSize: 13)),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.success,
                     ),

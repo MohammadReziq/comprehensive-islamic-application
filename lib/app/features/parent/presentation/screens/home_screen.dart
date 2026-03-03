@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/shared_dashboard_widgets.dart';
 import '../../../../core/constants/hadiths_prayer.dart';
 import '../../../../core/services/prayer_times_service.dart';
 import '../../../../core/services/realtime_service.dart';
@@ -17,6 +18,7 @@ import '../../../../models/competition_model.dart';
 import '../../../announcements/data/repositories/announcement_repository.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../competitions/data/repositories/competition_repository.dart';
+import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../../notes/data/repositories/notes_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -45,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool _loadingPrayer = true;
   CompetitionStatus _competitionStatus = CompetitionStatus.noCompetition;
   CompetitionModel? _competition;
+  String? _competitionMosqueName;
   int _unreadCount = 0;
   int _announcementsUnreadCount = 0;
   Timer? _countdownTimer;
@@ -159,10 +162,16 @@ class _HomeScreenState extends State<HomeScreen>
           mosqueId,
         );
         if (result.status != CompetitionStatus.noCompetition) {
+          String? mosqueName;
+          try {
+            final mosques = await sl<MosqueRepository>().getMosquesByIds([mosqueId]);
+            if (mosques.isNotEmpty) mosqueName = mosques.first.name;
+          } catch (_) {}
           if (mounted) {
             setState(() {
               _competitionStatus = result.status;
               _competition = result.competition;
+              _competitionMosqueName = mosqueName;
             });
           }
           return;
@@ -833,82 +842,11 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // ─── Competition Banner ───
-  Widget _buildCompetitionBanner() {
-    final Color bgColor;
-    final Color borderColor;
-    final Color iconColor;
-    final IconData icon;
-    final String title;
-    final String subtitle;
-
-    switch (_competitionStatus) {
-      case CompetitionStatus.running:
-        bgColor = const Color(0xFFE8F5E9);
-        borderColor = const Color(0xFF4CAF50);
-        iconColor = const Color(0xFF2E7D32);
-        icon = Icons.emoji_events_rounded;
-        title = 'المسابقة فعّالة الآن';
-        subtitle = _competition != null
-            ? 'حتى ${_competition!.dateRangeAr.split('—').last.trim()}'
-            : _competition?.nameAr ?? '';
-      case CompetitionStatus.upcoming:
-        bgColor = const Color(0xFFFFFDE7);
-        borderColor = const Color(0xFFFFC107);
-        iconColor = const Color(0xFFF57F17);
-        icon = Icons.upcoming_rounded;
-        title = 'مسابقة قادمة';
-        subtitle = _competition != null
-            ? 'تبدأ ${_competition!.dateRangeAr.split('—').first.trim()}'
-            : '';
-      case CompetitionStatus.finished:
-        bgColor = const Color(0xFFF5F5F5);
-        borderColor = const Color(0xFF9E9E9E);
-        iconColor = const Color(0xFF616161);
-        icon = Icons.flag_rounded;
-        title = 'انتهت المسابقة';
-        subtitle = 'انتظر الموسم القادم';
-      case CompetitionStatus.noCompetition:
-        return const SizedBox.shrink();
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: iconColor, size: 26),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: iconColor,
-                  ),
-                ),
-                if (subtitle.isNotEmpty)
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: iconColor.withValues(alpha: 0.75),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildCompetitionBanner() => CompetitionStatusBanner(
+        status: _competitionStatus,
+        competition: _competition,
+        mosqueName: _competitionMosqueName,
+      );
 
   // ─── Actions Grid 3×N ───
   Widget _buildActionsGrid(BuildContext context, List<ChildModel> children) {
@@ -917,7 +855,13 @@ class _HomeScreenState extends State<HomeScreen>
         Icons.child_care_rounded,
         'أبنائي',
         const Color(0xFF5C8BFF),
-        () => context.push('/parent/children'),
+        () async {
+          await context.push('/parent/children');
+          if (mounted) {
+            context.read<ChildrenBloc>().add(const ChildrenLoad());
+            _loadUnreadCount();
+          }
+        },
       ),
 
       if (_competitionStatus == CompetitionStatus.running)
@@ -925,7 +869,10 @@ class _HomeScreenState extends State<HomeScreen>
           Icons.edit_note_rounded,
           'طلب تصحيح',
           const Color(0xFF9C27B0),
-          () => context.push('/parent/corrections'),
+          () async {
+            await context.push('/parent/corrections');
+            if (mounted) _loadUnreadCount();
+          },
         ),
       _Action(
         Icons.forum_rounded,
@@ -1063,7 +1010,12 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
             TextButton(
-              onPressed: () => context.push('/parent/children'),
+              onPressed: () async {
+                await context.push('/parent/children');
+                if (mounted) {
+                  context.read<ChildrenBloc>().add(const ChildrenLoad());
+                }
+              },
               child: const Text('عرض الكل'),
             ),
           ],
@@ -1222,7 +1174,12 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildEmptyChildren(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/parent/children/add'),
+      onTap: () async {
+        await context.push('/parent/children/add');
+        if (mounted) {
+          context.read<ChildrenBloc>().add(const ChildrenLoad());
+        }
+      },
       child: Container(
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
@@ -1289,43 +1246,11 @@ class _HomeScreenState extends State<HomeScreen>
 
   // ─── Bottom Nav ───
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.07),
-            blurRadius: 16,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (i) => setState(() => _selectedIndex = i),
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: const Color(0xFFB0B8C4),
-        backgroundColor: Colors.transparent,
-        elevation: 1,
-        selectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 11,
-        ),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'الرئيسية',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'الملف الشخصي',
-          ),
-        ],
-      ),
+    return DashboardBottomNav(
+      currentIndex: _selectedIndex,
+      onTap: (i) => setState(() => _selectedIndex = i),
+      dashboardLabel: 'الرئيسية',
+      dashboardIcon: Icons.home_rounded,
     );
   }
 }

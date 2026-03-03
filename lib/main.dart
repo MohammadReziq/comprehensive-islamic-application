@@ -37,8 +37,6 @@ main() async {
   // ─── إعداد DI ───
   await initDependencies();
 
-
-
   // ─── إعداد الإشعارات ───
   await sl<NotificationService>().init();
 
