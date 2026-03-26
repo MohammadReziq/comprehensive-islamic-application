@@ -1,0 +1,1115 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                   صلاتي حياتي — خطة الإطلاق النهائية                          ║
+║              الجزء الأول: البنية التحتية والباك إند                            ║
+║                                                                                ║
+║  يشمل: Edge Functions + قاعدة البيانات + RLS + أمان الأكواد + إعدادات النظام  ║
+║  التاريخ: 2026-03-22                                                          ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                         الفهرس
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [C1]  Edge Function: إنشاء حساب الإمام .......................... سطر 30
+  [C2]  Edge Function: إنشاء حساب المشرف .......................... سطر 200
+  [C8]  أمان كود المسجد — 6 أحرف + Brute Force ................... سطر 380
+  [C9]  حماية Brute Force في Flutter ............................. سطر 480
+  [C10] تدقيق RLS الشامل ......................................... سطر 560
+  [I3]  جدول system_settings + نافذة الحضور المرنة ............... سطر 730
+  [DB]  ملخص كل Migrations الجديدة ............................... سطر 870
+  [QA]  قائمة تحقق الاختبار ...................................... سطر 940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║  [C1] Edge Function: إنشاء حساب الإمام — create-imam-account                  ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                                │
+│  الملف: supabase/functions/create-imam-account/index.ts                        │
+│  الحالة: ✅ موجود ومُنفَّذ (166 سطر)                                          │
+│                                                                                │
+│  ما يفعله حالياً:                                                             │
+│  1. يتحقق من JWT السوبر أدمن                                                 │
+│  2. يتحقق من صيغة الإيميل بـ regex                                           │
+│  3. ينشئ المستخدم عبر Admin API مع email_confirm: true                       │
+│  4. يضع role='imam' في user_metadata                                          │
+│  5. ينتظر الـ trigger يُنشئ صفاً في public.users                             │
+│  6. يُرجع user_id + auth_id + email + name                                   │
+│                                                                                │
+│  ما ينقص:                                                                     │
+│  ⚠ لا يتحقق من طول كلمة السر (يمكن المستخدم يرسل كلمة فارغة)               │
+│  ⚠ لا يسجّل log لعملية الإنشاء (مهم للأمان)                                 │
+│  ⚠ لا ينتظر الـ trigger بوقت كافٍ (ممكن يفشل الجلب)                         │
+│  ⚠ لا يُحدّث حقل name في public.users (يعتمد على trigger فقط)              │
+│                                                                                │
+└────────────────────┘
+
+┌─── التحسينات المطلوبة ───┐
+
+  1. إضافة تحقق من طول كلمة السر:
+  ─────────────────────────────
+
+    // بعد سطر 38 في index.ts:
+    if (!tempPassword || tempPassword.length < 6) {
+      return new Response(
+        JSON.stringify({ error: "كلمة السر يجب أن تكون 6 أحرف على الأقل" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+
+  2. إضافة retry للـ trigger:
+  ──────────────────────────
+
+    // بدل سطر 133-137:
+    // ننتظر الـ trigger مع retry (الـ trigger أحياناً يتأخر ميلي ثانية)
+    let newUserRow = null;
+    let retries = 0;
+    while (!newUserRow && retries < 5) {
+      const { data } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("auth_id", newAuthId)
+        .maybeSingle();
+      newUserRow = data;
+      if (!newUserRow) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retries++;
+      }
+    }
+
+    if (!newUserRow) {
+      return new Response(
+        JSON.stringify({
+          error: "تم إنشاء الحساب لكن التزامن تأخر. حاول تسجيل الدخول بعد لحظات",
+          auth_id: newAuthId,
+          email,
+        }),
+        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+
+  3. تحديث اسم المستخدم في public.users:
+  ────────────────────────────────────────
+
+    // بعد جلب newUserRow بنجاح:
+    // الـ trigger قد يضع الاسم من metadata أو لا — نتأكد:
+    await supabaseAdmin
+      .from("users")
+      .update({ name: name, role: "imam" })
+      .eq("id", newUserRow.id);
+
+
+  4. تسجيل العملية (Audit Log):
+  ──────────────────────────────
+
+    // قبل إرجاع الاستجابة الناجحة:
+    await supabaseAdmin.from("audit_logs").insert({
+      action: "create_imam_account",
+      performed_by: callerProfile.id,
+      target_user_id: newUserRow.id,
+      details: { email, name },
+    });
+
+    // ⚠ يحتاج إنشاء جدول audit_logs (موضح في قسم DB Migrations)
+
+
+  5. رسائل خطأ محسّنة:
+  ────────────────────
+
+    // التعامل مع أخطاء إضافية:
+    if (createError) {
+      const msg = createError.message.toLowerCase();
+
+      if (msg.includes("already") || msg.includes("duplicate") || msg.includes("exists")) {
+        return respond(409, "هذا الإيميل مسجّل بالفعل");
+      }
+      if (msg.includes("invalid") && msg.includes("email")) {
+        return respond(400, "صيغة الإيميل غير صحيحة");
+      }
+      if (msg.includes("password") && msg.includes("weak")) {
+        return respond(400, "كلمة السر ضعيفة — استخدم 6 أحرف على الأقل");
+      }
+      if (msg.includes("rate") || msg.includes("limit")) {
+        return respond(429, "تم تجاوز الحد المسموح. حاول بعد دقائق");
+      }
+
+      return respond(400, createError.message);
+    }
+
+
+┌─── الملف في Flutter (Repository) ───┐
+
+  الملف: lib/app/features/super_admin/data/repositories/admin_repository.dart
+  الحالة: يجب التحقق من وجوده وإضافة الدالة
+
+  // الدالة المطلوبة:
+  Future<Map<String, dynamic>> createImamAccount({
+    required String name,
+    required String email,
+    required String tempPassword,
+  }) async {
+    try {
+      final response = await supabase.functions.invoke(
+        'create-imam-account',
+        body: {
+          'name': name,
+          'email': email,
+          'temp_password': tempPassword,
+        },
+      );
+
+      // Supabase Functions SDK: response.status + response.data
+      if (response.status != 200) {
+        final errorData = response.data as Map<String, dynamic>?;
+        final errorMsg = errorData?['error'] as String? ?? 'حدث خطأ غير متوقع';
+        throw Exception(errorMsg);
+      }
+
+      return response.data as Map<String, dynamic>;
+    } on Exception catch (e) {
+      // لو الخطأ من الشبكة (لا إنترنت)
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('ClientException')) {
+        throw Exception('تحقق من اتصالك بالإنترنت وحاول مجدداً');
+      }
+      rethrow;
+    }
+  }
+
+
+┌─── توليد كلمة السر التلقائية ───┐
+
+  الملف: lib/app/core/utils/password_generator.dart    [جديد]
+
+  // يُستخدم من شاشة السوبر أدمن وشاشة الإمام عند إنشاء حسابات
+  import 'dart:math';
+
+  class PasswordGenerator {
+    static final _random = Random.secure();
+    static const _chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+
+    /// توليد كلمة سر للإمام: imam_XXXXXX
+    static String generateImamPassword() {
+      return 'imam_${_generate(6)}';
+    }
+
+    /// توليد كلمة سر للمشرف: sup_XXXXXX
+    static String generateSupervisorPassword() {
+      return 'sup_${_generate(6)}';
+    }
+
+    static String _generate(int length) {
+      return List.generate(length, (_) {
+        return _chars[_random.nextInt(_chars.length)];
+      }).join();
+    }
+  }
+
+  // ⚠ ملاحظة: الأحرف المُستبعدة: O, 0, I, l, 1 — لتجنب الالتباس عند المشاركة
+
+
+┌─── مشاركة بيانات الدخول عبر واتساب ───┐
+
+  الملف: lib/app/core/utils/share_credentials.dart    [جديد]
+
+  import 'package:url_launcher/url_launcher.dart';
+  import 'package:flutter/services.dart';
+
+  class ShareCredentials {
+    /// رسالة بيانات الدخول للإمام
+    static String buildImamMessage({
+      required String name,
+      required String email,
+      required String password,
+    }) {
+      return '''
+  بسم الله الرحمن الرحيم
+
+  السلام عليكم ورحمة الله وبركاته
+  أخي $name، تم إنشاء حسابك في تطبيق "صلاتي حياتي" 🕌
+
+  ━━━━━━━━━━━━━━━━━━━━
+  📧 البريد: $email
+  🔑 كلمة السر: $password
+  ━━━━━━━━━━━━━━━━━━━━
+
+  📱 حمّل التطبيق من:
+  Android: [رابط Play Store]
+  iOS: [رابط App Store]
+
+  ⚠ يُرجى تغيير كلمة السر بعد أول تسجيل دخول.
+  ''';
+    }
+
+    /// رسالة بيانات الدخول للمشرف
+    static String buildSupervisorMessage({
+      required String name,
+      required String email,
+      required String password,
+      required String mosqueName,
+    }) {
+      return '''
+  بسم الله الرحمن الرحيم
+
+  السلام عليكم ورحمة الله وبركاته
+  أخي $name، تم إنشاء حسابك كمشرف في مسجد "$mosqueName" على تطبيق "صلاتي حياتي" 🕌
+
+  ━━━━━━━━━━━━━━━━━━━━
+  📧 البريد: $email
+  🔑 كلمة السر: $password
+  ━━━━━━━━━━━━━━━━━━━━
+
+  📱 حمّل التطبيق من:
+  Android: [رابط Play Store]
+  iOS: [رابط App Store]
+
+  مهمتك: تسجيل حضور الأطفال في الصلوات عبر مسح QR أو البحث بالاسم أو الرقم.
+  ⚠ يُرجى تغيير كلمة السر بعد أول تسجيل دخول.
+  ''';
+    }
+
+    /// فتح واتساب مع الرسالة
+    static Future<void> shareViaWhatsApp(String message) async {
+      final encoded = Uri.encodeComponent(message);
+      final url = Uri.parse('https://wa.me/?text=$encoded');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
+    }
+
+    /// نسخ للحافظة
+    static Future<void> copyToClipboard(String text) async {
+      await Clipboard.setData(ClipboardData(text: text));
+    }
+  }
+
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║  [C2] Edge Function: إنشاء حساب المشرف — create-supervisor-account            ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                                │
+│  الملف: supabase/functions/create-supervisor-account/index.ts                  │
+│  الحالة: ✅ موجود ومُنفَّذ (216 سطر)                                          │
+│                                                                                │
+│  ما يفعله حالياً:                                                             │
+│  1. يتحقق من JWT الإمام                                                       │
+│  2. يتحقق أن المسجد يخصه (عبر owner_id)                                     │
+│  3. Rate limit: 10 حسابات/ساعة عبر supervisor_credentials                    │
+│  4. يتحقق أن الإيميل غير مستخدم كولي أمر                                    │
+│  5. ينشئ الحساب + يضيفه لـ mosque_members + يحفظ credentials                │
+│  6. يُرجع بيانات المشرف                                                       │
+│                                                                                │
+│  ⚠ مشاكل مكتشفة:                                                             │
+│                                                                                │
+│  1. سطر 194: user_id يُخزَّن كـ newAuthId (من auth.users)                    │
+│     لكن supervisor_credentials.user_id يُشير لـ auth.users(id)               │
+│     ← هذا صحيح لأن الـ FK يشير لـ auth.users                                │
+│     ✓ لا مشكلة — التصميم متسق مع migration 037                               │
+│                                                                                │
+│  2. كلمة السر مشفرة بـ btoa (base64) — ليس تشفير حقيقي                      │
+│     ← مقبول للمرحلة الحالية. الهدف: إظهارها للإمام لاحقاً                   │
+│     ← لو أردنا تحسين: AES-256-GCM مع مفتاح في env vars                     │
+│                                                                                │
+│  3. لا retry بعد إنشاء الحساب قبل جلب user row                              │
+│     ← نفس مشكلة create-imam-account                                          │
+│                                                                                │
+└────────────────────┘
+
+┌─── التحسينات المطلوبة ───┐
+
+  1. إضافة retry (نفس النمط من C1):
+  ──────────────────────────────────
+
+    // بدل سطر 172-176:
+    let newUserRow = null;
+    let retries = 0;
+    while (!newUserRow && retries < 5) {
+      const { data } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("auth_id", newAuthId)
+        .maybeSingle();
+      newUserRow = data;
+      if (!newUserRow) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retries++;
+      }
+    }
+
+
+  2. تحديث الاسم والدور في public.users:
+  ─────────────────────────────────────────
+
+    // بعد الجلب الناجح:
+    await supabaseAdmin
+      .from("users")
+      .update({ name: name, role: "supervisor" })
+      .eq("id", newUserRow.id);
+
+
+  3. تسجيل العملية:
+  ──────────────────
+
+    await supabaseAdmin.from("audit_logs").insert({
+      action: "create_supervisor_account",
+      performed_by: callerProfile.id,
+      target_user_id: newUserRow.id,
+      details: { email, name, mosque_id: mosqueId },
+    });
+
+
+  4. إرجاع temp_password في الاستجابة (مطلوب للـ UI):
+  ─────────────────────────────────────────────────────
+
+    // الاستجابة الحالية لا تُرجع كلمة السر — الـ UI يحتاجها لعرضها للإمام
+    return new Response(
+      JSON.stringify({
+        user_id: newUserRow.id,
+        auth_id: newAuthId,
+        email,
+        name,
+        temp_password: tempPassword,  // ← إضافة هذا
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+
+┌─── Repository في Flutter ───┐
+
+  الملف: lib/app/features/imam/data/repositories/imam_repository.dart
+  الحالة: موجود — نضيف الدالة التالية
+
+  // ─── إنشاء حساب مشرف ───
+  Future<Map<String, dynamic>> createSupervisorAccount({
+    required String name,
+    required String email,
+    required String tempPassword,
+    required String mosqueId,
+  }) async {
+    try {
+      final response = await supabase.functions.invoke(
+        'create-supervisor-account',
+        body: {
+          'name': name,
+          'email': email,
+          'temp_password': tempPassword,
+          'mosque_id': mosqueId,
+        },
+      );
+
+      if (response.status != 200) {
+        final errorData = response.data as Map<String, dynamic>?;
+        final errorMsg = errorData?['error'] as String? ?? ErrorMessages.generic;
+        throw Exception(errorMsg);
+      }
+
+      return response.data as Map<String, dynamic>;
+    } on Exception catch (e) {
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('ClientException')) {
+        throw Exception(ErrorMessages.noInternet);
+      }
+      rethrow;
+    }
+  }
+
+  // ─── جلب بيانات دخول المشرفين ───
+  Future<List<Map<String, dynamic>>> getSupervisorCredentials(String mosqueId) async {
+    final data = await supabase
+      .from('supervisor_credentials')
+      .select('user_id, encrypted_password, created_at')
+      .eq('mosque_id', mosqueId)
+      .order('created_at', ascending: false);
+
+    return (data as List).map((row) {
+      final encrypted = row['encrypted_password'] as String;
+      // فك base64
+      final decoded = utf8.decode(base64Decode(encrypted));
+      return {
+        'user_id': row['user_id'],
+        'password': decoded,
+        'created_at': row['created_at'],
+      };
+    }).toList();
+  }
+
+
+┌─── جدول supervisor_credentials ───┐
+
+  الملف: supabase/migrations/037_supervisor_credentials.sql
+  الحالة: ✅ موجود ومُنفَّذ
+
+  الجدول:
+    id                UUID PK
+    user_id           UUID FK → auth.users(id) ON DELETE CASCADE
+    mosque_id         UUID FK → mosques(id) ON DELETE CASCADE
+    encrypted_password TEXT NOT NULL
+    created_at        TIMESTAMPTZ DEFAULT now()
+    UNIQUE(user_id, mosque_id)
+
+  RLS:
+    ✅ imam_reads_own_mosque_credentials — الإمام يقرأ بيانات مشرفي مسجده
+    ✅ imam_inserts_credentials — الإمام يضيف (عبر Edge Function فعلياً)
+    ✅ superadmin_reads_all_credentials — السوبر أدمن يقرأ الكل
+
+  ⚠ تحسين مطلوب:
+    - إضافة policy للحذف عند إزالة مشرف:
+
+    CREATE POLICY "imam_deletes_own_mosque_credentials"
+    ON supervisor_credentials FOR DELETE
+    USING (
+      mosque_id IN (
+        SELECT m.id FROM mosques m
+        JOIN users u ON u.id = m.owner_id
+        WHERE u.auth_id = auth.uid()
+      )
+    );
+
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║  [C8] أمان كود المسجد — 6 أحرف عشوائية                                       ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                                │
+│  الملف: supabase/migrations/038_mosque_code_security.sql                       │
+│  الحالة: ✅ موجود ومُنفَّذ (113 سطر)                                          │
+│                                                                                │
+│  ما يفعله:                                                                    │
+│  1. يضيف حقل invite_code لـ mosques                                           │
+│  2. Function generate_mosque_code() مع loop لضمان التفرد                      │
+│  3. يملأ الأكواد الفارغة ويجعل الحقل NOT NULL                                │
+│  4. Trigger trg_set_mosque_invite_code عند INSERT                             │
+│  5. جدول mosque_code_attempts مع فهارس                                       │
+│  6. RLS: لا أحد يقرأ/يكتب مباشرة (service_role فقط)                         │
+│                                                                                │
+│  الأحرف المستخدمة: ABCDEFGHJKLMNPQRSTUVWXYZ23456789                          │
+│  (بدون O, 0, I, 1 لتجنب الالتباس)                                           │
+│                                                                                │
+│  ⚠ ملاحظات:                                                                  │
+│  1. الـ RLS policies تمنع حتى الإمام من القراءة/الكتابة في                   │
+│     mosque_code_attempts ← سيحتاج Edge Function أو service_role              │
+│  2. MosqueModel.fromJson يقرأ invite_code كـ inviteCode ← متسق              │
+│  3. المسجد عنده حقلين: code + invite_code ← يجب توحيدهما                    │
+│                                                                                │
+└────────────────────┘
+
+┌─── مشكلة الحقلين code vs invite_code ───┐
+
+  في MosqueModel:
+    code: json['code']              ← يبدو أنه الكود القديم (4 أحرف)
+    inviteCode: json['invite_code'] ← الكود الجديد (6 أحرف)
+
+  المطلوب: توحيدها. invite_code هو الكود الأساسي الآن.
+
+  الحل:
+  ──────
+  1. في كل الـ UI: استخدم mosque.inviteCode بدل mosque.code
+  2. في MosqueModel: تأكد أن fromJson يقرأ invite_code
+  3. ✅ هذا موجود بالفعل — MosqueModel.fromJson سطر 40:
+     inviteCode: json['invite_code'] as String
+
+  الأماكن التي تعرض الكود للمستخدم (يجب تحديثها لـ inviteCode):
+  ─────────────────────────────────────────────────────────────────
+  • imam_dashboard_screen.dart → عند عرض كود المسجد
+  • supervisor_dashboard_screen.dart → عند مشاركة الكود
+  • imam_onboarding_screen.dart → في الـ checklist
+
+  ⚠ بحث في الكود:
+  grep -r "mosque.code" --include="*.dart"  → تحقق من كل الاستخدامات
+  كل استخدام mosque.code يجب أن يصبح mosque.inviteCode
+
+
+┌─── تحسينات على generate_mosque_code() ───┐
+
+  الدالة الحالية ممتازة. لكن يمكن إضافة:
+
+  1. منع الأكواد المسيئة (كلمات بذيئة بالإنجليزية):
+     — في الـ LOOP، تحقق أن الكود لا يحتوي على كلمات محظورة
+     — هذا اختياري لأن الأحرف المستخدمة تجعل ذلك نادراً
+
+  2. إضافة timestamp للكود (لمعرفة متى وُلّد):
+     — غير ضروري، created_at للمسجد تكفي
+
+  ✅ القرار: لا تغيير — الدالة الحالية كافية
+
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║  [C9] حماية Brute Force في Flutter                                            ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─── المشكلة ───┐
+│                                                                                │
+│  الـ RLS في mosque_code_attempts يمنع القراءة/الكتابة من الـ client           │
+│  (WITH CHECK (false) و USING (false))                                         │
+│                                                                                │
+│  ← هذا يعني أن checkBruteForce() من Flutter لن يعمل مباشرة!                │
+│                                                                                │
+│  الحلول الممكنة:                                                              │
+│  ─────────────                                                                │
+│  أ) إنشاء Edge Function: validate-mosque-code                                │
+│     — تتحقق من المحاولات + تربط الطفل                                       │
+│     — آمن أكثر لأن كل شيء في الـ server                                     │
+│                                                                                │
+│  ب) تعديل RLS ليسمح بالكتابة للمستخدم المسجل                               │
+│     — أقل أماناً لأن المستخدم يقدر يتلاعب بالبيانات                         │
+│                                                                                │
+│  ← القرار: الحل (أ) — Edge Function                                          │
+│                                                                                │
+└────────────────┘
+
+┌─── Edge Function جديدة: validate-mosque-code ───┐
+
+  الملف: supabase/functions/validate-mosque-code/index.ts    [جديد]
+
+  // هذه الدالة تُستدعى عند محاولة ربط طفل بمسجد
+  // تتحقق من:
+  // 1. عدد المحاولات السابقة (brute force)
+  // 2. صحة الكود
+  // 3. تربط الطفل بالمسجد لو الكود صحيح
+
+  serve(async (req) => {
+    // 1. قراءة الـ JWT
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user } } = await supabaseUser.auth.getUser(token);
+
+    const { code, child_id } = await req.json();
+
+    // 2. تحقق brute force — آخر 10 دقائق
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: recentAttempts } = await supabaseAdmin
+      .from("mosque_code_attempts")
+      .select("id")
+      .eq("user_id", user.id)
+      .gte("attempted_at", tenMinutesAgo);
+
+    if (recentAttempts && recentAttempts.length >= 5) {
+      return respond(429, "محاولات كثيرة. انتظر 10 دقائق ثم حاول مجدداً");
+    }
+
+    // 3. سجّل المحاولة
+    await supabaseAdmin.from("mosque_code_attempts").insert({
+      ip_hash: hashIP(req),  // أو user.id فقط
+      user_id: user.id,
+      was_correct: false,  // سيتحدث لاحقاً لو الكود صحيح
+    });
+
+    // 4. ابحث عن المسجد
+    const { data: mosque } = await supabaseAdmin
+      .from("mosques")
+      .select("id, name, status")
+      .eq("invite_code", code.toUpperCase().trim())
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (!mosque) {
+      return respond(404, "كود المسجد غير صحيح. تأكد من الكود وحاول مجدداً");
+    }
+
+    // 5. تحقق أن الطفل غير مربوط بهذا المسجد
+    const { data: existing } = await supabaseAdmin
+      .from("mosque_children")
+      .select("id")
+      .eq("child_id", child_id)
+      .eq("mosque_id", mosque.id)
+      .maybeSingle();
+
+    if (existing) {
+      return respond(409, "هذا الطفل مرتبط بهذا المسجد بالفعل");
+    }
+
+    // 6. اربط الطفل بالمسجد
+    // أولاً: احسب local_number الجديد
+    const { data: maxRow } = await supabaseAdmin
+      .from("mosque_children")
+      .select("local_number")
+      .eq("mosque_id", mosque.id)
+      .order("local_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nextNumber = (maxRow?.local_number ?? 0) + 1;
+
+    await supabaseAdmin.from("mosque_children").insert({
+      mosque_id: mosque.id,
+      child_id: child_id,
+      type: "primary",
+      local_number: nextNumber,
+    });
+
+    // 7. حدّث المحاولة كناجحة
+    // (اختياري — لأغراض التحليل)
+
+    return respond(200, {
+      mosque_id: mosque.id,
+      mosque_name: mosque.name,
+      local_number: nextNumber,
+    });
+  });
+
+
+┌─── استخدامها في Flutter ───┐
+
+  الملف: lib/app/features/parent/data/repositories/child_repository.dart
+
+  Future<Map<String, dynamic>> linkChildToMosque({
+    required String childId,
+    required String mosqueCode,
+  }) async {
+    final response = await supabase.functions.invoke(
+      'validate-mosque-code',
+      body: {
+        'code': mosqueCode,
+        'child_id': childId,
+      },
+    );
+
+    if (response.status == 429) {
+      throw Exception(ErrorMessages.rateLimited);
+    }
+    if (response.status == 404) {
+      throw Exception(ErrorMessages.invalidMosqueCode);
+    }
+    if (response.status == 409) {
+      throw Exception('هذا الطفل مرتبط بهذا المسجد بالفعل');
+    }
+    if (response.status != 200) {
+      final error = (response.data as Map?)?['error'] ?? ErrorMessages.generic;
+      throw Exception(error);
+    }
+
+    return response.data as Map<String, dynamic>;
+  }
+
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║  [C10] تدقيق RLS الشامل                                                       ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+  هذا القسم يشمل فحص كل جدول وكل سياسة RLS للتأكد من الأمان.
+  تم بناؤه بعد قراءة كل الـ migrations من 001 إلى 039 + 999.
+
+┌─── جدول children ───┐
+
+  المتوقع:
+    SELECT → ولي الأمر يرى أطفاله فقط (parent_id = auth.uid())
+    INSERT → ولي الأمر يضيف أطفاله (parent_id = auth.uid())
+    UPDATE → ولي الأمر يُعدّل أطفاله (parent_id = auth.uid())
+    DELETE → ولي الأمر يحذف أطفاله (parent_id = auth.uid())
+    SELECT → المشرف+الإمام يرون أطفال مسجدهم (عبر mosque_children)
+    SELECT → السوبر أدمن يرى الكل
+
+  ⚠ تحقق من:
+    — هل auth.uid() تُرجع auth_id أم user_id؟
+    — في Supabase: auth.uid() تُرجع auth.users.id (وهو auth_id)
+    — لكن children.parent_id يُشير لـ public.users.id (وليس auth_id)!
+
+    ← هذا يعني:
+    USING (parent_id = auth.uid())  ← خاطئ! لن يُطابق!
+
+    المفروض:
+    USING (
+      parent_id IN (
+        SELECT id FROM users WHERE auth_id = auth.uid()
+      )
+    )
+
+    ← يجب مراجعة migration 006_fix_children_policy_recursion.sql للتأكد
+
+
+  الفحص المطلوب بالتفصيل:
+  ──────────────────────────
+
+  Migration 006 يقول: "fix children policy recursion"
+  ← هذا يعني أنه عالج مشكلة الحلقة — لكن هل عالج auth_id vs user_id؟
+
+  ✅ الإجراء:
+  افتح الملف 006 وتحقق من نص الـ policy.
+  لو يستخدم parent_id = auth.uid() مباشرة → يجب تعديله.
+  لو يستخدم subquery مع auth_id → صحيح.
+
+
+┌─── جدول attendance ───┐
+
+  المتوقع:
+    SELECT → ولي الأمر يرى حضور أطفاله
+    SELECT → المشرف يرى حضور مسجده
+    SELECT → الإمام يرى حضور مسجده
+    INSERT → المشرف يُسجّل حضور مسجده
+    INSERT → الإمام يُسجّل حضور مسجده
+    SELECT → السوبر أدمن يرى الكل
+
+  ⚠ تحقق:
+    — Migration 018 (attendance_mosque_members_read) أضافت قراءة للمشرف
+    — Migration 030 (super_admin_read_children_attendance) أضافت قراءة السوبر أدمن
+    — Migration 021 (fix_rls_security) عالجت أمان الحضور
+
+  ✅ الإجراء:
+  تأكد أن هذه الـ policies لا تتعارض مع بعضها.
+  تأكد أن ولي الأمر لا يستطيع INSERT في attendance.
+
+
+┌─── جدول correction_requests ───┐
+
+  المتوقع:
+    SELECT → ولي الأمر يرى طلباته (parent_id)
+    SELECT → الإمام+المشرف يريان طلبات مسجدهم (mosque_id)
+    INSERT → ولي الأمر يُنشئ طلب (parent_id)
+    UPDATE → الإمام+المشرف يوافقون/يرفضون (reviewed_by)
+    SELECT → السوبر أدمن يرى الكل
+
+  ⚠ تحقق الأهم:
+    — هل المشرف (supervisor) يقدر يعمل UPDATE على الطلب؟
+    — لو الـ policy تتطلب role='imam' → يجب تعديلها لتشمل supervisor
+
+    Migration المسؤولة: يجب البحث عن "correction" في الـ migrations.
+
+  ✅ الإجراء:
+  grep -r "correction" supabase/migrations/  → ابحث عن الـ policies الحالية.
+  لو الـ UPDATE policy تتطلب owner فقط → أضف:
+    OR user_id IN (SELECT user_id FROM mosque_members WHERE mosque_id = ...)
+
+
+┌─── جدول competitions ───┐
+
+  المتوقع:
+    SELECT → الكل يقرأ (مسابقات المسجد عامة)
+    INSERT → الإمام فقط يُنشئ
+    UPDATE → الإمام فقط يُعدّل (تفعيل/إلغاء)
+    DELETE → لا حذف (أو الإمام فقط)
+
+  ⚠ تحقق:
+    — RPC activate_competition: هل تتحقق من role='imam'؟
+    — Migration 022_competitions.sql: راجع الـ policies
+
+  ✅ الإجراء:
+  تأكد أن activate_competition RPC تبدأ بالتحقق من الدور.
+  تأكد أن لا أحد غير الإمام يستطيع UPDATE competitions.
+
+
+┌─── جدول announcements ───┐
+
+  المتوقع:
+    SELECT → أعضاء المسجد يقرأون
+    INSERT → الإمام فقط يُنشئ
+    DELETE → الإمام يحذف
+
+  ⚠ تحقق:
+    — Migration 026_announcements.sql: راجع
+    — هل المشرف يقدر ينشئ إعلانات؟ المفروض لا (إلا لو قررنا نغيّر)
+
+
+┌─── جدول mosque_members ───┐
+
+  المتوقع:
+    SELECT → أعضاء المسجد يرون بعضهم
+    INSERT → عبر Edge Function فقط (أو الإمام)
+    DELETE → الإمام يزيل مشرفين
+
+  ⚠ تحقق:
+    — Migration 009: mosque_members_allow_join_by_invite
+    — Migration 015: users_owner_reads_mosque_members
+
+
+┌─── ملخص ما يجب تنفيذه ───┐
+
+  [ ] Migration جديدة: 040_rls_audit_fixes.sql
+
+  محتوياتها:
+    1. تعديل correction_requests UPDATE policy لتشمل supervisor
+    2. تحقق من children SELECT policy (auth_id vs user_id)
+    3. إضافة DELETE policy لـ supervisor_credentials
+    4. تأكد من absence policies على attendance
+
+  ⚠ مهم جداً:
+    — لا تمسح policies قديمة بدون فهمها أولاً
+    — استخدم DROP POLICY IF EXISTS قبل CREATE POLICY
+    — اختبر كل policy بعد التعديل
+
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║  [I3] جدول system_settings + نافذة الحضور المرنة                              ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                                │
+│  attendance_validation_service.dart:                                           │
+│  • المشرف: windowMinutes = 60 (بعد الأذان)                                   │
+│  • الإمام: isImam = true → بلا حد                                            │
+│  • canRecordNow: يُقارن الوقت الحالي مع adhanTime + window                  │
+│                                                                                │
+│  mosques table:                                                                │
+│  • attendance_window_minutes = 60 (default)                                    │
+│  • ← هذا الحقل موجود لكن غير مستخدم حالياً!                                │
+│    attendance_validation_service.dart يستخدم 60 ثابت                          │
+│                                                                                │
+│  المطلوب:                                                                      │
+│  1. جدول system_settings للإعدادات العامة                                     │
+│  2. استخدام attendance_window_minutes من المسجد (لو موجود)                    │
+│  3. fallback للإعداد العام من system_settings                                 │
+│                                                                                │
+└────────────────────┘
+
+┌─── Migration جديدة: 041_system_settings.sql ───┐
+
+  CREATE TABLE IF NOT EXISTS system_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    label TEXT,                                    -- وصف بالعربية
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    updated_by UUID REFERENCES public.users(id)
+  );
+
+  -- القيم الافتراضية
+  INSERT INTO system_settings (key, value, label) VALUES
+    ('default_attendance_window_hours', '24', 'نافذة تسجيل الحضور (ساعات)')
+  ON CONFLICT (key) DO NOTHING;
+
+  -- RLS
+  ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
+
+  -- الكل يقرأ
+  CREATE POLICY "anyone_can_read_settings"
+  ON system_settings FOR SELECT
+  USING (true);
+
+  -- السوبر أدمن فقط يكتب
+  CREATE POLICY "superadmin_can_write_settings"
+  ON system_settings FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM users
+      WHERE auth_id = auth.uid() AND role = 'super_admin'
+    )
+  );
+
+  CREATE POLICY "superadmin_can_insert_settings"
+  ON system_settings FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM users
+      WHERE auth_id = auth.uid() AND role = 'super_admin'
+    )
+  );
+
+
+┌─── تعديل attendance_validation_service.dart ───┐
+
+  // الحالي: windowMinutes = 60 (ثابت)
+  // الجديد: يقرأ من المسجد، ثم system_settings، ثم fallback
+
+  import '../network/supabase_client.dart';
+
+  // إضافة دالة جديدة:
+  Future<int> getEffectiveWindowMinutes({String? mosqueId}) async {
+    // 1. محاولة قراءة من المسجد مباشرة
+    if (mosqueId != null) {
+      try {
+        final mosque = await supabase
+          .from('mosques')
+          .select('attendance_window_minutes')
+          .eq('id', mosqueId)
+          .maybeSingle();
+
+        if (mosque != null) {
+          final mins = mosque['attendance_window_minutes'] as int?;
+          if (mins != null && mins > 0) return mins;
+        }
+      } catch (_) { /* fallback */ }
+    }
+
+    // 2. محاولة قراءة من system_settings
+    try {
+      final settings = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'default_attendance_window_hours')
+        .maybeSingle();
+
+      if (settings != null) {
+        final hours = int.tryParse(settings['value'] as String);
+        if (hours != null && hours > 0) return hours * 60;
+      }
+    } catch (_) { /* fallback */ }
+
+    // 3. Fallback
+    return 1440;  // 24 ساعة
+  }
+
+  // تعديل canRecordNow:
+  Future<AttendanceValidationResult> canRecordNow({
+    required Prayer prayer,
+    required DateTime date,
+    double? lat,
+    double? lng,
+    int? windowMinutes,       // ← جعله nullable
+    String? mosqueId,         // ← إضافة mosqueId
+    bool isImam = false,
+  }) async {
+    // تحديد النافذة الفعلية
+    final effectiveWindow = windowMinutes ??
+        await getEffectiveWindowMinutes(mosqueId: mosqueId);
+
+    // لو النافذة >= 1440 (24 ساعة) → اسمح بأي وقت في اليوم
+    // الشرط الوحيد: يكون اليوم = اليوم + بعد الأذان
+    // ... باقي المنطق كما هو مع effectiveWindow بدل 60
+  }
+
+
+┌─── إعدادات النظام في شاشة السوبر أدمن ───┐
+
+  الملف: lib/app/features/super_admin/presentation/screens/admin_screen.dart
+
+  // إضافة Tab جديد "الإعدادات" في الـ bottom nav
+  // أو section في أول tab
+
+  // Widget:
+  // ┌─────────────────────────────────────────┐
+  // │ ⚙ إعدادات النظام                       │
+  // │                                         │
+  // │ نافذة تسجيل الحضور:  [24] ساعة        │
+  // │ ──────────────────────                   │
+  // │ 1 ← ═══════════════◉ → 24              │
+  // │                                         │
+  // │ "24 ساعة = يوم كامل من الأذان"         │
+  // │                                         │
+  // │ [حفظ الإعدادات]                         │
+  // └─────────────────────────────────────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║  [DB] ملخص كل Migrations الجديدة المطلوبة                                     ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+  الـ migrations الموجودة: 001 → 039 + 999
+  المطلوب إضافتها:
+
+  ┌─────────┬───────────────────────────────────────────────────────────────────┐
+  │ الرقم   │ الوصف                                                           │
+  ├─────────┼───────────────────────────────────────────────────────────────────┤
+  │ 040     │ تدقيق RLS (correction_requests UPDATE + children SELECT)        │
+  │ 041     │ system_settings table + default values                          │
+  │ 042     │ audit_logs table (لتسجيل عمليات إنشاء الحسابات)               │
+  │ 043     │ prayer_points JSONB على competitions (لو مش موجود)             │
+  └─────────┴───────────────────────────────────────────────────────────────────┘
+
+
+┌─── Migration 042: audit_logs ───┐
+
+  CREATE TABLE IF NOT EXISTS audit_logs (
+    id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    action       TEXT NOT NULL,
+    performed_by UUID REFERENCES public.users(id),
+    target_user_id UUID,
+    details      JSONB,
+    created_at   TIMESTAMPTZ DEFAULT now()
+  );
+
+  CREATE INDEX idx_audit_logs_action ON audit_logs(action, created_at DESC);
+  CREATE INDEX idx_audit_logs_performer ON audit_logs(performed_by, created_at DESC);
+
+  ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+  -- السوبر أدمن فقط يقرأ
+  CREATE POLICY "superadmin_reads_audit_logs"
+  ON audit_logs FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM users WHERE auth_id = auth.uid() AND role = 'super_admin')
+  );
+
+  -- الجميع يكتب (عبر Edge Functions)
+  -- لكن الأفضل: service_role فقط
+  CREATE POLICY "service_only_insert_audit"
+  ON audit_logs FOR INSERT
+  WITH CHECK (false);  -- فقط service_role key
+
+
+┌─── Migration 043: prayer_points JSONB ───┐
+
+  -- التحقق من migration 029_prayer_points_from_config.sql
+  -- ← هذا قد يكون أضاف الحقل بالفعل!
+
+  -- لو لم يُضف:
+  ALTER TABLE competitions
+  ADD COLUMN IF NOT EXISTS prayer_points JSONB DEFAULT '{
+    "fajr": 10,
+    "dhuhr": 10,
+    "asr": 10,
+    "maghrib": 10,
+    "isha": 10
+  }'::jsonb;
+
+  -- ⚠ تحقق: اقرأ migration 029 أولاً قبل التنفيذ
+
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║  [QA] قائمة تحقق اختبار الباك إند                                             ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+  ┌─── Edge Functions ───┐
+
+  [ ] create-imam-account:
+      [ ] بدون JWT → 401
+      [ ] JWT غير super_admin → 403
+      [ ] بدون name/email/password → 400
+      [ ] إيميل غير صالح → 400
+      [ ] كلمة سر أقل من 6 → 400
+      [ ] إيميل موجود → 409
+      [ ] نجاح → 200 + user_id + auth_id + email + name
+      [ ] التحقق أن public.users فيه الصف الجديد بـ role='imam'
+
+  [ ] create-supervisor-account:
+      [ ] بدون JWT → 401
+      [ ] JWT غير imam → 403
+      [ ] مسجد لا يخص الإمام → 403
+      [ ] rate limit > 10 → 429
+      [ ] إيميل = ولي أمر → 409 + رسالة خاصة
+      [ ] إيميل موجود → 409
+      [ ] نجاح → 200 + user_id + email + temp_password
+      [ ] التحقق أن mosque_members فيه الصف الجديد
+      [ ] التحقق أن supervisor_credentials فيه الصف الجديد
+
+  [ ] validate-mosque-code (الجديدة):
+      [ ] بدون JWT → 401
+      [ ] > 5 محاولات في 10 دقائق → 429
+      [ ] كود خاطئ → 404
+      [ ] طفل مربوط بالفعل → 409
+      [ ] نجاح → 200 + mosque_id + local_number
+      [ ] التحقق أن mosque_children فيه الصف الجديد
+
+  ┌─── RLS ───┐
+
+  [ ] ولي أمر يرى أطفاله فقط (لا يرى أطفال غيره)
+  [ ] ولي أمر يرى حضور أطفاله فقط
+  [ ] ولي أمر لا يستطيع INSERT في attendance
+  [ ] ولي أمر لا يستطيع UPDATE في competitions
+  [ ] مشرف يرى حضور مسجده فقط
+  [ ] مشرف يُسجّل حضور مسجده فقط (لا مسجد آخر)
+  [ ] مشرف يقدر يعمل UPDATE على correction_requests في مسجده
+  [ ] إمام يقرأ supervisor_credentials لمسجده
+  [ ] إمام لا يقرأ supervisor_credentials لمسجد آخر
+  [ ] سوبر أدمن يقرأ الكل
+
+  ┌─── الأداء ───┐
+
+  [ ] generate_mosque_code() لا تدخل loop لا نهائي
+  [ ] فهرس mosque_code_attempts يعمل بكفاءة
+  [ ] الـ retry في Edge Functions لا يتجاوز 5 محاولات (2.5 ثانية max)
+
+  ┌─── البيانات ───┐
+
+  [ ] كل المساجد عندها invite_code (لا null)
+  [ ] كل invite_code فريد (UNIQUE constraint)
+  [ ] system_settings فيها القيم الافتراضية
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    نهاية الجزء الأول
+        → الجزء الثاني: Onboarding وإدارة الحسابات وتجربة أول دخول
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

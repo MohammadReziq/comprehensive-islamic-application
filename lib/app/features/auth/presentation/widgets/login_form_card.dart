@@ -76,6 +76,19 @@ class LoginFormCard extends StatelessWidget {
             ),
           ),
         ),
+        SizedBox(height: r.vsm),
+        Center(
+          child: TextButton(
+            onPressed: () => onShowEmailLoginChanged(true),
+            child: Text(
+              'الدخول بالبريد وكلمة السر',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: r.textSM,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

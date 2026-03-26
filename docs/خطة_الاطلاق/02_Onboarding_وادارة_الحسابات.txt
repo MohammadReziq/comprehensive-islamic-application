@@ -1,0 +1,984 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                   صلاتي حياتي — خطة الإطلاق النهائية                          ║
+║         الجزء الثاني: Onboarding وإدارة الحسابات وتجربة أول دخول             ║
+║                                                                                ║
+║  يشمل: C1-UI + C2-UI + C3 + C4 + E1                                          ║
+║  التاريخ: 2026-03-22                                                          ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                         الفهرس
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [C1-UI] واجهة إنشاء حساب الإمام (السوبر أدمن) ............. سطر 25
+  [C2-UI] واجهة إنشاء حساب المشرف (الإمام) .................. سطر 220
+  [C3]    نظام Onboarding بعد أول تسجيل دخول ................ سطر 400
+  [C4]    Empty States لكل الشاشات ........................... سطر 700
+  [E1]    Setup Checklist على dashboard الإمام ............... سطر 870
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [C1-UI] واجهة إنشاء حساب الإمام — شاشة السوبر أدمن                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  الملف: lib/app/features/super_admin/presentation/screens/             │
+│         admin_screen.dart (306 سطر)                                    │
+│                                                                        │
+│  الهيكل الحالي:                                                       │
+│  • AdminScreen → StatefulWidget                                        │
+│  • _AdminScreenState: initState يُحمّل BLoC                           │
+│  • _AdminBottomNav: شريط سفلي بتبويبين                                │
+│  • _AdminHeader: هيدر مشترك                                           │
+│  • التبويبات الحالية: طلبات المساجد + خريطة المساجد                   │
+│                                                                        │
+│  ⚠ لا يوجد:                                                          │
+│  • زر إنشاء حساب إمام                                                │
+│  • شاشة/dialog إنشاء الحساب                                          │
+│  • tab للإعدادات                                                       │
+│                                                                        │
+└────────────────────┘
+
+┌─── التغييرات المطلوبة ───┐
+
+  1. إضافة FAB (Floating Action Button) لإنشاء إمام:
+  ───────────────────────────────────────────────────
+
+    الملف: admin_screen.dart
+    الموقع: في build() داخل Scaffold
+
+    // أضف floatingActionButton:
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: () => _showCreateImamDialog(context),
+      icon: const Icon(Icons.person_add),
+      label: const Text('إنشاء حساب إمام'),
+      backgroundColor: AppColors.primaryDark,
+    ),
+
+
+  2. Dialog إنشاء حساب الإمام:
+  ─────────────────────────────
+
+    الملف الجديد:
+    lib/app/features/super_admin/presentation/widgets/
+    create_imam_dialog.dart
+
+    التصميم:
+    ┌──────────────────────────────────────────┐
+    │         إنشاء حساب إمام جديد            │
+    │                                          │
+    │  الاسم: [___________________________]   │
+    │                                          │
+    │  البريد: [__________________________]   │
+    │                                          │
+    │  كلمة السر: [imam_Xk9mP2___]  [🔄]    │
+    │             ↑ يُولَّد تلقائياً           │
+    │                                          │
+    │  ⚠ سيتم إرسال البيانات للإمام           │
+    │                                          │
+    │  [إلغاء]              [إنشاء الحساب]    │
+    └──────────────────────────────────────────┘
+
+    الكود المطلوب:
+
+    class CreateImamDialog extends StatefulWidget {
+      @override
+      State<CreateImamDialog> createState() => _CreateImamDialogState();
+    }
+
+    class _CreateImamDialogState extends State<CreateImamDialog> {
+      final _formKey = GlobalKey<FormState>();
+      final _nameCtrl = TextEditingController();
+      final _emailCtrl = TextEditingController();
+      final _passCtrl = TextEditingController();
+      bool _loading = false;
+
+      @override
+      void initState() {
+        super.initState();
+        // توليد كلمة سر تلقائية عند الفتح
+        _passCtrl.text = PasswordGenerator.generateImamPassword();
+      }
+
+      @override
+      void dispose() {
+        _nameCtrl.dispose();
+        _emailCtrl.dispose();
+        _passCtrl.dispose();
+        super.dispose();
+      }
+
+      Future<void> _submit() async {
+        if (!(_formKey.currentState?.validate() ?? false)) return;
+        setState(() => _loading = true);
+
+        try {
+          final result = await sl<AdminRepository>().createImamAccount(
+            name: _nameCtrl.text.trim(),
+            email: _emailCtrl.text.trim(),
+            tempPassword: _passCtrl.text.trim(),
+          );
+
+          if (mounted) {
+            Navigator.of(context).pop();
+            // عرض dialog النتيجة
+            _showSuccessDialog(
+              context,
+              name: _nameCtrl.text.trim(),
+              email: _emailCtrl.text.trim(),
+              password: _passCtrl.text.trim(),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            setState(() => _loading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.toString().replaceFirst('Exception: ', '')),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+        }
+      }
+
+      // في build():
+      // - Form مع validation
+      // - حقل الاسم: required, min 2 chars
+      // - حقل الإيميل: required, email format validation
+      // - حقل كلمة السر: مع زر 🔄 لإعادة التوليد
+      // - زر الإنشاء: يُظهر spinner أثناء التحميل
+    }
+
+
+  3. Dialog النتيجة الناجحة:
+  ──────────────────────────
+
+    static void _showSuccessDialog(
+      BuildContext context, {
+      required String name,
+      required String email,
+      required String password,
+    }) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: AppColors.success, size: 28),
+              SizedBox(width: 8),
+              Text('تم إنشاء الحساب بنجاح'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _credRow('الاسم', name),
+              _credRow('البريد', email),
+              _credRow('كلمة السر', password),
+              SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.warningLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '⚠ احفظ هذه البيانات أو شاركها فوراً. لن تظهر مرة أخرى.',
+                  style: TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () {
+                final msg = ShareCredentials.buildImamMessage(
+                  name: name, email: email, password: password,
+                );
+                ShareCredentials.copyToClipboard(msg);
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  SnackBar(content: Text('تم النسخ')),
+                );
+              },
+              icon: Icon(Icons.copy),
+              label: Text('نسخ'),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                final msg = ShareCredentials.buildImamMessage(
+                  name: name, email: email, password: password,
+                );
+                ShareCredentials.shareViaWhatsApp(msg);
+              },
+              icon: Icon(Icons.share, color: Colors.green),
+              label: Text('واتساب', style: TextStyle(color: Colors.green)),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('تم'),
+            ),
+          ],
+        ),
+      );
+    }
+
+
+  4. Validation المطلوب:
+  ──────────────────────
+
+    حقل الاسم:
+      - لا يكون فارغاً
+      - حرفين على الأقل
+      - لا يحتوي أرقام أو رموز (عربي/إنجليزي + مسافات فقط)
+
+    حقل الإيميل:
+      - لا يكون فارغاً
+      - صيغة إيميل صحيحة (regex)
+      - يُحوَّل لـ lowercase تلقائياً
+
+    حقل كلمة السر:
+      - لا يكون فارغاً
+      - 6 أحرف على الأقل
+      - يُولَّد تلقائياً ولكن قابل للتعديل
+
+    ⚠ ملاحظة: validators.dart الحالي فيه:
+      - validateEmail() ← موجود ✅
+      - validateName() ← يجب التحقق
+      - validatePassword() ← يجب إضافته لو غير موجود
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [C2-UI] واجهة إنشاء حساب المشرف — شاشة الإمام                       ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  الملف: imam_dashboard_screen.dart (1324 سطر)                         │
+│                                                                        │
+│  يحتوي بالفعل على:                                                   │
+│  • _loadSupervisors(mosqueId) — يجلب المشرفين                        │
+│  • _showSupervisorsSheet() — يعرض BottomSheet بقائمة المشرفين       │
+│  • _buildSupervisorsContent() — محتوى القائمة                        │
+│  • _removeSupervisor() — حذف مشرف                                    │
+│  • _showJoinRequestsSheet() — طلبات الانضمام                        │
+│  • _buildPendingJoinRequestsContent() — عرض الطلبات                  │
+│  • _approveJoinRequest() + _rejectJoinRequest()                       │
+│                                                                        │
+│  ⚠ النظام الحالي: المشرف يُقدّم طلب → الإمام يوافق/يرفض            │
+│  ⚠ المطلوب: الإمام يُنشئ الحساب مباشرة                              │
+│                                                                        │
+│  ⚠ يجب الإبقاء على "طلبات الانضمام" كـ fallback                     │
+│    (لو المشرف سجّل بنفسه وأراد الانضمام لمسجد)                      │
+│                                                                        │
+└────────────────────┘
+
+┌─── التغييرات المطلوبة ───┐
+
+  1. إضافة زر "إضافة مشرف" في BottomSheet المشرفين:
+  ──────────────────────────────────────────────────
+
+    الملف: imam_dashboard_screen.dart
+    الدالة: _buildSupervisorsContent()
+
+    // في أعلى القائمة، قبل ListView:
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: AppButton(
+        text: 'إضافة مشرف جديد',
+        icon: Icons.person_add,
+        onPressed: () {
+          Navigator.of(context).pop(); // أغلق الـ BottomSheet
+          _showCreateSupervisorDialog(context, mosque);
+        },
+      ),
+    ),
+
+
+  2. Dialog إنشاء حساب المشرف:
+  ─────────────────────────────
+
+    الملف الجديد:
+    lib/app/features/imam/presentation/widgets/
+    create_supervisor_dialog.dart
+
+    التصميم:
+    ┌──────────────────────────────────────────┐
+    │       إضافة مشرف جديد لمسجدك            │
+    │                                          │
+    │  الاسم: [___________________________]   │
+    │                                          │
+    │  البريد: [__________________________]   │
+    │                                          │
+    │  كلمة السر: [sup_Kx9mP2____]  [🔄]    │
+    │                                          │
+    │  [إلغاء]               [إنشاء الحساب]   │
+    └──────────────────────────────────────────┘
+
+    // نفس نمط CreateImamDialog تماماً لكن يستدعي:
+    // sl<ImamRepository>().createSupervisorAccount(...)
+    // ويمرر mosqueId
+
+
+  3. زر "عرض بيانات الدخول" في بطاقة كل مشرف:
+  ─────────────────────────────────────────────
+
+    الملف: imam_dashboard_screen.dart
+    الدالة: _buildSupervisorsContent()
+
+    // في كل بطاقة مشرف، أضف زر:
+    IconButton(
+      icon: Icon(Icons.key, color: AppColors.primaryLight),
+      tooltip: 'عرض بيانات الدخول',
+      onPressed: () => _showSupervisorCredentials(context, member),
+    ),
+
+    // الدالة:
+    Future<void> _showSupervisorCredentials(
+      BuildContext context,
+      MosqueMemberModel member,
+    ) async {
+      try {
+        final creds = await sl<ImamRepository>()
+            .getSupervisorCredentials(member.mosqueId);
+
+        // ابحث عن بيانات هذا المشرف
+        final found = creds.firstWhere(
+          (c) => c['user_id'] == member.userId,
+          orElse: () => {},
+        );
+
+        if (found.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('لا توجد بيانات دخول محفوظة لهذا المشرف')),
+          );
+          return;
+        }
+
+        // عرض Dialog مشابه لـ success dialog
+        _showSuccessDialog(
+          context,
+          name: member.userName ?? 'مشرف',
+          email: member.userEmail ?? '',
+          password: found['password'] as String,
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('حدث خطأ: ${e.toString()}')),
+        );
+      }
+    }
+
+
+  4. التعامل مع إزالة المشرف:
+  ───────────────────────────
+
+    // عند إزالة المشرف:
+    // 1. حذفه من mosque_members (موجود)
+    // 2. حذف بياناته من supervisor_credentials
+    //    ← يتم تلقائياً عبر ON DELETE CASCADE
+    //    ← لكن الـ CASCADE على auth.users وليس mosque_members
+    //    ← يجب حذف supervisor_credentials يدوياً
+
+    Future<void> _removeSupervisor(MosqueModel mosque, MosqueMemberModel member) async {
+      // ... الكود الحالي ...
+
+      // إضافة: حذف بيانات الدخول
+      await supabase
+        .from('supervisor_credentials')
+        .delete()
+        .eq('user_id', member.userId)  // ⚠ هل هذا auth_id أم user_id؟
+        .eq('mosque_id', mosque.id);
+
+      // ⚠ مشكلة: supervisor_credentials.user_id = auth.users.id
+      //    لكن MosqueMemberModel.userId = public.users.id
+      //    يجب تحويل: جلب auth_id من public.users أولاً
+      //    أو تعديل Edge Function لاستخدام public.users.id
+    }
+
+    // الحل الأنظف: في migration 037 كان FK على auth.users
+    // يجب تغييره لـ public.users.id في migration جديدة:
+    // ALTER TABLE supervisor_credentials
+    //   DROP CONSTRAINT IF EXISTS supervisor_credentials_user_id_fkey,
+    //   ADD FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [C3] نظام Onboarding — بعد أول تسجيل دخول لكل دور                   ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  onboarding_screen.dart (332 سطر):                                    │
+│  • يظهر قبل تسجيل الدخول (عام لكل المستخدمين)                       │
+│  • 3 صفحات ثابتة مع Lottie animations                                │
+│  • SharedPreferences: onboarding_seen                                  │
+│  • آخر صفحة → زر "ابدأ" → يذهب لـ /login                           │
+│                                                                        │
+│  app_router.dart:                                                      │
+│  • الـ onboarding يظهر قبل Auth ← يجب تغييره ليظهر بعد Auth          │
+│  • redirect logic: لا يتعامل مع onboarding بعد الدخول                │
+│                                                                        │
+│  ⚠ التغيير المطلوب:                                                   │
+│  • الـ onboarding القديم: يبقى كما هو (شاشة ترحيبية عامة)           │
+│  • نضيف 3 شاشات onboarding جديدة حسب الدور (بعد أول تسجيل دخول)   │
+│                                                                        │
+└────────────────────┘
+
+┌─── منطق "أول دخول" ───┐
+
+  الملف: lib/app/core/router/app_router.dart
+
+  تعديل redirect logic بعد AuthAuthenticated:
+
+  // إضافة بعد سطر 98 (بعد التحقق من الدور):
+  // فحص أول دخول عبر SharedPreferences
+
+  // ⚠ مشكلة: redirect في GoRouter يجب أن يكون synchronous
+  //    لكن SharedPreferences يحتاج async!
+
+  // الحل 1: Cache في AppRouter (الأفضل):
+  // ────────────────────────────────────
+
+  // في class AppRouter:
+  Map<String, bool> _roleOnboardingCache = {};
+
+  Future<bool> _isRoleOnboardingSeen(String userId, String role) async {
+    final key = 'role_onboarding_${userId}_$role';
+    if (_roleOnboardingCache.containsKey(key)) {
+      return _roleOnboardingCache[key]!;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool(key) ?? false;
+    _roleOnboardingCache[key] = seen;
+    return seen;
+  }
+
+  // ⚠ لكن redirect لا يقبل async!
+  // GoRouter redirect هي (context, state) => String?
+  // ليست Future<String?>
+
+  // الحل 2: فحص الـ onboarding في SplashScreen:
+  // ─────────────────────────────────────────────
+
+  // في SplashScreen: بعد جلب الـ profile وقبل التنقل:
+  // 1. اقرأ SharedPreferences
+  // 2. لو أول دخول → وجّه للـ onboarding المناسب
+  // 3. لو سبق → وجّه للـ dashboard المناسب
+
+  // الحل 3 (الأبسط والأنظف): فحص داخل كل dashboard:
+  // ──────────────────────────────────────────────────
+
+  // في initState() لكل dashboard:
+  // imam_dashboard_screen.dart:
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstLogin();
+    // ... باقي الكود
+  }
+
+  Future<void> _checkFirstLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final key = 'role_onboarding_${userId}_imam';
+    final seen = prefs.getBool(key) ?? false;
+
+    if (!seen && mounted) {
+      // اعرض الـ onboarding
+      final result = await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ImamOnboardingScreen()),
+      );
+      // بعد الرجوع: سجّل أنه تم عرضه
+      await prefs.setBool(key, true);
+    }
+  }
+
+  // ← نفس النمط في supervisor_dashboard و home_screen (parent)
+  // ← القرار النهائي: الحل 3 (الأبسط)
+
+
+┌─── شاشة Onboarding الإمام ───┐
+
+  الملف الجديد:
+  lib/app/features/imam/presentation/screens/imam_onboarding_screen.dart
+
+  التصميم — صفحة واحدة (ليس PageView):
+  ┌──────────────────────────────────────────┐
+  │           🕌                             │
+  │     مرحباً بك في صلاتي حياتي           │
+  │     أنت إمام مسجد [اسم المسجد]          │
+  │                                          │
+  │  ━━━ إعداد مسجدك ━━━                    │
+  │                                          │
+  │  ✅ إنشاء المسجد                        │
+  │     تم بنجاح!                           │
+  │                                          │
+  │  ○ إضافة مشرف                           │
+  │     المشرف يسجّل حضور الأطفال          │
+  │     [إضافة الآن →]                       │
+  │                                          │
+  │  ○ إطلاق مسابقة                         │
+  │     حفّز الأطفال على الصلاة            │
+  │     [إطلاق الآن →]                       │
+  │                                          │
+  │  ─────────────────────────               │
+  │  [لاحقاً — الذهاب للوحة التحكم]        │
+  └──────────────────────────────────────────┘
+
+  المنطق:
+  • "إضافة الآن" → يفتح CreateSupervisorDialog
+  • "إطلاق الآن" → يذهب لـ /imam/competitions/:mosqueId
+  • "لاحقاً" → يغلق الشاشة ويعود للـ dashboard
+  • ⚠ الـ Checklist يبقى على الـ dashboard! (E1)
+
+  الكود الأساسي:
+
+  class ImamOnboardingScreen extends StatelessWidget {
+    @override
+    Widget build(BuildContext context) {
+      return Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  SizedBox(height: 40),
+                  // أيقونة المسجد
+                  Icon(Icons.mosque, size: 80, color: AppColors.primaryDark),
+                  SizedBox(height: 24),
+                  // عنوان
+                  Text('مرحباً بك في صلاتي حياتي',
+                    style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  Text('مسجدك جاهز! ابدأ بإعداده',
+                    style: GoogleFonts.cairo(fontSize: 16, color: AppColors.textSecondary)),
+                  SizedBox(height: 40),
+
+                  // Checklist
+                  _ChecklistItem(
+                    title: 'إنشاء المسجد',
+                    subtitle: 'تم بنجاح!',
+                    isCompleted: true,
+                  ),
+                  _ChecklistItem(
+                    title: 'إضافة مشرف',
+                    subtitle: 'المشرف يسجّل حضور الأطفال في الصلوات',
+                    isCompleted: false,
+                    actionLabel: 'إضافة الآن',
+                    onAction: () => _showCreateSupervisor(context),
+                  ),
+                  _ChecklistItem(
+                    title: 'إطلاق مسابقة',
+                    subtitle: 'حفّز الأطفال على المحافظة على الصلاة',
+                    isCompleted: false,
+                    actionLabel: 'إطلاق الآن',
+                    onAction: () => _navigateToCompetitions(context),
+                  ),
+
+                  SizedBox(height: 40),
+                  // زر "لاحقاً"
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('لاحقاً — الذهاب للوحة التحكم',
+                      style: GoogleFonts.cairo(fontSize: 16)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+
+┌─── شاشة Onboarding المشرف ───┐
+
+  الملف الجديد:
+  lib/app/features/supervisor/presentation/screens/
+  supervisor_onboarding_screen.dart
+
+  التصميم — صفحة واحدة ثابتة:
+  ┌──────────────────────────────────────────┐
+  │           📋                             │
+  │     مرحباً بك كمشرف!                    │
+  │                                          │
+  │  مهمتك: تسجيل حضور الأطفال            │
+  │  في صلاة الجماعة بالمسجد               │
+  │                                          │
+  │  ━━━ 3 طرق لتسجيل الحضور ━━━           │
+  │                                          │
+  │  📷 1. مسح QR Code                      │
+  │     الطريقة الأسرع — امسح بطاقة الطفل  │
+  │                                          │
+  │  🔢 2. البحث بالرقم                     │
+  │     أدخل رقم الطالب في المسجد          │
+  │                                          │
+  │  🔤 3. البحث بالاسم                     │
+  │     ابحث عن الطفل بالاسم              │
+  │                                          │
+  │  ─────────────────────────               │
+  │  [جرّب الآن — ابدأ التحضير 🚀]          │
+  └──────────────────────────────────────────┘
+
+  المنطق:
+  • "جرّب الآن" → يذهب لـ /supervisor/scan
+  • بعد الرجوع → SharedPreferences يُسجّل أنه تم عرضه
+
+
+┌─── شاشة Onboarding ولي الأمر ───┐
+
+  الملف الجديد:
+  lib/app/features/parent/presentation/screens/
+  parent_onboarding_screen.dart
+
+  التصميم — 3 صفحات (PageView):
+
+  صفحة 1: الترحيب
+  ┌──────────────────────────────────────────┐
+  │           🌟                             │
+  │     مرحباً بك في صلاتي حياتي           │
+  │                                          │
+  │  تابع حضور أطفالك لصلاة الجماعة       │
+  │  وشجّعهم على المحافظة على الصلاة       │
+  │                                          │
+  │  • • ○   [التالي →]                     │
+  └──────────────────────────────────────────┘
+
+  صفحة 2: إضافة الطفل الأول
+  ┌──────────────────────────────────────────┐
+  │     أضف طفلك الأول                      │
+  │                                          │
+  │  الاسم: [___________________________]   │
+  │  العمر: [___]                           │
+  │  الجنس: (ذكر) (أنثى)                   │
+  │                                          │
+  │  • ● ○   [التالي →]                     │
+  └──────────────────────────────────────────┘
+
+  صفحة 3: ربط بالمسجد
+  ┌──────────────────────────────────────────┐
+  │     اربط طفلك بمسجد                    │
+  │                                          │
+  │  كود المسجد: [_ _ _ _ _ _]             │
+  │  اطلبه من إمام المسجد                  │
+  │                                          │
+  │  [ربط بالمسجد]                          │
+  │                                          │
+  │  أو                                      │
+  │  [تخطي — سأربط لاحقاً]                 │
+  │                                          │
+  │  • ○ ●                                   │
+  └──────────────────────────────────────────┘
+
+  المنطق التفصيلي:
+
+  صفحة 2:
+  • عند الضغط "التالي" → يتحقق من الحقول
+  • يُنشئ الطفل عبر ChildRepository.addChild()
+  • لو نجح → ينتقل لصفحة 3
+  • لو فشل → رسالة خطأ ويبقى في نفس الصفحة
+
+  صفحة 3:
+  • حقل الكود: 6 خانات، uppercase تلقائي، أرقام+أحرف
+  • "ربط بالمسجد":
+    - يستدعي validate-mosque-code Edge Function
+    - لو نجح → SnackBar نجاح + انتقال للـ home
+    - لو كود خاطئ → رسالة خطأ + يبقى في صفحة 3
+    - لو rate limited → رسالة "انتظر 10 دقائق"
+  • "تخطي" → ينتقل للـ home مباشرة
+    - في home_screen: يظهر banner "اربط طفلك بمسجد"
+
+  ⚠ حالات حدّية:
+  • لو المستخدم عنده أطفال بالفعل (من محادثة سابقة) → تخطي صفحة 2
+  • لو أغلق التطبيق وسط الـ onboarding → يُعاد عرضه
+  • لو أضاف طفل لكن فشل الربط بالمسجد → الطفل محفوظ + banner في home
+
+  الحقول المطلوبة لإنشاء الطفل:
+  • name (String, required)
+  • age (int, required, 3-18)
+  • ⚠ لا يوجد حقل gender في ChildModel الحالي!
+    - إما نضيفه (migration جديدة + تعديل model)
+    - أو نزيله من الـ onboarding
+    - القرار: نزيله من الـ onboarding (ليس ضرورياً للإطلاق)
+
+
+┌─── إضافة Routes في app_router.dart ───┐
+
+  لا حاجة لإضافة routes!
+  الـ onboarding يُعرض عبر Navigator.push() من داخل كل dashboard
+  وليس عبر GoRouter redirect.
+
+  السبب: تجنب تعقيد الـ redirect logic (هي معقدة كفاية — 176 سطر!)
+
+  ⚠ لو أردنا routes فعلاً (للتنقل بـ deep link):
+  GoRoute(
+    path: '/imam-onboarding',
+    builder: (_, __) => const ImamOnboardingScreen(),
+  ),
+  GoRoute(
+    path: '/supervisor-onboarding',
+    builder: (_, __) => const SupervisorOnboardingScreen(),
+  ),
+  GoRoute(
+    path: '/parent-onboarding',
+    builder: (_, __) => const ParentOnboardingScreen(),
+  ),
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [C4] Empty States لكل الشاشات                                        ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  EmptyStateWidget (117 سطر):                                          │
+│  ✅ موجود مع:                                                        │
+│  • title + description + icon + actionText + onAction                  │
+│  • Named constructors: noStudents, noAttendance, noNotifications,      │
+│    noBadges                                                            │
+│  • تصميم جميل مع animate + elastic effect                           │
+│                                                                        │
+│  ⚠ ينقص:                                                             │
+│  • Named constructors للحالات الجديدة                                 │
+│  • الشاشات لا تستخدم EmptyStateWidget في كل الأماكن                │
+│                                                                        │
+└────────────────────┘
+
+┌─── Named Constructors الجديدة ───┐
+
+  الملف: lib/app/core/widgets/empty_state.dart
+
+  // إضافة:
+
+  /// imam dashboard — قبل إكمال الإعداد
+  const EmptyStateWidget.mosqueReady({
+    super.key, this.actionText = 'إضافة مشرف', this.onAction,
+  }) : title = 'مرحباً! مسجدك جاهز',
+       description = 'ابدأ بإضافة مشرف لتسجيل حضور الأطفال',
+       icon = Icons.mosque_outlined;
+
+  /// supervisor dashboard — لا طلاب
+  const EmptyStateWidget.noStudentsInMosque({
+    super.key, this.actionText = 'مشاركة كود المسجد', this.onAction,
+  }) : title = 'لا يوجد طلاب بعد',
+       description = 'شارك كود المسجد مع أولياء الأمور ليربطوا أطفالهم',
+       icon = Icons.people_outline;
+
+  /// parent — لم يُربط طفل بمسجد
+  const EmptyStateWidget.childNotLinked({
+    super.key, this.actionText = 'ربط طفل بمسجد', this.onAction,
+  }) : title = 'لم يُربط أطفالك بمسجد بعد',
+       description = 'اطلب كود المسجد من الإمام واربط أطفالك',
+       icon = Icons.link_off;
+
+  /// admin — لا طلبات مساجد
+  const EmptyStateWidget.noMosqueRequests({
+    super.key, this.actionText, this.onAction,
+  }) : title = 'لا توجد طلبات مساجد',
+       description = 'عند تسجيل أئمة جدد ستظهر طلباتهم هنا',
+       icon = Icons.inbox_outlined;
+
+  /// competitions — لا مسابقات
+  const EmptyStateWidget.noCompetitions({
+    super.key, this.actionText = 'إنشاء مسابقة', this.onAction,
+  }) : title = 'لا توجد مسابقات بعد',
+       description = 'أنشئ أول مسابقة لتحفيز الأطفال على الصلاة',
+       icon = Icons.emoji_events_outlined;
+
+  /// corrections — لا طلبات تصحيح
+  const EmptyStateWidget.noCorrections({
+    super.key, this.actionText, this.onAction,
+  }) : title = 'لا توجد طلبات تصحيح',
+       description = 'ستظهر طلبات التصحيح من أولياء الأمور هنا',
+       icon = Icons.fact_check_outlined;
+
+  /// notes — لا ملاحظات
+  const EmptyStateWidget.noNotes({
+    super.key, this.actionText, this.onAction,
+  }) : title = 'لا توجد ملاحظات',
+       description = 'ستظهر الملاحظات من المشرفين هنا',
+       icon = Icons.note_alt_outlined;
+
+  /// parent — لا أطفال
+  const EmptyStateWidget.noChildren({
+    super.key, this.actionText = 'إضافة طفل', this.onAction,
+  }) : title = 'لم تُضف أطفالاً بعد',
+       description = 'أضف أطفالك لتتابع حضورهم وتفاعلهم',
+       icon = Icons.child_care;
+
+
+┌─── أين يُستخدم كل Empty State ───┐
+
+  ┌──────────────────────────────────────┬──────────────────────────────────┐
+  │ الشاشة                             │ الـ Empty State                  │
+  ├──────────────────────────────────────┼──────────────────────────────────┤
+  │ imam_dashboard (لا مشرفين+مسابقات)│ SetupChecklistCard (E1)          │
+  │ imam_competitions_screen            │ EmptyStateWidget.noCompetitions  │
+  │ supervisor_dashboard (لا طلاب)     │ EmptyStateWidget.noStudentsInMosque│
+  │ corrections_list_screen             │ EmptyStateWidget.noCorrections   │
+  │ admin_screen (لا طلبات)            │ EmptyStateWidget.noMosqueRequests │
+  │ parent/home_screen (لا أطفال)      │ EmptyStateWidget.noChildren      │
+  │ parent/home_screen (طفل غير مربوط) │ EmptyStateWidget.childNotLinked  │
+  │ parent/notes                        │ EmptyStateWidget.noNotes         │
+  │ students_screen (لا طلاب)          │ EmptyStateWidget.noStudents      │
+  └──────────────────────────────────────┴──────────────────────────────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [E1] Setup Checklist Card — على dashboard الإمام                     ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── التصميم ───┐
+
+  ┌────────────────────────────────────────────────────┐
+  │  🏗 إعداد مسجدك                         الخطوة 1/3│
+  │  ──────────────────────────────────────────        │
+  │                                                    │
+  │  ✅ إنشاء المسجد                                  │
+  │     تم بنجاح! 🎉                                  │
+  │                                                    │
+  │  ○ إضافة مشرف                    [إضافة الآن →]  │
+  │     المشرف يسجّل حضور الأطفال                    │
+  │                                                    │
+  │  ○ إطلاق مسابقة                  [إطلاق الآن →]  │
+  │     حفّز الأطفال على المحافظة                     │
+  │                                                    │
+  │  ════════════════════════════════                   │
+  │  ░░░░░░░░░░░░░░░░░░░░░░░░░ 33%                    │
+  └────────────────────────────────────────────────────┘
+
+┌─── الكود ───┐
+
+  الملف الجديد:
+  lib/app/features/imam/presentation/widgets/setup_checklist_card.dart
+
+  class SetupChecklistCard extends StatelessWidget {
+    final bool hasAddedSupervisor;
+    final bool hasCreatedCompetition;
+    final VoidCallback onAddSupervisor;
+    final VoidCallback onCreateCompetition;
+
+    const SetupChecklistCard({
+      super.key,
+      required this.hasAddedSupervisor,
+      required this.hasCreatedCompetition,
+      required this.onAddSupervisor,
+      required this.onCreateCompetition,
+    });
+
+    // لو الخطوتان مكتملتان → لا يظهر شيء
+    bool get _allDone => hasAddedSupervisor && hasCreatedCompetition;
+
+    int get _completedCount {
+      int c = 1;  // المسجد دائماً مكتمل
+      if (hasAddedSupervisor) c++;
+      if (hasCreatedCompetition) c++;
+      return c;
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      if (_allDone) return const SizedBox.shrink();
+
+      return Card(
+        margin: EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // العنوان
+              Row(
+                children: [
+                  Icon(Icons.construction, color: AppColors.primaryDark),
+                  SizedBox(width: 8),
+                  Text('إعداد مسجدك',
+                    style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Spacer(),
+                  Text('$_completedCount/3',
+                    style: GoogleFonts.cairo(color: AppColors.textSecondary)),
+                ],
+              ),
+              SizedBox(height: 16),
+
+              // خطوة 1: المسجد (دائماً مكتملة)
+              _CheckTile(
+                title: 'إنشاء المسجد',
+                subtitle: 'تم بنجاح!',
+                isCompleted: true,
+              ),
+
+              // خطوة 2: المشرف
+              _CheckTile(
+                title: 'إضافة مشرف',
+                subtitle: 'المشرف يسجّل حضور الأطفال',
+                isCompleted: hasAddedSupervisor,
+                actionLabel: hasAddedSupervisor ? null : 'إضافة الآن',
+                onAction: hasAddedSupervisor ? null : onAddSupervisor,
+              ),
+
+              // خطوة 3: المسابقة
+              _CheckTile(
+                title: 'إطلاق مسابقة',
+                subtitle: 'حفّز الأطفال على المحافظة على الصلاة',
+                isCompleted: hasCreatedCompetition,
+                actionLabel: hasCreatedCompetition ? null : 'إطلاق الآن',
+                onAction: hasCreatedCompetition ? null : onCreateCompetition,
+              ),
+
+              SizedBox(height: 12),
+
+              // Progress bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: _completedCount / 3,
+                  minHeight: 8,
+                  backgroundColor: AppColors.backgroundMuted,
+                  valueColor: AlwaysStoppedAnimation(AppColors.success),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+
+┌─── دمجه في imam_dashboard_screen.dart ───┐
+
+  في build() → داخل الـ body ListView/Column:
+
+  // في أعلى المحتوى (بعد _buildHeroSection):
+  SetupChecklistCard(
+    hasAddedSupervisor: _supervisors.isNotEmpty,
+    hasCreatedCompetition: _hasActiveCompetition,
+    onAddSupervisor: () => _showCreateSupervisorDialog(context, mosque),
+    onCreateCompetition: () => context.push('/imam/competitions/${mosque.id}'),
+  ),
+
+  // ⚠ يحتاج:
+  // 1. _supervisors list (موجودة بالفعل)
+  // 2. _hasActiveCompetition bool:
+  //    - يُحمَّل في initState مع باقي البيانات
+  //    - final comps = await CompetitionRepository().getAllForMosque(mosqueId);
+  //    - _hasActiveCompetition = comps.isNotEmpty;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    نهاية الجزء الثاني
+     → الجزء الثالث: تجربة ولي الأمر ونظام المسابقات والمشاركة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

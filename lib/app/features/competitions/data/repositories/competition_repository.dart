@@ -194,8 +194,24 @@ class CompetitionRepository {
   // المسابقة النشطة للمسجد
   // ─────────────────────────────────────────────────────────
 
+  /// إنهاء المسابقات المنتهية تلقائياً
+  Future<void> _autoEndExpired(String mosqueId) async {
+    try {
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      await supabase
+          .from('competitions')
+          .update({'is_active': false})
+          .eq('mosque_id', mosqueId)
+          .eq('is_active', true)
+          .lt('end_date', today);
+    } catch (_) {
+      // تحسين فقط — لا نوقف العملية لو فشل
+    }
+  }
+
   Future<CompetitionModel?> getActive(String mosqueId) async {
     try {
+      await _autoEndExpired(mosqueId);
       final row = await supabase
           .from('competitions')
           .select()
@@ -215,6 +231,7 @@ class CompetitionRepository {
 
   Future<List<CompetitionModel>> getAllForMosque(String mosqueId) async {
     try {
+      await _autoEndExpired(mosqueId);
       final res = await supabase
           .from('competitions')
           .select()

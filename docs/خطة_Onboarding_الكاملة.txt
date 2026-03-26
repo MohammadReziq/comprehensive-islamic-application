@@ -1,0 +1,253 @@
+═══════════════════════════════════════════════════════════════════════════════
+                     خطة تفعيل وتحسين نظام الـ Onboarding
+═══════════════════════════════════════════════════════════════════════════════
+
+التاريخ: 2026-03-26
+الحالة: بانتظار الموافقة
+
+───────────────────────────────────────────────────────────────────────────────
+الجزء 0: ملخص الوضع الحالي
+───────────────────────────────────────────────────────────────────────────────
+
+✅ الـ Onboarding العام (لكل المستخدمين قبل التسجيل):
+   - شغّال ومفعّل
+   - في SplashScreen: إذا ما شاف الـ onboarding → يروح /onboarding، غير هيك → /login
+   - يحفظ `onboardingSeen = true` في SharedPreferences
+   - 3 صفحات مع Lottie animations
+
+❌ الـ Onboarding لكل دور (بعد أول تسجيل دخول):
+   - الشاشات موجودة كملفات لكن مش مربوطة بأي مكان
+   - في نسختين مكررتين لكل دور:
+     • النسخة A: في features/onboarding/ (standalone، gradient design، بدون callbacks)
+     • النسخة B: في features/<role>/ (callback-based، Google Fonts، light theme)
+   - ما في import أو استدعاء من أي dashboard أو home screen
+   - ما في route مسجل في app_router.dart
+   - ما في كود يقرأ الـ storage keys عشان يقرر يعرض الـ onboarding
+
+═══════════════════════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────────────────────
+الجزء 1: تنظيف الملفات المكررة
+───────────────────────────────────────────────────────────────────────────────
+
+المشكلة: لكل دور في نسختين من شاشة الـ onboarding
+
+الحل: نتبنى النسخة الموجودة في features/onboarding/ (النسخة A) كنسخة رسمية
+      لأنها:
+      1. تصميم gradient حديث ومتناسق مع الـ onboarding العام
+      2. standalone (تتعامل مع الـ navigation بنفسها)
+      3. ما بتحتاج callbacks من البرا (أبسط للربط)
+
+الخطوات:
+  [1.1] حذف الملفات المكررة (النسخة B):
+        ❌ lib/app/features/parent/presentation/screens/parent_onboarding_screen.dart
+        ❌ lib/app/features/imam/presentation/screens/imam_onboarding_screen.dart
+        ❌ lib/app/features/supervisor/presentation/screens/supervisor_onboarding_screen.dart
+
+  [1.2] التأكد إنه ما في أي import لهاي الملفات المحذوفة في أي مكان
+        (البحث أكد: ما في أي استخدام — الملفات كود ميت فقط)
+
+───────────────────────────────────────────────────────────────────────────────
+الجزء 2: تحسين شاشة Onboarding ولي الأمر (الأهم)
+───────────────────────────────────────────────────────────────────────────────
+
+الملف: lib/app/features/onboarding/presentation/screens/parent_onboarding_screen.dart
+
+الوضع الحالي:
+  - 3 صفحات: ترحيب → إضافة طفل → كود المسجد
+  - الإدخال inline في نفس الشاشة (اسم الطفل + العمر + كود المسجد)
+  - عند الإنهاء: يحفظ الطفل + يربطه بالمسجد + يروح /home
+
+التحسينات المطلوبة:
+
+  [2.1] إضافة Validation للحقول:
+        • اسم الطفل: لازم يكون 2+ حرف عربي/إنجليزي
+        • العمر: لازم يكون رقم بين 3 و 18
+        • كود المسجد: اختياري، لكن إذا أدخله لازم يكون بالشكل الصحيح
+        • عرض رسائل خطأ واضحة تحت كل حقل
+
+  [2.2] التعامل مع حالات الأخطاء:
+        • لو فشل إضافة الطفل → عرض SnackBar واضح + المتابعة عادي
+        • لو فشل ربط المسجد → عرض SnackBar واضح + المتابعة عادي
+        • لو فشل حفظ الـ onboardingSeen → try-catch + log
+
+  [2.3] تحسين الـ UX:
+        • إضافة animations (flutter_animate) مثل الـ onboarding العام
+        • زر "رجوع" للصفحات مش الأولى
+        • عند الضغط "تخطي" في صفحة إضافة الطفل → تنظيف الحقول
+        • مؤشر Loading أثناء حفظ البيانات على زر "ابدأ استخدام التطبيق"
+          (موجود بالفعل ✅ لكن نتأكد من حالة الخطأ)
+        • حماية الضغط المزدوج على الأزرار (debounce)
+
+  [2.4] حالات حدّية لازم نغطيها:
+        • المستخدم يضغط زر الرجوع في الجهاز (Android back) → WillPopScope
+        • المستخدم يقفل التطبيق قبل ما يخلص → الـ onboarding يظهر مرة ثانية (✅ تلقائي)
+        • المستخدم يدخل عمر = 0 أو سالب → validation
+        • المستخدم يدخل اسم فارغ (مسافات فقط) → trim + validation
+        • حقل الكود المسجدي فارغ → يتخطاه بدون محاولة ربط (✅ موجود)
+
+───────────────────────────────────────────────────────────────────────────────
+الجزء 3: تحسين شاشة Onboarding الإمام
+───────────────────────────────────────────────────────────────────────────────
+
+الملف: lib/app/features/onboarding/presentation/screens/imam_onboarding_screen.dart
+
+الوضع الحالي:
+  - صفحة واحدة: ترحيب + checklist (إنشاء مسجد ✅ + إضافة مشرف + إطلاق مسابقة)
+  - عند الإنهاء: يحفظ imamOnboardingSeen + يروح /imam/dashboard
+
+التحسينات المطلوبة:
+
+  [3.1] إضافة animations (flutter_animate):
+        • fadeIn + slideY للأيقونة والعنوان والوصف
+        • staggered animation للـ checklist items
+
+  [3.2] إضافة زر "تخطي" أسفل الشاشة:
+        • حالياً فقط زر "متابعة إلى لوحة التحكم"
+        • نضيف "لاحقاً" أو "تخطي" كـ TextButton
+
+  [3.3] التأكد من context.mounted قبل الـ navigation (✅ موجود)
+
+───────────────────────────────────────────────────────────────────────────────
+الجزء 4: تحسين شاشة Onboarding المشرف
+───────────────────────────────────────────────────────────────────────────────
+
+الملف: lib/app/features/onboarding/presentation/screens/supervisor_onboarding_screen.dart
+
+الوضع الحالي:
+  - صفحة واحدة: ترحيب + 3 طرق تسجيل الحضور (QR, رقم, اسم)
+  - عند الإنهاء: يحفظ supervisorOnboardingSeen + يروح /supervisor/dashboard
+
+التحسينات المطلوبة:
+
+  [4.1] إضافة animations (flutter_animate):
+        • fadeIn + slideY للعنوان والوصف
+        • staggered animation للـ task items
+
+  [4.2] التأكد من context.mounted قبل الـ navigation (✅ موجود)
+
+───────────────────────────────────────────────────────────────────────────────
+الجزء 5: ربط شاشات الـ Onboarding بالنظام (الأساس)
+───────────────────────────────────────────────────────────────────────────────
+
+هذا أهم جزء — بدون هالخطوات الشاشات تبقى كود ميت.
+
+  [5.1] تسجيل Routes في app_router.dart:
+        إضافة 3 routes جديدة:
+        
+        '/parent/onboarding'  → ParentOnboardingScreen
+        '/imam/onboarding'    → ImamOnboardingScreen
+        '/supervisor/onboarding' → SupervisorOnboardingScreen
+
+  [5.2] تعديل redirect logic في app_router.dart:
+        بعد التأكد من الـ role، نفحص إذا شاف الـ role onboarding أو لا:
+        
+        • ولي أمر مسجل دخول + ما شاف parent onboarding → '/parent/onboarding'
+        • إمام مسجل دخول + ما شاف imam onboarding → '/imam/onboarding'  
+        • مشرف مسجل دخول + ما شاف supervisor onboarding → '/supervisor/onboarding'
+        
+        ⚠️ مهم: الـ redirect لازم يكون async لأنه يقرأ SharedPreferences
+        الحل: نعمل cache مثل ما عملنا مع _onboardingSeen العام
+        نضيف:
+          bool? _parentOnboardingSeen;
+          bool? _imamOnboardingSeen;
+          bool? _supervisorOnboardingSeen;
+        
+        ملاحظة مهمة: GoRouter redirect هو sync — ما بيقبل async!
+        الحل البديل الأفضل: بدل ما نعدل الـ redirect (اللي sync)،
+        نفحص في الـ initState تبع كل dashboard/home screen:
+        
+        • HomeScreen.initState → يفحص parentOnboardingSeen
+          إذا false → context.go('/parent/onboarding')
+        • ImamDashboardScreen.initState → يفحص imamOnboardingSeen
+          إذا false → context.go('/imam/onboarding')  
+        • SupervisorDashboardScreen.initState → يفحص supervisorOnboardingSeen
+          إذا false → context.go('/supervisor/onboarding')
+
+        هذا الأسلوب:
+        ✅ ما بيتعارض مع الـ redirect الحالي
+        ✅ بيشتغل async بشكل طبيعي
+        ✅ بيتحقق أول ما يدخل الـ dashboard
+        ✅ بعد ما يخلّص الـ onboarding → يرجع للـ dashboard عادي
+
+  [5.3] تعديل HomeScreen.initState:
+        الملف: lib/app/features/parent/presentation/screens/home_screen.dart
+        
+        إضافة فحص في initState:
+        ```
+        final prefs = await SharedPreferences.getInstance();
+        final seen = prefs.getBool(AppStorageKeys.parentOnboardingSeen) ?? false;
+        if (!seen && mounted) {
+          context.go('/parent/onboarding');
+          return;
+        }
+        ```
+
+  [5.4] تعديل ImamDashboardScreen.initState:
+        الملف: lib/app/features/imam/presentation/screens/imam_dashboard_screen.dart
+        
+        إضافة فحص مماثل مع imamOnboardingSeen
+
+  [5.5] تعديل SupervisorDashboardScreen.initState:
+        الملف: lib/app/features/supervisor/presentation/screens/supervisor_dashboard_screen.dart
+        
+        إضافة فحص مماثل مع supervisorOnboardingSeen
+
+  [5.6] تحديث الـ redirect في app_router.dart:
+        إضافة مسارات الـ onboarding للأدوار في قائمة المسارات المسموحة
+        عشان الـ redirect ما يعيد توجيههم بالغلط:
+        
+        • /parent/onboarding يُعامل مثل /home (مسموح لولي الأمر)
+        • /imam/onboarding يُعامل مثل /imam/* (مسموح للإمام)
+        • /supervisor/onboarding يُعامل مثل /supervisor/* (مسموح للمشرف)
+
+───────────────────────────────────────────────────────────────────────────────
+الجزء 6: التحقق والاختبار
+───────────────────────────────────────────────────────────────────────────────
+
+  [6.1] اختبار ولي الأمر:
+        1. امسح الـ app data أو احذف 'parent_onboarding_seen' من SharedPreferences
+        2. سجل دخول كولي أمر
+        3. يجب أن يظهر الـ Parent Onboarding تلقائياً
+        4. جرّب الصفحات الثلاث (ترحيب → إضافة طفل → كود المسجد)
+        5. جرّب زر "تخطي" → يجب أن يروح /home
+        6. أقفل وافتح التطبيق → يجب أن يروح /home مباشرة (بدون onboarding)
+        
+        حالات خاصة:
+        • أدخل اسم فارغ + اضغط التالي → يجب يظهر خطأ أو يتخطى
+        • أدخل عمر = 0 → يجب يظهر خطأ
+        • أدخل كود مسجد غلط → يجب يطلع رسالة + يكمل عادي
+
+  [6.2] اختبار الإمام:
+        1. سجل دخول كإمام (بعد مسح imam_onboarding_seen)
+        2. يجب أن يظهر الـ Imam Onboarding قبل الـ Dashboard
+        3. اضغط "متابعة إلى لوحة التحكم"
+        4. أقفل وافتح → يجب أن يروح Dashboard مباشرة
+
+  [6.3] اختبار المشرف:
+        1. سجل دخول كمشرف (بعد مسح supervisor_onboarding_seen)
+        2. يجب أن يظهر الـ Supervisor Onboarding
+        3. اضغط "ابدأ التحضير"
+        4. أقفل وافتح → يجب أن يروح Dashboard مباشرة
+
+  [6.4] اختبار الـ Onboarding العام:
+        1. تأكد أنه ما تأثر بالتغييرات
+        2. مستخدم جديد تماماً → يشوف الـ onboarding العام أولاً → login → role onboarding
+
+  [6.5] Regression tests:
+        • المستخدم اللي شاف كل الـ onboarding → يدخل مباشرة
+        • تبديل الأدوار (لو ممكن) → كل دور يشوف onboarding-ه
+        • قفل التطبيق أثناء الـ onboarding → يظهر مرة ثانية
+
+───────────────────────────────────────────────────────────────────────────────
+ترتيب التنفيذ
+───────────────────────────────────────────────────────────────────────────────
+
+الخطوة 1: حذف الملفات المكررة (الجزء 1)
+الخطوة 2: تحسين شاشة ولي الأمر (الجزء 2) — الأولوية الأعلى
+الخطوة 3: تحسين شاشة الإمام (الجزء 3)
+الخطوة 4: تحسين شاشة المشرف (الجزء 4)
+الخطوة 5: تسجيل الـ Routes + ربط الـ Onboarding بالنظام (الجزء 5)
+الخطوة 6: الاختبار الشامل (الجزء 6)
+
+═══════════════════════════════════════════════════════════════════════════════

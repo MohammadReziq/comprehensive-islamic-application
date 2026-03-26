@@ -198,6 +198,41 @@ class AdminRepository {
     }
   }
 
+  // ─── إنشاء حساب إمام ───
+
+  /// إنشاء حساب إمام جديد عبر Edge Function
+  Future<Map<String, dynamic>> createImamAccount({
+    required String name,
+    required String email,
+    required String tempPassword,
+  }) async {
+    try {
+      final response = await supabase.functions.invoke(
+        'create-imam-account',
+        body: {
+          'name': name,
+          'email': email,
+          'temp_password': tempPassword,
+        },
+      );
+
+      if (response.status != 200) {
+        final errorData = response.data as Map<String, dynamic>?;
+        final errorMsg =
+            errorData?['error'] as String? ?? 'حدث خطأ غير متوقع';
+        throw Exception(errorMsg);
+      }
+
+      return response.data as Map<String, dynamic>;
+    } on Exception catch (e) {
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('ClientException')) {
+        throw Exception('تحقق من اتصالك بالإنترنت وحاول مجدداً');
+      }
+      rethrow;
+    }
+  }
+
   static String _dateStr(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

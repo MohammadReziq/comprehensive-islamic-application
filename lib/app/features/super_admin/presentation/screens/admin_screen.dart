@@ -6,6 +6,7 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../bloc/admin_bloc.dart';
 import '../bloc/admin_event.dart';
 import '../bloc/admin_state.dart';
+import '../widgets/create_imam_dialog.dart';
 import 'admin_screen_tabs.dart';
 
 // ══════════════════════════════════════════════════════════════════
@@ -39,7 +40,6 @@ class _AdminScreenState extends State<AdminScreen>
     _fadeController.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // تحميل المساجد فوراً (التبويب الافتراضي) حتى تظهر القائمة دون الحاجة لضغط "الكل" أو التبويب
       context.read<AdminBloc>().add(const LoadAllMosques());
     });
   }
@@ -85,6 +85,16 @@ class _AdminScreenState extends State<AdminScreen>
               ),
             ),
           ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => showDialog(
+            context: context,
+            builder: (_) => const CreateImamDialog(),
+          ),
+          backgroundColor: AppColors.primaryDark,
+          icon: const Icon(Icons.person_add, color: Colors.white),
+          label: const Text('إنشاء حساب إمام',
+              style: TextStyle(color: Colors.white)),
         ),
         bottomNavigationBar: _AdminBottomNav(
           currentIndex: _currentIndex,

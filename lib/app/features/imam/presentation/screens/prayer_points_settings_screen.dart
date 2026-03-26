@@ -7,6 +7,8 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../injection_container.dart';
 import '../../data/repositories/imam_repository.dart';
+import '../../../competitions/data/repositories/competition_repository.dart';
+import '../../../../core/network/supabase_client.dart';
 import '../bloc/imam_bloc.dart';
 import '../bloc/imam_event.dart';
 import '../bloc/imam_state.dart';
@@ -86,12 +88,90 @@ class _PrayerPointsSettingsScreenState extends State<PrayerPointsSettingsScreen>
     return map;
   }
 
-  void _save() {
-    if (_formKey.currentState?.validate() ?? false) {
-      final points = _getPointsFromFields();
-      context.read<ImamBloc>().add(
-            UpdateMosquePrayerPoints(widget.mosqueId, points),
-          );
+  Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final points = _getPointsFromFields();
+
+    // تحقق: هل المسابقة نشطة؟
+    try {
+      final activeComp =
+          await sl<CompetitionRepository>().getActive(widget.mosqueId);
+
+      if (activeComp != null && mounted) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('تغيير النقاط أثناء المسابقة'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('المسابقة "${activeComp.nameAr}" نشطة حالياً.'),
+                const SizedBox(height: 8),
+                const Text(
+                    'سيتم تطبيق النقاط الجديدة على الحضور القادم فقط.'),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.warningLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                      '⚠ سيتم إرسال إعلان تلقائي لأولياء الأمور'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('إلغاء')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('تأكيد التغيير')),
+            ],
+          ),
+        );
+
+        if (confirmed != true) return;
+      }
+
+      if (mounted) {
+        context.read<ImamBloc>().add(
+              UpdateMosquePrayerPoints(widget.mosqueId, points),
+            );
+      }
+
+      // إنشاء إعلان تلقائي لو مسابقة نشطة
+      if (activeComp != null) {
+        await _createPointsChangedAnnouncement(points);
+      }
+    } catch (_) {
+      // fallback: احفظ بدون فحص
+      if (mounted) {
+        context.read<ImamBloc>().add(
+              UpdateMosquePrayerPoints(widget.mosqueId, points),
+            );
+      }
+    }
+  }
+
+  Future<void> _createPointsChangedAnnouncement(
+      Map<Prayer, int> newPoints) async {
+    try {
+      final buffer = StringBuffer('تم تحديث نقاط الصلوات:\n');
+      for (final p in Prayer.values) {
+        buffer.writeln('${p.nameAr}: ${newPoints[p]} نقطة');
+      }
+      buffer.writeln('\nينطبق على الحضور القادم.');
+
+      await supabase.from('announcements').insert({
+        'mosque_id': widget.mosqueId,
+        'sender_id': supabase.auth.currentUser!.id,
+        'title': 'تحديث نقاط المسابقة',
+        'body': buffer.toString(),
+      });
+    } catch (_) {
+      // لا نوقف العملية
     }
   }
 

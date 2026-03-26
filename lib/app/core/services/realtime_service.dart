@@ -205,6 +205,71 @@ class RealtimeService {
     _announcementsChannel = null;
   }
 
+  // ─── قنوات جديدة (مسابقات + تصحيحات لولي الأمر) ───
+
+  RealtimeChannel? _competitionsChannel;
+  RealtimeChannel? _correctionUpdatesChannel;
+
+  /// الاشتراك في تغييرات المسابقة لمسجد
+  void subscribeCompetitions(
+    String mosqueId,
+    void Function(PostgresChangePayload payload) onEvent,
+  ) {
+    _competitionsChannel?.unsubscribe();
+
+    final channelName =
+        'competitions-${DateTime.now().millisecondsSinceEpoch}';
+    _competitionsChannel = supabase
+        .channel(channelName)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'competitions',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'mosque_id',
+            value: mosqueId,
+          ),
+          callback: onEvent,
+        )
+        .subscribe();
+  }
+
+  /// الاشتراك في تحديثات التصحيح (لولي الأمر — قبول/رفض)
+  void subscribeCorrectionUpdates(
+    String parentId,
+    void Function(PostgresChangePayload payload) onEvent,
+  ) {
+    _correctionUpdatesChannel?.unsubscribe();
+
+    final channelName =
+        'correction-updates-${DateTime.now().millisecondsSinceEpoch}';
+    _correctionUpdatesChannel = supabase
+        .channel(channelName)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'correction_requests',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'parent_id',
+            value: parentId,
+          ),
+          callback: onEvent,
+        )
+        .subscribe();
+  }
+
+  void unsubscribeCompetitions() {
+    _competitionsChannel?.unsubscribe();
+    _competitionsChannel = null;
+  }
+
+  void unsubscribeCorrectionUpdates() {
+    _correctionUpdatesChannel?.unsubscribe();
+    _correctionUpdatesChannel = null;
+  }
+
   /// إلغاء كل الاشتراكات
   void dispose() {
     unsubscribeAttendance();
@@ -213,6 +278,8 @@ class RealtimeService {
     unsubscribeCorrections();
     unsubscribeNotes();
     unsubscribeAnnouncements();
+    unsubscribeCompetitions();
+    unsubscribeCorrectionUpdates();
   }
 }
 

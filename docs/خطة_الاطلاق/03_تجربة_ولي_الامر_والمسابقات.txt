@@ -1,0 +1,1111 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                   صلاتي حياتي — خطة الإطلاق النهائية                          ║
+║         الجزء الثالث: تجربة ولي الأمر ونظام المسابقات والمشاركة              ║
+║                                                                                ║
+║  يشمل: C5 + C6 + C7 + I4 + I5 + I7                                          ║
+║  التاريخ: 2026-03-22                                                          ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                         الفهرس
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [C5]  بانر المسابقة — 4 حالات لولي الأمر ................... سطر 25
+  [C5+] حضور اليوم — الصلوات الخمس .......................... سطر 250
+  [C6]  إنهاء المسابقة تلقائياً .............................. سطر 380
+  [C7]  Realtime — subscriptions جديدة ....................... سطر 470
+  [I4]  نقاط الصلوات — تحكم الإمام .......................... سطر 600
+  [I5]  QR Code — يعمل بدون إنترنت .......................... سطر 730
+  [I7]  نسخ/مشاركة نتائج المسابقة .......................... سطر 850
+  [QA]  قائمة تحقق الاختبار .................................. سطر 940
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [C5] بانر المسابقة — 4 حالات لولي الأمر                              ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  الملف: lib/app/features/parent/presentation/screens/home_screen.dart │
+│  الحجم: 1347 سطر                                                      │
+│                                                                        │
+│  الدالة الحالية: _buildCompetitionBanner()                            │
+│  ⚠ المشكلة: تعرض حالتين فقط (نشطة أو لا توجد)                     │
+│  المطلوب: 4 حالات + عدّ أيام + اسم المسابقة + اسم المسجد            │
+│                                                                        │
+│  البيانات المتاحة:                                                    │
+│  • CompetitionModel: nameAr, startDate, endDate, isActive, mosqueId  │
+│  • MosqueModel: name, inviteCode                                      │
+│  • من home_screen: الأطفال + مساجدهم عبر mosque_children             │
+│                                                                        │
+└────────────────────┘
+
+┌─── Widget الجديد: CompetitionBannerWidget ───┐
+
+  الملف الجديد:
+  lib/app/features/parent/presentation/widgets/competition_banner_widget.dart
+
+  // ─── Enum للحالة ───
+  enum CompetitionDisplayState {
+    active,    // مسابقة نشطة الآن
+    upcoming,  // ستبدأ قريباً
+    ended,     // انتهت مؤخراً (آخر 7 أيام)
+    none,      // لا توجد مسابقات
+  }
+
+  class CompetitionBannerWidget extends StatelessWidget {
+    final CompetitionModel? competition;
+    final String? mosqueName;
+    final VoidCallback? onViewResults;
+    final VoidCallback? onViewDetails;
+
+    const CompetitionBannerWidget({
+      super.key,
+      this.competition,
+      this.mosqueName,
+      this.onViewResults,
+      this.onViewDetails,
+    });
+
+    CompetitionDisplayState get _state {
+      if (competition == null) return CompetitionDisplayState.none;
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      if (competition!.isActive) {
+        // نشطة: تحقق أنها لم تنتهِ
+        final endDate = competition!.endDate;
+        if (endDate.isBefore(today)) {
+          return CompetitionDisplayState.ended;
+        }
+        return CompetitionDisplayState.active;
+      }
+
+      // غير نشطة: هل هي قادمة أم منتهية؟
+      final startDate = competition!.startDate;
+      if (startDate.isAfter(today)) {
+        return CompetitionDisplayState.upcoming;
+      }
+
+      final endDate = competition!.endDate;
+      final sevenDaysAgo = today.subtract(Duration(days: 7));
+      if (endDate.isAfter(sevenDaysAgo)) {
+        return CompetitionDisplayState.ended;
+      }
+
+      return CompetitionDisplayState.none;
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return switch (_state) {
+        CompetitionDisplayState.active => _buildActiveBanner(context),
+        CompetitionDisplayState.upcoming => _buildUpcomingBanner(context),
+        CompetitionDisplayState.ended => _buildEndedBanner(context),
+        CompetitionDisplayState.none => _buildNoBanner(context),
+      };
+    }
+
+
+    // ═══ الحالة 1: مسابقة نشطة ═══
+    // بطاقة خضراء مع gradient
+    Widget _buildActiveBanner(BuildContext context) {
+      final daysLeft = competition!.endDate
+          .difference(DateTime.now()).inDays;
+
+      return Container(
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0xFF2E7D32).withOpacity(0.3),
+              blurRadius: 12, offset: Offset(0, 4)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.emoji_events, color: Colors.amber, size: 24),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    competition!.nameAr,
+                    style: GoogleFonts.cairo(
+                      fontSize: 16, fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (mosqueName != null) ...[
+              SizedBox(height: 4),
+              Text('مسجد $mosqueName',
+                style: GoogleFonts.cairo(fontSize: 13, color: Colors.white70)),
+            ],
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.timer_outlined, color: Colors.white70, size: 18),
+                SizedBox(width: 4),
+                Text(
+                  daysLeft > 0
+                    ? 'باقي $daysLeft ${daysLeft == 1 ? "يوم" : "أيام"}'
+                    : 'آخر يوم اليوم!',
+                  style: GoogleFonts.cairo(
+                    fontSize: 14, color: Colors.white,
+                    fontWeight: daysLeft <= 1 ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                Spacer(),
+                TextButton(
+                  onPressed: onViewDetails,
+                  child: Text('التفاصيل',
+                    style: GoogleFonts.cairo(color: Colors.white)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+
+    // ═══ الحالة 2: مسابقة قادمة ═══
+    // بطاقة زرقاء هادئة
+    Widget _buildUpcomingBanner(BuildContext context) {
+      final daysUntil = competition!.startDate
+          .difference(DateTime.now()).inDays;
+
+      return Container(
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_today, color: Colors.white, size: 24),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(competition!.nameAr,
+                    style: GoogleFonts.cairo(
+                      fontSize: 15, fontWeight: FontWeight.bold,
+                      color: Colors.white)),
+                  Text(
+                    'تبدأ بعد $daysUntil ${daysUntil == 1 ? "يوم" : "أيام"}',
+                    style: GoogleFonts.cairo(fontSize: 13, color: Colors.white70)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+
+    // ═══ الحالة 3: مسابقة منتهية ═══
+    // بطاقة رمادية مع زر النتائج
+    Widget _buildEndedBanner(BuildContext context) {
+      return Container(
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.emoji_events_outlined, color: Colors.grey, size: 24),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('انتهت ${competition!.nameAr}',
+                    style: GoogleFonts.cairo(
+                      fontSize: 14, color: Colors.grey.shade700)),
+                  Text('اطلع على النتائج والترتيب',
+                    style: GoogleFonts.cairo(
+                      fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+            ),
+            TextButton.icon(
+              onPressed: onViewResults,
+              icon: Icon(Icons.leaderboard, size: 18),
+              label: Text('النتائج'),
+            ),
+          ],
+        ),
+      );
+    }
+
+
+    // ═══ الحالة 4: لا توجد مسابقات ═══
+    // بطاقة هادئة تشجيعية
+    Widget _buildNoBanner(BuildContext context) {
+      return Container(
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.mosque_outlined, color: AppColors.primaryLight, size: 24),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text('تابع حضور أطفالك للصلاة',
+                style: GoogleFonts.cairo(
+                  fontSize: 14, color: AppColors.textSecondary)),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+
+┌─── دمجه في home_screen.dart ───┐
+
+  // بدل _buildCompetitionBanner() الحالية:
+  // 1. احسب المسابقة الأقرب لكل مسجد مرتبط بأطفال المستخدم
+  // 2. لو أكثر من مسجد → اعرض بانر لكل مسجد
+
+  // في الـ BLoC أو الشاشة مباشرة:
+  Future<CompetitionModel?> _getLatestCompetition(String mosqueId) async {
+    final comps = await supabase
+      .from('competitions')
+      .select()
+      .eq('mosque_id', mosqueId)
+      .order('created_at', ascending: false)
+      .limit(1);
+
+    if (comps.isEmpty) return null;
+    return CompetitionModel.fromJson(comps.first);
+  }
+
+  // في build():
+  // لكل مسجد مرتبط:
+  for (final mosqueId in linkedMosqueIds) ...[
+    CompetitionBannerWidget(
+      competition: _competitions[mosqueId],
+      mosqueName: _mosqueNames[mosqueId],
+      onViewResults: () => _navigateToResults(mosqueId),
+      onViewDetails: () => _navigateToCompDetails(mosqueId),
+    ),
+  ],
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [C5+] حضور اليوم — الصلوات الخمس                                     ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── المطلوب ───┐
+│                                                                        │
+│  في home_screen.dart: قسم "حضور اليوم" لكل طفل                      │
+│  يعرض الصلوات الخمس: ✅ حضر | ─ لم يُسجَّل                         │
+│                                                                        │
+│  التصميم:                                                              │
+│  ┌──────────────────────────────────────────┐                          │
+│  │  حضور اليوم — أحمد                      │                         │
+│  │  ┌────┬────┬────┬────┬────┐              │                         │
+│  │  │ فجر│ ظهر│ عصر│ مغرب│عشاء│             │                         │
+│  │  │ ✅ │ ✅ │ ─  │ ─  │ ─  │              │                         │
+│  │  └────┴────┴────┴────┴────┘              │                         │
+│  └──────────────────────────────────────────┘                          │
+│                                                                        │
+└────────────────┘
+
+┌─── Widget الجديد: DailyAttendanceRow ───┐
+
+  الملف الجديد:
+  lib/app/features/parent/presentation/widgets/daily_attendance_row.dart
+
+  class DailyAttendanceRow extends StatelessWidget {
+    final ChildModel child;
+    final List<AttendanceModel> todayAttendance;
+
+    const DailyAttendanceRow({
+      super.key,
+      required this.child,
+      required this.todayAttendance,
+    });
+
+    bool _isAttended(Prayer prayer) {
+      return todayAttendance.any((a) => a.prayer == prayer);
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return Card(
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // اسم الطفل
+              Text('حضور اليوم — ${child.name}',
+                style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600)),
+              SizedBox(height: 12),
+
+              // الصلوات الخمس
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: Prayer.values.map((prayer) {
+                  final attended = _isAttended(prayer);
+                  return _PrayerIndicator(
+                    prayer: prayer,
+                    attended: attended,
+                  );
+                }).toList(),
+              ),
+
+              // إحصائية سريعة
+              SizedBox(height: 8),
+              _buildSummary(),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget _buildSummary() {
+      final attendedCount = Prayer.values.where(_isAttended).length;
+      final text = '$attendedCount من 5 صلوات';
+      final color = attendedCount >= 4 ? AppColors.success
+          : attendedCount >= 2 ? Colors.orange
+          : Colors.red;
+
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_outline, size: 16, color: color),
+          SizedBox(width: 4),
+          Text(text, style: GoogleFonts.cairo(fontSize: 12, color: color)),
+        ],
+      );
+    }
+  }
+
+  class _PrayerIndicator extends StatelessWidget {
+    final Prayer prayer;
+    final bool attended;
+
+    Widget build(BuildContext context) {
+      return Column(
+        children: [
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              color: attended ? AppColors.success.withOpacity(0.15) : Colors.grey.shade100,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: attended ? AppColors.success : Colors.grey.shade300,
+                width: attended ? 2 : 1,
+              ),
+            ),
+            child: Center(
+              child: attended
+                ? Icon(Icons.check, color: AppColors.success, size: 22)
+                : Text('─', style: TextStyle(color: Colors.grey, fontSize: 18)),
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(prayer.nameAr,
+            style: GoogleFonts.cairo(
+              fontSize: 11,
+              color: attended ? AppColors.success : Colors.grey,
+              fontWeight: attended ? FontWeight.bold : FontWeight.normal,
+            )),
+        ],
+      );
+    }
+  }
+
+
+┌─── دمجه في home_screen.dart ───┐
+
+  // في الـ build، بعد بانر المسابقة:
+  // لكل طفل مربوط بمسجد:
+
+  for (final child in children) ...[
+    DailyAttendanceRow(
+      child: child,
+      todayAttendance: _todayAttendanceMap[child.id] ?? [],
+    ),
+  ],
+
+  // جلب حضور اليوم:
+  Future<void> _loadTodayAttendance() async {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final childIds = children.map((c) => c.id).toList();
+
+    final data = await supabase
+      .from('attendance')
+      .select()
+      .inFilter('child_id', childIds)
+      .eq('prayer_date', today);
+
+    setState(() {
+      _todayAttendanceMap = {};
+      for (final row in data) {
+        final childId = row['child_id'] as String;
+        _todayAttendanceMap.putIfAbsent(childId, () => []);
+        _todayAttendanceMap[childId]!.add(AttendanceModel.fromJson(row));
+      }
+    });
+  }
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [C6] إنهاء المسابقة تلقائياً                                         ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الآلية ───┐
+│                                                                        │
+│  بدلاً من Cron Job: نفحص عند كل طلب بيانات                          │
+│  → بسيط، فعّال، لا يحتاج بنية إضافية                                │
+│                                                                        │
+└──────────────┘
+
+┌─── التعديل المطلوب ───┐
+
+  الملف: lib/app/features/competitions/data/repositories/
+         competition_repository.dart
+
+  // إضافة دالة خاصة تُستدعى قبل أي جلب:
+
+  Future<void> _autoEndExpired(String mosqueId) async {
+    final today = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD
+
+    // حدّث كل المسابقات المنتهية
+    await supabase
+      .from('competitions')
+      .update({'is_active': false})
+      .eq('mosque_id', mosqueId)
+      .eq('is_active', true)
+      .lt('end_date', today);
+
+    // ⚠ لا ترمي exception لو فشل — هذا تحسين وليس مطلب أساسي
+  }
+
+  // استخدامها:
+  Future<CompetitionModel?> getActiveForMosque(String mosqueId) async {
+    await _autoEndExpired(mosqueId);  // ← تنظيف أولاً
+
+    final data = await supabase
+      .from('competitions')
+      .select()
+      .eq('mosque_id', mosqueId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (data == null) return null;
+    return CompetitionModel.fromJson(data);
+  }
+
+  Future<List<CompetitionModel>> getAllForMosque(String mosqueId) async {
+    await _autoEndExpired(mosqueId);  // ← تنظيف أولاً
+
+    final data = await supabase
+      .from('competitions')
+      .select()
+      .eq('mosque_id', mosqueId)
+      .order('created_at', ascending: false);
+
+    return (data as List).map((e) => CompetitionModel.fromJson(e)).toList();
+  }
+
+
+  // ⚠ حالة حدّية:
+  // لو المسابقة تنتهي اليوم → end_date = today
+  // lt('end_date', today) يعني end_date < today
+  // ← المسابقة تبقى نشطة حتى نهاية يوم end_date ✅
+
+  // ⚠ حالة حدّية 2:
+  // لو مسابقتان نشطتان في نفس الوقت (خطأ بشري من الإمام)
+  // → الدالة تُنهي كلاهما لو انتهتا
+  // → يجب منع إنشاء مسابقة نشطة ثانية:
+
+  Future<void> createCompetition(CompetitionModel comp) async {
+    // تحقق: لا توجد مسابقة نشطة
+    final existing = await getActiveForMosque(comp.mosqueId);
+    if (existing != null) {
+      throw Exception('يوجد مسابقة نشطة بالفعل. أنهها أولاً');
+    }
+    // ... الإنشاء
+  }
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [C7] Realtime — subscriptions جديدة ومُحسّنة                         ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  realtime_service.dart (219 سطر):                                     │
+│  ✅ subscribeAttendanceForChildIds()                                  │
+│  ✅ subscribeToMosques()                                              │
+│  ✅ subscribeToMosqueChildren()                                       │
+│  ✅ subscribeCorrectionRequests()                                      │
+│  ✅ subscribeNotes()                                                   │
+│  ✅ subscribeAnnouncements()                                           │
+│  ✅ unsubscribe(channelName)                                          │
+│                                                                        │
+│  ⚠ ينقص:                                                             │
+│  • subscription لتغيير حالة المسابقة                                 │
+│  • subscription لطلبات التصحيح الجديدة (للمشرف)                     │
+│  • subscription لرد التصحيح (لولي الأمر)                             │
+│  • subscription لحضور اليوم (لولي الأمر — live updates)             │
+│                                                                        │
+└────────────────────┘
+
+┌─── الإضافات المطلوبة ───┐
+
+  الملف: lib/app/core/services/realtime_service.dart
+
+  // 1. تغيير حالة المسابقة:
+  RealtimeChannel subscribeCompetitions({
+    required String mosqueId,
+    required void Function(Map<String, dynamic>) onChanged,
+  }) {
+    final channel = supabase.channel('competitions_$mosqueId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public', table: 'competitions',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'mosque_id', value: mosqueId,
+        ),
+        callback: (payload) {
+          onChanged(payload.newRecord);
+        },
+      )
+      .subscribe();
+
+    _activeChannels['competitions_$mosqueId'] = channel;
+    return channel;
+  }
+
+
+  // 2. طلبات تصحيح (للمشرف/الإمام):
+  RealtimeChannel subscribeCorrectionRequestsInsert({
+    required String mosqueId,
+    required void Function(Map<String, dynamic>) onNewRequest,
+  }) {
+    final channel = supabase.channel('corrections_insert_$mosqueId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public', table: 'correction_requests',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'mosque_id', value: mosqueId,
+        ),
+        callback: (payload) {
+          onNewRequest(payload.newRecord);
+        },
+      )
+      .subscribe();
+
+    _activeChannels['corrections_insert_$mosqueId'] = channel;
+    return channel;
+  }
+
+
+  // 3. رد على التصحيح (لولي الأمر):
+  RealtimeChannel subscribeCorrectionRequestsUpdate({
+    required String parentId,
+    required void Function(Map<String, dynamic>) onUpdated,
+  }) {
+    final channel = supabase.channel('corrections_update_$parentId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public', table: 'correction_requests',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'parent_id', value: parentId,
+        ),
+        callback: (payload) {
+          onUpdated(payload.newRecord);
+        },
+      )
+      .subscribe();
+
+    _activeChannels['corrections_update_$parentId'] = channel;
+    return channel;
+  }
+
+
+  // 4. حضور اليوم (live):
+  // ← يُستخدم في home_screen لتحديث DailyAttendanceRow فوراً
+  // ← الدالة subscribeAttendanceForChildIds موجودة بالفعل ✅
+  // ← نحتاج فقط استدعاءها من home_screen
+
+
+┌─── Dispose صحيح ───┐
+
+  ⚠ مهم جداً — كل subscription يجب أن يُلغى عند الخروج من الشاشة!
+
+  // النمط المطلوب في كل شاشة تستخدم Realtime:
+
+  class _SomeScreenState extends State<SomeScreen> {
+    final List<String> _channelNames = [];
+
+    @override
+    void initState() {
+      super.initState();
+      _setupRealtime();
+    }
+
+    void _setupRealtime() {
+      // 1. subscribe
+      final channel = sl<RealtimeService>().subscribeCompetitions(
+        mosqueId: widget.mosqueId,
+        onChanged: (data) {
+          // حدّث الـ state
+          setState(() {
+            _competition = CompetitionModel.fromJson(data);
+          });
+        },
+      );
+      _channelNames.add('competitions_${widget.mosqueId}');
+    }
+
+    @override
+    void dispose() {
+      // إلغاء كل الـ subscriptions
+      for (final name in _channelNames) {
+        sl<RealtimeService>().unsubscribe(name);
+      }
+      super.dispose();
+    }
+  }
+
+
+  // ⚠ تحقق: هل كل الشاشات الحالية تعمل dispose صحيح؟
+  // grep -r "RealtimeService" --include="*.dart" lib/
+  // لكل ملف فيه subscribe → تأكد أن فيه unsubscribe في dispose
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [I4] نقاط الصلوات — تحكم الإمام والتغيير أثناء المسابقة             ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  prayer_points_settings_screen.dart (212 سطر): ✅ موجود                │
+│  • يُحمّل نقاط كل صلاة من DB                                        │
+│  • يعرض TextField لكل صلاة (fajr..isha)                              │
+│  • يحفظ عبر ImamBloc → UpdateMosquePrayerPoints event                │
+│  • يعرض card تحذيري: "التغيير ينطبق فوراً"                          │
+│                                                                        │
+│  ⚠ ما ينقص:                                                          │
+│  1. لا يتحقق هل المسابقة نشطة أم لا                                │
+│  2. لا يُنشئ إعلان تلقائي عند التغيير أثناء مسابقة نشطة           │
+│  3. خطأ محتمل: هل يحفظ في competitions.prayer_points                │
+│     أم في حقل آخر؟                                                   │
+│                                                                        │
+│  migration 029_prayer_points_from_config.sql:                         │
+│  ← يجب قراءة هذا الملف لمعرفة هيكل التخزين                         │
+│                                                                        │
+└────────────────────┘
+
+┌─── التحسينات المطلوبة ───┐
+
+  1. تحقق من المسابقة النشطة قبل الحفظ:
+  ─────────────────────────────────────────
+
+    الملف: prayer_points_settings_screen.dart
+    الدالة: _save()
+
+    void _save() async {
+      if (!(_formKey.currentState?.validate() ?? false)) return;
+      final points = _getPointsFromFields();
+
+      // تحقق: هل المسابقة نشطة؟
+      final activeComp = await sl<CompetitionRepository>()
+          .getActiveForMosque(widget.mosqueId);
+
+      if (activeComp != null && mounted) {
+        // عرض dialog تأكيد
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('تغيير النقاط أثناء المسابقة'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('المسابقة "${activeComp.nameAr}" نشطة حالياً.'),
+                SizedBox(height: 8),
+                Text('سيتم تطبيق النقاط الجديدة على الحضور القادم فقط.'),
+                SizedBox(height: 8),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.warningLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('⚠ سيتم إرسال إعلان تلقائي لأولياء الأمور'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false),
+                child: Text('إلغاء')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true),
+                child: Text('تأكيد التغيير')),
+            ],
+          ),
+        );
+
+        if (confirmed != true) return;
+      }
+
+      // حفظ النقاط
+      context.read<ImamBloc>().add(
+        UpdateMosquePrayerPoints(widget.mosqueId, points),
+      );
+
+      // إنشاء إعلان تلقائي لو مسابقة نشطة
+      if (activeComp != null) {
+        await _createPointsChangedAnnouncement(points);
+      }
+    }
+
+    Future<void> _createPointsChangedAnnouncement(
+      Map<Prayer, int> newPoints,
+    ) async {
+      final buffer = StringBuffer('تم تحديث نقاط الصلوات:\n');
+      for (final p in Prayer.values) {
+        buffer.writeln('${p.nameAr}: ${newPoints[p]} نقطة');
+      }
+      buffer.writeln('\nينطبق على الحضور القادم.');
+
+      await supabase.from('announcements').insert({
+        'mosque_id': widget.mosqueId,
+        'sender_id': supabase.auth.currentUser!.id,
+        'title': 'تحديث نقاط المسابقة',
+        'body': buffer.toString(),
+      });
+    }
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [I5] QR Code — يعمل بدون إنترنت                                      ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الآلية ───┐
+│                                                                        │
+│  المبدأ: Cache بيانات QR في SharedPreferences                        │
+│  → الطفل يقدر يعرض QR حتى بدون إنترنت                              │
+│  → المشرف يحتاج إنترنت لتسجيل الحضور (لا يمكن offline)            │
+│                                                                        │
+└──────────────┘
+
+┌─── الكود المطلوب ───┐
+
+  الملف: lib/app/core/services/qr_cache_service.dart    [جديد]
+
+  import 'dart:convert';
+  import 'package:shared_preferences/shared_preferences.dart';
+
+  class QrCacheService {
+    static const _prefix = 'child_qr_cache_';
+
+    /// حفظ بيانات QR للطفل
+    static Future<void> cacheChildData({
+      required String childId,
+      required String childName,
+      required String qrCode,
+      Map<String, int>? localNumbers,  // {mosqueId: localNumber}
+    }) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        '$_prefix$childId',
+        jsonEncode({
+          'id': childId,
+          'name': childName,
+          'qr_code': qrCode,
+          'local_numbers': localNumbers ?? {},
+          'cached_at': DateTime.now().toIso8601String(),
+        }),
+      );
+    }
+
+    /// جلب بيانات QR المحفوظة
+    static Future<Map<String, dynamic>?> getCachedData(String childId) async {
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString('$_prefix$childId');
+      if (json == null) return null;
+      return jsonDecode(json) as Map<String, dynamic>;
+    }
+
+    /// حذف cache لطفل محدد
+    static Future<void> clearCache(String childId) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_prefix$childId');
+    }
+
+    /// حذف كل الـ cache
+    static Future<void> clearAllCache() async {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where((k) => k.startsWith(_prefix));
+      for (final key in keys) {
+        await prefs.remove(key);
+      }
+    }
+  }
+
+
+┌─── استخدامه في الشاشات ───┐
+
+  1. عند تحميل بيانات الطفل (في child_repository أو home_screen):
+
+    // بعد جلب الطفل من DB بنجاح:
+    await QrCacheService.cacheChildData(
+      childId: child.id,
+      childName: child.name,
+      qrCode: child.qrCode,
+      localNumbers: child.localNumbers,
+    );
+
+
+  2. عند فتح بطاقة QR (في child_view_screen أو qr_display):
+
+    // جرّب الشبكة أولاً:
+    try {
+      final child = await childRepository.getChild(childId);
+      // حدّث الـ cache
+      await QrCacheService.cacheChildData(...);
+      // اعرض QR
+      _showQr(child.qrCode, child.name);
+    } catch (e) {
+      // لا إنترنت → استخدم cache
+      final cached = await QrCacheService.getCachedData(childId);
+      if (cached != null) {
+        _showQr(cached['qr_code'], cached['name']);
+        // أظهر banner صغير: "البيانات محفوظة محلياً"
+      } else {
+        // لا cache → رسالة:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+            'افتح التطبيق مرة واحدة بالإنترنت لتفعيل العرض بدون اتصال')),
+        );
+      }
+    }
+
+
+  3. عند حذف طفل:
+    await QrCacheService.clearCache(childId);
+
+  4. عند تسجيل خروج:
+    await QrCacheService.clearAllCache();
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [I7] نسخ/مشاركة نتائج المسابقة                                       ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الكود ───┐
+
+  الملف: lib/app/features/competitions/presentation/widgets/
+         share_results_widget.dart    [جديد]
+
+  import 'dart:math';
+  import 'package:flutter/services.dart';
+  import 'package:share_plus/share_plus.dart';
+
+  class CompetitionResultsSharer {
+    static String buildResultsText({
+      required String competitionName,
+      required String mosqueName,
+      required DateTime startDate,
+      required DateTime endDate,
+      required List<LeaderboardEntry> entries,
+    }) {
+      final buffer = StringBuffer();
+      buffer.writeln('╔══════════════════════════════════╗');
+      buffer.writeln('║  نتائج: $competitionName');
+      buffer.writeln('║  مسجد: $mosqueName');
+      buffer.writeln('║  من ${_formatDate(startDate)} إلى ${_formatDate(endDate)}');
+      buffer.writeln('╚══════════════════════════════════╝');
+      buffer.writeln('');
+
+      final top = min(entries.length, 10);
+      for (int i = 0; i < top; i++) {
+        final e = entries[i];
+        final medal = switch (i) {
+          0 => '🥇',
+          1 => '🥈',
+          2 => '🥉',
+          _ => '${i + 1}.',
+        };
+        buffer.writeln('$medal ${e.childName} — ${e.totalPoints} نقطة');
+      }
+
+      if (entries.length > 10) {
+        buffer.writeln('... و ${entries.length - 10} مشاركين آخرين');
+      }
+
+      buffer.writeln('');
+      buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      buffer.writeln('📊 عدد المشاركين: ${entries.length}');
+
+      if (entries.isNotEmpty) {
+        final avg = entries.map((e) => e.totalPoints).reduce((a, b) => a + b) ~/ entries.length;
+        buffer.writeln('📈 متوسط النقاط: $avg نقطة');
+      }
+
+      buffer.writeln('');
+      buffer.writeln('عبر تطبيق صلاتي حياتي 🕌');
+
+      return buffer.toString();
+    }
+
+    static String _formatDate(DateTime date) {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+
+    /// نسخ للحافظة
+    static Future<void> copyResults({
+      required String text,
+      required BuildContext context,
+    }) async {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم نسخ النتائج'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    }
+
+    /// مشاركة عبر التطبيقات
+    static Future<void> shareResults({required String text}) async {
+      await Share.share(text, subject: 'نتائج مسابقة صلاتي حياتي');
+    }
+  }
+
+
+┌─── دمجه في شاشة الترتيب ───┐
+
+  // في leaderboard_screen أو competition_results_screen:
+  // أضف زر في AppBar:
+  actions: [
+    IconButton(
+      icon: Icon(Icons.share),
+      tooltip: 'مشاركة النتائج',
+      onPressed: () {
+        final text = CompetitionResultsSharer.buildResultsText(
+          competitionName: competition.nameAr,
+          mosqueName: mosque.name,
+          startDate: competition.startDate,
+          endDate: competition.endDate,
+          entries: leaderboardEntries,
+        );
+
+        showModalBottomSheet(
+          context: context,
+          builder: (ctx) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.copy),
+                title: Text('نسخ النتائج'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  CompetitionResultsSharer.copyResults(text: text, context: context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.share, color: Colors.green),
+                title: Text('مشاركة'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  CompetitionResultsSharer.shareResults(text: text);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  ],
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [QA] قائمة تحقق اختبار الجزء الثالث                                   ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+  ┌─── بانر المسابقة ───┐
+  [ ] يعرض بانر أخضر لمسابقة نشطة + عدد الأيام المتبقية
+  [ ] يعرض بانر أزرق لمسابقة قادمة + عدد الأيام حتى البداية
+  [ ] يعرض بطاقة رمادية بعد انتهاء المسابقة + زر النتائج
+  [ ] يعرض بطاقة هادئة لو لا توجد مسابقات
+  [ ] آخر يوم في المسابقة يعرض "آخر يوم اليوم!" بخط bold
+
+  ┌─── حضور اليوم ───┐
+  [ ] يعرض 5 صلوات لكل طفل
+  [ ] ✅ أخضر للحضور، ─ رمادي لعدم الحضور
+  [ ] يتحدث فورياً عند تسجيل حضور جديد (Realtime)
+  [ ] يعرض إحصائية "X من 5 صلوات"
+  [ ] لو لا أطفال → لا يظهر القسم
+
+  ┌─── إنهاء المسابقة تلقائياً ───┐
+  [ ] مسابقة تاريخ نهايتها أمس → تصبح is_active=false عند أي fetch
+  [ ] مسابقة تاريخ نهايتها اليوم → تبقى نشطة
+  [ ] لا يمكن إنشاء مسابقتين نشطتين في نفس الوقت
+
+  ┌─── Realtime ───┐
+  [ ] competitions: تغيير الحالة يُحدّث البانر فوراً
+  [ ] correction_requests INSERT: يظهر badge على dashboard المشرف
+  [ ] correction_requests UPDATE: يُخطر ولي الأمر بالقبول/الرفض
+  [ ] كل subscription لها dispose صحيح في الشاشة
+
+  ┌─── نقاط الصلاة ───┐
+  [ ] تغيير أثناء مسابقة نشطة → dialog تأكيد
+  [ ] بعد التأكيد → إعلان تلقائي يظهر في feed ولي الأمر
+  [ ] لو لا مسابقة نشطة → حفظ بدون dialog
+
+  ┌─── QR Offline ───┐
+  [ ] بعد فتح بطاقة الطفل بإنترنت → يُحفظ QR
+  [ ] فتح بدون إنترنت → يعرض QR من الـ cache
+  [ ] لو لا cache + لا إنترنت → رسالة واضحة
+  [ ] تسجيل خروج → يمسح كل الـ cache
+
+  ┌─── مشاركة النتائج ───┐
+  [ ] النسخ يعمل + SnackBar تأكيد
+  [ ] المشاركة تفتح native share sheet
+  [ ] النص يحتوي أول 10 + عدد المشاركين + متوسط النقاط
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    نهاية الجزء الثالث
+   → الجزء الرابع: التصحيحات والبحث ورسائل الخطأ والتلميع النهائي
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

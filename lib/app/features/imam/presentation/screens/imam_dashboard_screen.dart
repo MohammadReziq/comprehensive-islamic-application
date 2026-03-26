@@ -15,6 +15,7 @@ import '../../../../models/other_models.dart';
 import '../../../mosque/data/repositories/mosque_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_bloc.dart';
 import 'imam_profile_screen.dart';
+import '../widgets/create_supervisor_dialog.dart';
 import '../../../supervisor/data/repositories/supervisor_repository.dart';
 import '../../../mosque/presentation/bloc/mosque_event.dart';
 import '../../../mosque/presentation/bloc/mosque_state.dart';
@@ -787,88 +788,129 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen>
         ),
       );
     final list = _supervisors ?? [];
-    if (list.isEmpty)
-      return _buildEmptySheet('لا يوجد مشرفون بعد. شارك كود الدعوة لدعوتهم.');
     return Column(
-      children: list.map((m) {
-        final isRemoving = _removingUserId == m.userId;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.12)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: Colors.white60,
-                    size: 22,
-                  ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(context); // إغلاق الـ Sheet
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => CreateSupervisorDialog(
+                  mosqueId: mosque.id,
+                  mosqueName: mosque.name,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        m.userName ?? m.userEmail ?? 'مشرف',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      if (m.userEmail != null && m.userEmail!.isNotEmpty)
-                        Text(
-                          m.userEmail!,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.white.withOpacity(0.55),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: isRemoving ? null : () => _removeSupervisor(mosque, m),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: isRemoving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white70,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.person_remove_rounded,
-                            color: Colors.white54,
-                            size: 20,
-                          ),
-                  ),
-                ),
-              ],
+              );
+              if (mounted) {
+                setState(() {
+                  _supervisors = null;
+                  _loadingSupervisors = false;
+                });
+                _loadSupervisors(mosque.id);
+                if (result == true) {
+                  // انتظار تحميل البيانات قبل إعادة فتح القائمة
+                  await Future.delayed(const Duration(milliseconds: 800));
+                  if (mounted) _showSupervisorsSheet(context, mosque);
+                }
+              }
+            },
+            icon: const Icon(Icons.person_add_rounded),
+            label: const Text('إضافة مشرف جديد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              minimumSize: const Size(double.infinity, 54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
           ),
-        );
-      }).toList(),
+        ),
+        if (list.isEmpty)
+          _buildEmptySheet('لا يوجد مشرفون بعد. شارك كود الدعوة لدعوتهم.')
+        else
+          ...list.map((m) {
+            final isRemoving = _removingUserId == m.userId;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.12)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white60,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            m.userName ?? m.userEmail ?? 'مشرف',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          if (m.userEmail != null && m.userEmail!.isNotEmpty)
+                            Text(
+                              m.userEmail!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white.withOpacity(0.55),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: isRemoving ? null : () => _removeSupervisor(mosque, m),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: isRemoving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white70,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.person_remove_rounded,
+                                color: Colors.white54,
+                                size: 20,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
     );
   }
 

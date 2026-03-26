@@ -169,6 +169,7 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
             ),
           ),
           const SizedBox(height: AppDimensions.paddingXXL),
+          const SizedBox(height: AppDimensions.paddingXXL),
           if (!isSupervisor) ...[
             AppButton(
               text: AppStrings.createMosque,
@@ -176,12 +177,30 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
               icon: Icons.add_circle_outline,
             ),
             const SizedBox(height: AppDimensions.paddingMD),
+            ElevatedButton.icon(
+              onPressed: () => context.push('/mosque/join'),
+              icon: const Icon(Icons.group_add),
+              label: Text(AppStrings.joinMosque),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                side: const BorderSide(color: Colors.white70),
+                minimumSize: const Size(double.infinity, AppDimensions.buttonHeight),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
+                ),
+              ),
+            ),
+          ] else ...[
+            AppButton(
+              text: 'إدخال كود الدعوة',
+              onPressed: () => context.push('/mosque/join'),
+              icon: Icons.login_rounded,
+              backgroundColor: Colors.white,
+              textColor: AppColors.primaryDark,
+            ),
           ],
-          AppButton.outlined(
-            text: AppStrings.joinMosque,
-            onPressed: () => context.push('/mosque/join'),
-            icon: Icons.group_add,
-          ),
         ],
       ),
     );

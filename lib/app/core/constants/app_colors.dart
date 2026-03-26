@@ -6,6 +6,7 @@ class AppColors {
   AppColors._();
 
   // ─── اللون الأساسي (أزرق إسلامي) ───
+  static const Color backgroundMuted = Color(0xFFF5F5F5);
   static const Color primary = Color(0xFF1A3A5C);
   static const Color primaryLight = Color(0xFF4A90D9);
   static const Color primaryLighter = Color(0xFF87CEEB);
@@ -54,11 +55,11 @@ class AppColors {
   static const Color divider = Color(0xFFE5E7EB);
 
   // ─── ألوان الصلوات ───
-  static const Color fajr = Color(0xFF1B2838);      // فجر - كحلي غامق
-  static const Color dhuhr = Color(0xFFF39C12);      // ظهر - ذهبي
-  static const Color asr = Color(0xFFE67E22);        // عصر - برتقالي
-  static const Color maghrib = Color(0xFFE74C3C);    // مغرب - أحمر غروب
-  static const Color isha = Color(0xFF2C3E50);       // عشاء - كحلي
+  static const Color fajr = Color(0xFF1B2838); // فجر - كحلي غامق
+  static const Color dhuhr = Color(0xFFF39C12); // ظهر - ذهبي
+  static const Color asr = Color(0xFFE67E22); // عصر - برتقالي
+  static const Color maghrib = Color(0xFFE74C3C); // مغرب - أحمر غروب
+  static const Color isha = Color(0xFF2C3E50); // عشاء - كحلي
 
   // ─── ألوان الشارات ───
   static const Color badgeGold = Color(0xFFFFD700);

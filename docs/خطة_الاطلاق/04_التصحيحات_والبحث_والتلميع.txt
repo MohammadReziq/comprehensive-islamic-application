@@ -1,0 +1,855 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                   صلاتي حياتي — خطة الإطلاق النهائية                          ║
+║      الجزء الرابع: التصحيحات والبحث ورسائل الخطأ والتلميع النهائي           ║
+║                                                                                ║
+║  يشمل: I1 + I2 + I6 + I8 + Final QA + ملخص الملفات                           ║
+║  التاريخ: 2026-03-22                                                          ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                         الفهرس
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [I1+I2] طلبات التصحيح — دعم المشرف ......................... سطر 25
+  [I6]    Arabic Text Normalization في البحث .................. سطر 320
+  [I8]    رسائل خطأ موحّدة بالعربية .......................... سطر 420
+  [POL]   التلميع النهائي — UX + حالات حدّية ................. سطر 600
+  [SUM]   ملخص كل الملفات الجديدة والمعدّلة .................. سطر 800
+  [QA]    قائمة التحقق النهائية للإطلاق ....................... سطر 900
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [I1+I2] طلبات التصحيح — تذهب للمشرف + شاشة ولي الأمر               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  correction_requests table: ✅ موجود                                   │
+│  correction_request_model.dart: ✅ موجود (73 سطر)                     │
+│  other_models.dart → CorrectionModel: ✅ موجود (302 سطر)             │
+│                                                                        │
+│  ⚠ كود مكرر: CorrectionRequestModel + CorrectionModel               │
+│     → CorrectionRequestModel (في correction_request_model.dart)       │
+│     → CorrectionModel (في other_models.dart)                          │
+│     → يجب توحيدهما! استخدم واحد فقط.                               │
+│                                                                        │
+│  الشاشات الموجودة:                                                    │
+│  • corrections_list_screen.dart ← في features/corrections             │
+│  • request_correction_screen.dart ← يجب التحقق من وجودها             │
+│                                                                        │
+│  المشكلة الرئيسية:                                                    │
+│  1. المشرف لا يرى طلبات التصحيح في dashboard                        │
+│  2. المشرف قد لا يملك صلاحية UPDATE على correction_requests          │
+│  3. ولي الأمر قد لا يملك شاشة لطلب التصحيح                         │
+│                                                                        │
+└────────────────────┘
+
+
+┌─── الخطوة 1: توحيد Model ───┐
+
+  القرار: استخدام CorrectionModel من other_models.dart (أكمل)
+  الإجراء:
+  • في كل ملف يستخدم CorrectionRequestModel → غيّره لـ CorrectionModel
+  • أو: اجعل CorrectionRequestModel يمتد CorrectionModel
+  • الأبسط: اترك كلاهما واستخدم CorrectionModel في كل الأماكن الجديدة
+
+  ⚠ grep:
+  grep -r "CorrectionRequestModel" --include="*.dart" lib/
+  → حدد أين يُستخدم وقرر هل يمكن استبداله
+
+
+┌─── الخطوة 2: إضافة قسم التصحيحات في dashboard المشرف ───┐
+
+  الملف: lib/app/features/supervisor/presentation/screens/
+         supervisor_dashboard_screen.dart (971 سطر)
+
+  الإضافة: في _buildActionsGrid() أو كقسم مستقل
+
+  // خيار 1: بطاقة في الـ actions grid
+  _ActionCard(
+    icon: Icons.fact_check_outlined,
+    title: 'طلبات التصحيح',
+    subtitle: '$_pendingCount طلب معلق',
+    badge: _pendingCount > 0 ? _pendingCount : null,
+    onTap: () => context.push('/supervisor/corrections/${mosque.id}'),
+  ),
+
+  // خيار 2: قسم مستقل أسفل الإحصائيات
+  // (أفضل لأنه أوضح)
+
+  if (_pendingCorrections > 0)
+    Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: InkWell(
+        onTap: () => context.push('/supervisor/corrections/${mosque.id}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Card(
+          color: AppColors.warningLight,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.fact_check, color: Colors.orange, size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('طلبات تصحيح معلقة',
+                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+                      Text('$_pendingCorrections طلب بانتظار المراجعة',
+                        style: GoogleFonts.cairo(
+                          fontSize: 13, color: Colors.grey.shade700)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+
+
+  // جلب عدد الطلبات المعلقة:
+  int _pendingCorrections = 0;
+
+  Future<void> _loadPendingCorrections() async {
+    final data = await supabase
+      .from('correction_requests')
+      .select('id')
+      .eq('mosque_id', mosque.id)
+      .eq('status', 'pending');
+
+    if (mounted) {
+      setState(() => _pendingCorrections = (data as List).length);
+    }
+  }
+
+  // استدعاءها في initState بعد تحميل المسجد
+
+
+┌─── الخطوة 3: إضافة Route للمشرف ───┐
+
+  الملف: lib/app/core/router/app_router.dart
+
+  // في routes الخاصة بالمشرف:
+  GoRoute(
+    path: '/supervisor/corrections/:mosqueId',
+    builder: (context, state) => CorrectionsListScreen(
+      mosqueId: state.pathParameters['mosqueId']!,
+      reviewerRole: 'supervisor',  // ← جديد
+    ),
+  ),
+
+
+┌─── الخطوة 4: تعديل CorrectionsListScreen لدعم المشرف ───┐
+
+  الملف: lib/app/features/corrections/presentation/screens/
+         corrections_list_screen.dart
+
+  // إضافة parameter:
+  class CorrectionsListScreen extends StatefulWidget {
+    final String mosqueId;
+    final String reviewerRole;  // 'imam' أو 'supervisor'
+
+    const CorrectionsListScreen({
+      super.key,
+      required this.mosqueId,
+      this.reviewerRole = 'imam',
+    });
+
+    // ... باقي الكود
+  }
+
+  // في approve/reject:
+  Future<void> _approveCorrection(CorrectionModel correction) async {
+    final currentUser = supabase.auth.currentUser;
+    final userId = await _getCurrentUserId();
+
+    await supabase
+      .from('correction_requests')
+      .update({
+        'status': 'approved',
+        'reviewed_by': userId,
+        'reviewed_at': DateTime.now().toIso8601String(),
+      })
+      .eq('id', correction.id);
+
+    // بعد الموافقة: سجّل الحضور
+    await supabase.from('attendance').insert({
+      'child_id': correction.childId,
+      'mosque_id': correction.mosqueId,
+      'prayer': correction.prayer.value,
+      'prayer_date': correction.prayerDate.toIso8601String().split('T')[0],
+      'recorded_by': userId,
+      'source': 'correction',  // ← لتمييزه عن الحضور العادي
+    });
+
+    _loadCorrections();
+  }
+
+
+┌─── الخطوة 5: شاشة طلب التصحيح لولي الأمر ───┐
+
+  الملف الجديد:
+  lib/app/features/corrections/presentation/screens/
+  request_correction_screen.dart
+
+  // ⚠ قد تكون موجودة بالفعل — grep:
+  // grep -r "request_correction" --include="*.dart" lib/
+
+  // لو غير موجودة:
+  class RequestCorrectionScreen extends StatefulWidget {
+    final String childId;
+    final String childName;
+    final String mosqueId;
+    final Prayer? prayer;       // اختياري: لو جاء من سجل حضور محدد
+    final DateTime? prayerDate; // اختياري
+
+    // ...
+  }
+
+  // التصميم:
+  // ┌──────────────────────────────────────────┐
+  // │  طلب تصحيح حضور                        │
+  // │                                          │
+  // │  الطفل: أحمد (معبأ ✓)                  │
+  // │  المسجد: مسجد الإيمان (معبأ ✓)        │
+  // │                                          │
+  // │  الصلاة: [ اختر الصلاة     ▾ ]         │
+  // │  التاريخ: [ اختر التاريخ   📅 ]        │
+  // │                                          │
+  // │  ملاحظة (اختياري):                      │
+  // │  [________________________________]      │
+  // │  [________________________________]      │
+  // │                                          │
+  // │  [إرسال طلب التصحيح]                    │
+  // └──────────────────────────────────────────┘
+
+  // المنطق:
+  Future<void> _submitCorrection() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    // 1. تحقق: لا يوجد طلب معلق لنفس الصلاة واليوم
+    final existing = await supabase
+      .from('correction_requests')
+      .select('id')
+      .eq('child_id', widget.childId)
+      .eq('mosque_id', widget.mosqueId)
+      .eq('prayer', _selectedPrayer!.value)
+      .eq('prayer_date', _selectedDate!.toIso8601String().split('T')[0])
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existing != null) {
+      showSnackBar('يوجد طلب تصحيح معلق لهذه الصلاة');
+      return;
+    }
+
+    // 2. تحقق: هل الحضور مُسجَّل بالفعل؟
+    final attendance = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('child_id', widget.childId)
+      .eq('mosque_id', widget.mosqueId)
+      .eq('prayer', _selectedPrayer!.value)
+      .eq('prayer_date', _selectedDate!.toIso8601String().split('T')[0])
+      .maybeSingle();
+
+    if (attendance != null) {
+      showSnackBar('الحضور مسجّل بالفعل لهذه الصلاة');
+      return;
+    }
+
+    // 3. إنشاء الطلب
+    final parentProfile = await _getParentProfile();
+    await supabase.from('correction_requests').insert({
+      'child_id': widget.childId,
+      'parent_id': parentProfile.id,
+      'mosque_id': widget.mosqueId,
+      'prayer': _selectedPrayer!.value,
+      'prayer_date': _selectedDate!.toIso8601String().split('T')[0],
+      'status': 'pending',
+      'note': _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+    });
+
+    if (mounted) {
+      Navigator.pop(context);
+      showSnackBar('تم إرسال طلب التصحيح بنجاح');
+    }
+  }
+
+
+  // Validations:
+  // - الصلاة: required
+  // - التاريخ: required, لا يكون في المستقبل, آخر 7 أيام فقط
+  // - الملاحظة: اختياري, max 500 حرف
+
+
+┌─── الخطوة 6: الوصول لشاشة التصحيح من home_screen ───┐
+
+  // في parent/home_screen.dart:
+  // في بطاقة الطفل أو في سجل الحضور
+
+  // خيار 1: زر في صفحة تفاصيل الطفل
+  // خيار 2: عند الضغط طويل على ─ (لم يُحضر) في DailyAttendanceRow
+
+  // الأنسب: خيار 2
+
+  // في _PrayerIndicator:
+  onLongPress: !attended ? () {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => RequestCorrectionScreen(
+        childId: child.id,
+        childName: child.name,
+        mosqueId: child.mosqueId,
+        prayer: prayer,
+        prayerDate: DateTime.now(),
+      ),
+    ));
+  } : null,
+
+  // + tooltip واضح: "اضغط مطولاً لطلب تصحيح"
+
+
+┌─── الخطوة 7: RLS للمشرف ───┐
+
+  // Migration 040_rls_audit_fixes.sql (من الجزء الأول)
+  // يجب إضافة:
+
+  -- المشرف يقدر يعمل UPDATE على correction_requests في مسجده
+  CREATE POLICY "supervisor_updates_corrections"
+  ON correction_requests FOR UPDATE
+  USING (
+    mosque_id IN (
+      SELECT mm.mosque_id FROM mosque_members mm
+      JOIN users u ON u.id = mm.user_id
+      WHERE u.auth_id = auth.uid()
+      AND mm.role IN ('owner', 'supervisor')
+    )
+  )
+  WITH CHECK (
+    mosque_id IN (
+      SELECT mm.mosque_id FROM mosque_members mm
+      JOIN users u ON u.id = mm.user_id
+      WHERE u.auth_id = auth.uid()
+      AND mm.role IN ('owner', 'supervisor')
+    )
+  );
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [I6] Arabic Text Normalization في البحث                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  arabic_utils.dart (38 سطر): ✅ موجود                                 │
+│  normalize() موجودة وتعمل: أ→ا، إ→ا، آ→ا، ة→ه، ى→ي، ؤ→و، ئ→ي   │
+│  + إزالة التشكيل                                                      │
+│                                                                        │
+│  ⚠ لكن: أين تُستخدم؟                                                │
+│  grep -r "ArabicUtils" --include="*.dart" lib/                        │
+│  → يجب التحقق من أنها مُستخدمة في كل أماكن البحث!                 │
+│                                                                        │
+└────────────────────┘
+
+┌─── أماكن البحث التي تحتاج normalization ───┐
+
+  1. scanner_screen.dart (البحث بالاسم):
+  ───────────────────────────────────────────
+
+    الملف: lib/app/features/attendance/presentation/screens/scanner_screen.dart
+
+    // البحث الحالي (يجب التحقق):
+    students.where((s) => s.name.contains(query))
+
+    // المطلوب:
+    students.where((s) =>
+      ArabicUtils.normalize(s.name)
+        .contains(ArabicUtils.normalize(query))
+    )
+
+    // ⚠ أهمية هذا:
+    // لو المشرف كتب "احمد" → يجب أن يجد "أحمد" و "احمد"
+    // لو كتب "عبدالله" → يجد "عبد الله" أيضاً
+    // ← ArabicUtils.normalize يحل الحالة الأولى
+    // ← للحالة الثانية: أضف إزالة المسافات أو تطبيع المسافات
+
+
+  2. imam_supervisors_screen / manage students:
+  ─────────────────────────────────────────────
+
+    // في أي شاشة بحث عن طلاب:
+    final normalized = ArabicUtils.normalize(query);
+    final results = allStudents.where((s) =>
+      ArabicUtils.normalize(s.name).contains(normalized) ||
+      s.localNumber.toString() == query.trim()
+    );
+
+
+  3. admin_screen (البحث عن مساجد):
+  ─────────────────────────────────
+
+    // لو فيه بحث عن اسم مسجد:
+    mosques.where((m) =>
+      ArabicUtils.normalize(m.name).contains(ArabicUtils.normalize(query))
+    )
+
+
+┌─── تحسينات إضافية على ArabicUtils ───┐
+
+  الملف: lib/app/core/utils/arabic_utils.dart
+
+  // إضافات مفيدة:
+
+  class ArabicUtils {
+    // الدالة الحالية (موجودة):
+    static String normalize(String text) { ... }
+
+    // جديد: تطبيع المسافات
+    static String normalizeSpaces(String text) {
+      return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+
+    // جديد: بحث ذكي (يجمع بين normalize + normalizeSpaces)
+    static bool smartContains(String text, String query) {
+      final normalizedText = normalizeSpaces(normalize(text));
+      final normalizedQuery = normalizeSpaces(normalize(query));
+      return normalizedText.contains(normalizedQuery);
+    }
+
+    // جديد: بحث بالكلمات (أي كلمة تطابق)
+    static bool smartSearch(String text, String query) {
+      final normalizedText = normalizeSpaces(normalize(text));
+      final words = normalizeSpaces(normalize(query)).split(' ');
+      return words.every((word) => normalizedText.contains(word));
+    }
+
+    // ⚠ مثال:
+    // smartSearch("عبد الرحمن أحمد", "احمد عبد")  → true ✅
+    // smartSearch("عبد الرحمن أحمد", "محمد")       → false ✅
+    // smartContains("أحمد", "احمد")                 → true ✅
+  }
+
+
+  // الاستخدام الموحد في كل أماكن البحث:
+  students.where((s) => ArabicUtils.smartSearch(s.name, query))
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [I8] رسائل خطأ موحّدة بالعربية                                       ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── الوضع الحالي ───┐
+│                                                                        │
+│  error_messages.dart (59 سطر): ✅ موجود                                │
+│  يحتوي:                                                               │
+│  • ثوابت للرسائل (auth, mosque, attendance, general)                  │
+│  • ErrorMessages.fromSupabase() — translates Supabase errors          │
+│                                                                        │
+│  ⚠ ينقص: رسائل كثيرة للحالات الجديدة                                │
+│                                                                        │
+└────────────────────┘
+
+┌─── الإضافات المطلوبة ───┐
+
+  الملف: lib/app/core/constants/error_messages.dart
+
+  // ═══ إضافة الثوابت الجديدة ═══
+
+  // Imam/Supervisor Account Creation
+  static const emailBelongsToParent =
+    'هذا الإيميل مرتبط بحساب ولي أمر. استخدم إيميلاً مختلفاً';
+  static const emailAlreadyInUse =
+    'هذا الإيميل مستخدم بالفعل';
+  static const accountCreatedButSyncFailed =
+    'تم إنشاء الحساب لكن التزامن تأخر. حاول لاحقاً';
+  static const rateLimit =
+    'تم تجاوز الحد المسموح. حاول بعد دقائق';
+  static const passwordTooShort =
+    'كلمة السر يجب أن تكون 6 أحرف على الأقل';
+
+  // Mosque Code
+  static const invalidMosqueCode =
+    'كود المسجد غير صحيح. تأكد من الكود وحاول مجدداً';
+  static const rateLimited =
+    'محاولات كثيرة. انتظر 10 دقائق ثم حاول مجدداً';
+  static const childAlreadyLinked =
+    'هذا الطفل مرتبط بالمسجد بالفعل';
+
+  // Competition
+  static const competitionAlreadyActive =
+    'يوجد مسابقة نشطة بالفعل. أنهها أولاً';
+  static const competitionPointsChanged =
+    'تم تحديث نقاط الصلوات. ينطبق على الحضور القادم';
+
+  // Corrections
+  static const correctionAlreadyPending =
+    'يوجد طلب تصحيح معلق لهذه الصلاة';
+  static const attendanceAlreadyExists =
+    'الحضور مسجّل بالفعل لهذه الصلاة';
+  static const correctionDateTooOld =
+    'لا يمكن طلب تصحيح لأكثر من 7 أيام';
+
+  // Network
+  static const noInternet =
+    'تحقق من اتصالك بالإنترنت وحاول مجدداً';
+  static const serverError =
+    'حدث خطأ في الخادم. حاول لاحقاً';
+  static const sessionExpired =
+    'انتهت الجلسة. سجّل دخولك مرة أخرى';
+
+  // General
+  static const generic =
+    'حدث خطأ غير متوقع. حاول مجدداً';
+  static const permissionDenied =
+    'ليس لديك صلاحية لهذه العملية';
+
+
+  // ═══ تحسين fromSupabase ═══
+  static String fromSupabase(dynamic error) {
+    final msg = error.toString().toLowerCase();
+
+    // Auth errors
+    if (msg.contains('invalid login credentials')) {
+      return 'البريد الإلكتروني أو كلمة السر غير صحيحة';
+    }
+    if (msg.contains('email not confirmed')) {
+      return 'لم يتم تأكيد البريد الإلكتروني';
+    }
+    if (msg.contains('user already registered') ||
+        msg.contains('already exists')) {
+      return emailAlreadyInUse;
+    }
+
+    // RLS errors
+    if (msg.contains('new row violates row-level security')) {
+      return permissionDenied;
+    }
+
+    // Network errors
+    if (msg.contains('socketexception') ||
+        msg.contains('clientexception') ||
+        msg.contains('connection refused')) {
+      return noInternet;
+    }
+
+    // Timeout
+    if (msg.contains('timeout')) {
+      return 'انتهت مهلة الاتصال. حاول مجدداً';
+    }
+
+    // Unique constraint
+    if (msg.contains('unique constraint') ||
+        msg.contains('duplicate key')) {
+      return 'هذا العنصر موجود بالفعل';
+    }
+
+    // Foreign key
+    if (msg.contains('foreign key') ||
+        msg.contains('violates foreign key')) {
+      return 'لا يمكن إتمام العملية — بيانات مرتبطة مفقودة';
+    }
+
+    // Fallback
+    return generic;
+  }
+
+
+┌─── استخدامها في كل catch block ───┐
+
+  // النمط الموحد:
+  try {
+    // ... عملية
+  } on Exception catch (e) {
+    final userMessage = ErrorMessages.fromSupabase(e);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(userMessage),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ⚠ grep:
+  // grep -rn "catch" --include="*.dart" lib/
+  // لكل catch block → تأكد أن الرسالة تمر عبر ErrorMessages.fromSupabase()
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [POL] التلميع النهائي — UX + حالات حدّية                             ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── 1. منع التسجيل العلني للإمام ───┐
+
+  المشكلة: الإمام حالياً يمكنه تسجيل نفسه من شاشة Register
+  المطلوب: فقط السوبر أدمن ينشئ حساب الإمام
+
+  الحل:
+  • في شاشة التسجيل (register_screen.dart):
+    - أزل خيار role='imam' من القائمة
+    - أو: أخفِ القائمة بالكامل (كلهم parents)
+
+  • في auth flow:
+    - لو مستخدم سجّل بنفسه → role='parent' تلقائياً
+    - لو أراد أن يكون إمام → يجب أن يُنشئه السوبر أدمن
+
+
+┌─── 2. تغيير كلمة السر بعد أول دخول ───┐
+
+  المشكلة: الإمام والمشرف يدخلون بكلمة سر مؤقتة
+  المطلوب: تذكيرهم بتغييرها
+
+  الحل:
+  • في أول دخول (بعد الـ onboarding):
+    - اعرض dialog: "ننصحك بتغيير كلمة السر"
+    - زر: "تغيير الآن" → شاشة تغيير كلمة السر
+    - زر: "لاحقاً" ← SharedPreferences: password_change_reminded
+
+  • التنفيذ:
+    final key = 'password_change_reminded_${user.id}';
+    if (!(prefs.getBool(key) ?? false)) {
+      _showPasswordChangeReminder();
+      await prefs.setBool(key, true);
+    }
+
+
+┌─── 3. التعامل مع المشرف في أكثر من مسجد ───┐
+
+  الحالة: مشرف مسجّل في مسجدين (نادر لكن ممكن)
+
+  الوضع الحالي:
+  • supervisor_dashboard: يجلب أول مسجد فقط
+  • ← يجب أن يعرض selector أو tabs لو أكثر من مسجد
+
+  الحل البسيط:
+  • في initState():
+    - اجلب كل المساجد من mosque_members
+    - لو مسجد واحد → عادي
+    - لو أكثر → اعرض DropdownButton في AppBar
+
+  // الكود:
+  List<MosqueModel> _mosques = [];
+  MosqueModel? _selectedMosque;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMosques();
+  }
+
+  Future<void> _loadMosques() async {
+    final userId = await _getCurrentUserId();
+    final members = await supabase
+      .from('mosque_members')
+      .select('mosque_id, mosques(*)')
+      .eq('user_id', userId);
+
+    _mosques = (members as List)
+      .map((m) => MosqueModel.fromJson(m['mosques']))
+      .toList();
+
+    setState(() => _selectedMosque = _mosques.first);
+    _loadDashboardData();
+  }
+
+  // في AppBar (لو أكثر من مسجد):
+  title: _mosques.length > 1
+    ? DropdownButton<MosqueModel>(
+        value: _selectedMosque,
+        items: _mosques.map((m) => DropdownMenuItem(
+          value: m, child: Text(m.name)
+        )).toList(),
+        onChanged: (m) {
+          setState(() => _selectedMosque = m);
+          _loadDashboardData();
+        },
+      )
+    : Text(_selectedMosque?.name ?? 'لوحة التحكم'),
+
+
+┌─── 4. Pull-to-Refresh في كل الشاشات ───┐
+
+  المشكلة: بعض الشاشات لا تدعم السحب للتحديث
+  المطلوب: RefreshIndicator في كل شاشة فيها بيانات
+
+  النمط:
+  RefreshIndicator(
+    onRefresh: _loadData,
+    child: ListView(
+      physics: AlwaysScrollableScrollPhysics(),  // ← مهم!
+      children: [...],
+    ),
+  )
+
+  ⚠ AlwaysScrollableScrollPhysics: ضروري ليعمل السحب
+     حتى لو المحتوى أقل من الشاشة
+
+  الشاشات التي تحتاج Pull-to-Refresh:
+  • imam_dashboard_screen.dart
+  • supervisor_dashboard_screen.dart
+  • parent/home_screen.dart
+  • corrections_list_screen.dart
+  • students_screen.dart
+  • competitions screens
+
+
+┌─── 5. Loading States محسّنة ───┐
+
+  المشكلة: بعض الشاشات تعرض CircularProgressIndicator فقط
+  المطلوب: Shimmer loading (skeleton screens)
+
+  الحل المبسّط (بدون package إضافي):
+  // استخدام حاوية متحركة:
+
+  Widget _buildLoadingSkeleton() {
+    return Column(
+      children: List.generate(3, (_) => Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      )).animate(
+        interval: 200.ms,
+      ).shimmer(duration: 1.seconds),
+    );
+  }
+
+  // ⚠ يحتاج flutter_animate (موجود بالفعل في pubspec)
+
+
+┌─── 6. Accessibility — RTL + حجم الخط ───┐
+
+  تحقق:
+  [ ] كل Scaffold يحتوي Directionality(textDirection: TextDirection.rtl)
+      أو يُعيّنها في MaterialApp
+  [ ] كل Icon فيها semanticLabel
+  [ ] كل صورة فيها semanticLabel
+  [ ] TextFields عندها label واضح
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [SUM] ملخص كل الملفات الجديدة والمعدّلة                              ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── ملفات جديدة ───┐
+  ┌──────────────────────────────────────────────────────────────┬────────┐
+  │ الملف                                                      │ الجزء │
+  ├──────────────────────────────────────────────────────────────┼────────┤
+  │ supabase/functions/validate-mosque-code/index.ts            │   1    │
+  │ lib/app/core/utils/password_generator.dart                  │   1    │
+  │ lib/app/core/utils/share_credentials.dart                   │   1    │
+  │ lib/app/core/services/qr_cache_service.dart                 │   3    │
+  │ lib/app/features/super_admin/.../create_imam_dialog.dart    │   2    │
+  │ lib/app/features/imam/.../create_supervisor_dialog.dart     │   2    │
+  │ lib/app/features/imam/.../setup_checklist_card.dart         │   2    │
+  │ lib/app/features/imam/.../imam_onboarding_screen.dart       │   2    │
+  │ lib/app/features/supervisor/.../supervisor_onboarding.dart  │   2    │
+  │ lib/app/features/parent/.../parent_onboarding_screen.dart   │   2    │
+  │ lib/app/features/parent/.../competition_banner_widget.dart  │   3    │
+  │ lib/app/features/parent/.../daily_attendance_row.dart       │   3    │
+  │ lib/app/features/competitions/.../share_results_widget.dart │   3    │
+  │ lib/app/features/corrections/.../request_correction.dart    │   4    │
+  │ supabase/migrations/040_rls_audit_fixes.sql                 │   1    │
+  │ supabase/migrations/041_system_settings.sql                 │   1    │
+  │ supabase/migrations/042_audit_logs.sql                      │   1    │
+  └──────────────────────────────────────────────────────────────┴────────┘
+
+┌─── ملفات معدّلة ───┐
+  ┌──────────────────────────────────────────────────────────────┬────────┐
+  │ الملف                                                      │ الجزء │
+  ├──────────────────────────────────────────────────────────────┼────────┤
+  │ supabase/functions/create-imam-account/index.ts             │   1    │
+  │ supabase/functions/create-supervisor-account/index.ts       │   1    │
+  │ lib/app/core/constants/error_messages.dart                  │   4    │
+  │ lib/app/core/utils/arabic_utils.dart                        │   4    │
+  │ lib/app/core/services/attendance_validation_service.dart    │   1    │
+  │ lib/app/core/services/realtime_service.dart                 │   3    │
+  │ lib/app/core/widgets/empty_state.dart                       │   2    │
+  │ lib/app/core/router/app_router.dart                         │   2    │
+  │ lib/app/features/super_admin/.../admin_screen.dart          │   2    │
+  │ lib/app/features/imam/.../imam_dashboard_screen.dart        │   2    │
+  │ lib/app/features/imam/.../prayer_points_settings.dart       │   3    │
+  │ lib/app/features/imam/data/.../imam_repository.dart         │   1    │
+  │ lib/app/features/supervisor/.../supervisor_dashboard.dart   │   4    │
+  │ lib/app/features/parent/.../home_screen.dart                │   3    │
+  │ lib/app/features/corrections/.../corrections_list.dart      │   4    │
+  │ lib/app/features/competitions/data/.../competition_repo.dart│   3    │
+  │ lib/app/features/attendance/.../scanner_screen.dart         │   4    │
+  └──────────────────────────────────────────────────────────────┴────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  [QA] قائمة التحقق النهائية للإطلاق                                   ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─── البنية التحتية (الجزء الأول) ───┐
+  [ ] Edge Functions تعمل بدون أخطاء
+  [ ] Migrations تُنفَّذ بنجاح بالترتيب
+  [ ] RLS policies لا تمنع المستخدم المصرح
+  [ ] RLS policies تمنع المستخدم غير المصرح
+  [ ] system_settings فيها القيم الافتراضية
+  [ ] audit_logs يُسجّل عمليات إنشاء الحسابات
+  [ ] validate-mosque-code تعمل مع brute force protection
+
+┌─── Onboarding (الجزء الثاني) ───┐
+  [ ] واجهة إنشاء الإمام تعمل كاملة مع مشاركة واتساب
+  [ ] واجهة إنشاء المشرف تعمل كاملة مع عرض البيانات
+  [ ] Imam onboarding يظهر مرة واحدة فقط
+  [ ] Supervisor onboarding يظهر مرة واحدة فقط
+  [ ] Parent onboarding: إنشاء طفل + ربط بمسجد أو تخطي
+  [ ] Empty States تظهر في كل شاشة فارغة
+  [ ] Setup Checklist يختفي بعد إكمال الخطوات
+
+┌─── تجربة ولي الأمر (الجزء الثالث) ───┐
+  [ ] بانر المسابقة النشطة أخضر + عدد أيام
+  [ ] بانر المسابقة القادمة أزرق
+  [ ] بطاقة المسابقة المنتهية + زر النتائج
+  [ ] حضور اليوم: 5 صلوات لكل طفل
+  [ ] حضور اليوم: يتحدث فورياً (Realtime)
+  [ ] المسابقة تنتهي تلقائياً عند انتهاء التاريخ
+  [ ] QR يعمل بدون إنترنت (cache)
+  [ ] نسخ/مشاركة نتائج المسابقة
+
+┌─── التصحيحات والتلميع (الجزء الرابع) ───┐
+  [ ] المشرف يرى طلبات التصحيح + يوافق/يرفض
+  [ ] ولي الأمر يطلب تصحيح (بدون تكرار)
+  [ ] البحث بالعربية يعمل بكل الصيغ
+  [ ] رسائل الخطأ بالعربية في كل مكان
+  [ ] لا يمكن تسجيل إمام من شاشة Register
+  [ ] Pull-to-Refresh في كل الشاشات الرئيسية
+  [ ] المشرف يتعامل مع أكثر من مسجد
+  [ ] تذكير بتغيير كلمة السر بعد أول دخول
+
+┌─── اختبارات عامة ───┐
+  [ ] التطبيق يعمل على Android (physical device)
+  [ ] التطبيق يعمل على iOS (simulator أو device)
+  [ ] لا crashes عند انقطاع الإنترنت
+  [ ] الـ RTL (العربية) يظهر صحيح في كل الشاشات
+  [ ] الخروج والدخول مجدداً لا يفقد بيانات
+  [ ] حذف الحساب يحذف كل البيانات المرتبطة
+  [ ] الأداء مقبول (لا تأخير ملحوظ في التنقل)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    نهاية الجزء الرابع والأخير
+              ═══ خطة الإطلاق مكتملة ═══
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ملخص الأجزاء الأربعة:
+
+  الجزء 1: البنية التحتية — Edge Functions + DB + RLS + الأمان
+  الجزء 2: Onboarding — إنشاء الحسابات + أول دخول + Empty States + Checklist
+  الجزء 3: تجربة المستخدم — بانر المسابقة + حضور اليوم + Realtime + QR Offline
+  الجزء 4: التلميع — التصحيحات + البحث العربي + رسائل الخطأ + UX النهائي
+
+  → تطبيق هذه الأجزاء الأربعة بالترتيب = تطبيق جاهز للإطلاق! 🚀

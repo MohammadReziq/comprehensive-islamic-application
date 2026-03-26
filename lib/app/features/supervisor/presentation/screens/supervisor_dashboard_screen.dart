@@ -9,6 +9,7 @@ import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/constants/app_enums.dart';
 import '../../../../core/services/prayer_times_service.dart';
 import '../../../../core/services/realtime_service.dart';
+import '../../../../core/network/supabase_client.dart';
 import '../../../../injection_container.dart';
 import '../../../../models/mosque_model.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -38,9 +39,13 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
   String? _mosqueChildrenSubscribedForMosqueId;
   String? _prayerTimingsLoadedForMosqueId;
   List<Map<String, dynamic>> _absentStudents = [];
+<<<<<<< HEAD
   CompetitionStatus _competitionStatus = CompetitionStatus.noCompetition;
   CompetitionModel? _competition;
   String? _competitionLoadedForMosqueId;
+=======
+  int _pendingCorrections = 0;
+>>>>>>> d2ca40c ( complete everything in last plan successfully)
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -112,6 +117,8 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
           sl<MosqueRepository>().getAbsentStudents(mosque.id, days: 3).then((list) {
             if (mounted) setState(() => _absentStudents = list);
           });
+          // جلب عدد طلبات التصحيح المعلقة
+          _loadPendingCorrections(mosque.id);
         }
 
         // جلب حالة المسابقة عند تغيّر المسجد
@@ -575,9 +582,13 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
         icon: Icons.edit_note_rounded,
         title: 'طلبات التصحيح',
         color: const Color(0xFF9C27B0),
+        badge: _pendingCorrections > 0 ? _pendingCorrections : null,
         onTap: () =>
             context.push('/supervisor/corrections/${mosque.id}').then((_) {
-              if (mounted) setState(() => _statsRefreshKey++);
+              if (mounted) {
+                setState(() => _statsRefreshKey++);
+                _loadPendingCorrections(mosque.id);
+              }
             }),
       ),
       DashboardActionItem(
@@ -636,11 +647,102 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
     );
   }
 
+<<<<<<< HEAD
 
   Widget _buildCompetitionBanner() => CompetitionStatusBanner(
         status: _competitionStatus,
         competition: _competition,
       );
+=======
+  Widget _buildActionTile(BuildContext context, _ActionItem item) {
+    return GestureDetector(
+      onTap: item.onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: item.color.withOpacity(0.13),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(item.icon, color: item.color, size: 26),
+                ),
+                const SizedBox(height: 9),
+                Text(
+                  item.title,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A2B3C),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (item.badge != null)
+            Positioned(
+              top: -4,
+              left: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${item.badge}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+>>>>>>> d2ca40c ( complete everything in last plan successfully)
+
+  Future<void> _loadPendingCorrections(String mosqueId) async {
+    try {
+      final data = await supabase
+          .from('correction_requests')
+          .select('id')
+          .eq('mosque_id', mosqueId)
+          .eq('status', 'pending');
+      if (mounted) {
+        setState(() => _pendingCorrections = (data as List).length);
+      }
+    } catch (_) {}
+  }
 
   Widget _buildBottomNav() {
     return DashboardBottomNav(
@@ -651,3 +753,129 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
   }
 }
 
+<<<<<<< HEAD
+=======
+// ─── Absence Alerts ───
+class _AbsenceAlerts extends StatelessWidget {
+  final List<Map<String, dynamic>> absentStudents;
+  const _AbsenceAlerts({required this.absentStudents});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFF7043).withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF7043).withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF7043).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.warning_amber_rounded,
+                    color: Color(0xFFFF7043), size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'تنبيهات الغياب',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A2B3C),
+                      ),
+                    ),
+                    Text(
+                      '${absentStudents.length} طالب بدون حضور 3 أيام',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...absentStudents.take(5).map((s) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF7043).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      (s['name'] as String).isNotEmpty
+                          ? (s['name'] as String)[0]
+                          : '؟',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFFF7043),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    s['name'] as String,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A2B3C),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )),
+          if (absentStudents.length > 5)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'و ${absentStudents.length - 5} طالب آخر...',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionItem {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final VoidCallback onTap;
+  final int? badge;
+  const _ActionItem({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.onTap,
+    this.badge,
+  });
+}
+>>>>>>> d2ca40c ( complete everything in last plan successfully)

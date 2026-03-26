@@ -12,7 +12,14 @@ import '../bloc/correction_state.dart';
 
 class CorrectionsListScreen extends StatelessWidget {
   final String mosqueId;
-  const CorrectionsListScreen({super.key, required this.mosqueId});
+  /// 'imam' أو 'supervisor' — لتحديد من يراجع الطلبات
+  final String reviewerRole;
+
+  const CorrectionsListScreen({
+    super.key,
+    required this.mosqueId,
+    this.reviewerRole = 'imam',
+  });
 
   @override
   Widget build(BuildContext context) {

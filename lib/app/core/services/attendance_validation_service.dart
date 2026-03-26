@@ -1,4 +1,5 @@
 import '../constants/app_enums.dart';
+import '../network/supabase_client.dart';
 import 'prayer_times_service.dart';
 
 /// نتيجة التحقق من وقت الحضور
@@ -125,6 +126,41 @@ class AttendanceValidationService {
       remainingMinutes: remaining,
       message: 'متبقي $remaining دقيقة لتسجيل الحضور',
     );
+  }
+
+  /// يجلب نافذة الحضور الفعلية بالترتيب:
+  /// 1. من المسجد مباشرة (attendance_window_minutes)
+  /// 2. من system_settings (default_attendance_window_hours)
+  /// 3. Fallback: 1440 دقيقة (24 ساعة)
+  Future<int> getEffectiveWindowMinutes({String? mosqueId}) async {
+    // 1. قراءة من المسجد
+    if (mosqueId != null) {
+      try {
+        final mosque = await supabase
+            .from('mosques')
+            .select('attendance_window_minutes')
+            .eq('id', mosqueId)
+            .maybeSingle();
+
+        final mins = mosque?['attendance_window_minutes'] as int?;
+        if (mins != null && mins > 0) return mins;
+      } catch (_) {}
+    }
+
+    // 2. قراءة من system_settings
+    try {
+      final setting = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'default_attendance_window_hours')
+          .maybeSingle();
+
+      final hours = int.tryParse(setting?['value'] as String? ?? '');
+      if (hours != null && hours > 0) return hours * 60;
+    } catch (_) {}
+
+    // 3. Fallback: 24 ساعة
+    return 1440;
   }
 }
 
