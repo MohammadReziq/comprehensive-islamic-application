@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/app_storage_keys.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/shared_dashboard_widgets.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -60,7 +62,15 @@ class _ImamDashboardScreenState extends State<ImamDashboardScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      // ─── فحص onboarding الإمام ───
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getBool(AppStorageKeys.imamOnboardingSeen) ?? false;
+      if (!seen && mounted) {
+        context.go('/imam/onboarding');
+        return;
+      }
       if (!mounted) return;
       final state = context.read<MosqueBloc>().state;
       if (state is! MosqueLoaded || state.mosques.isEmpty) {

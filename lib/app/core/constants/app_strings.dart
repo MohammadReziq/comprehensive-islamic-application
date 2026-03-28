@@ -25,12 +25,12 @@ class AppStrings {
   // ─── Onboarding ───
   static const String onboardingTitle1 = 'مرحباً بك في صلاتي حياتي ';
   static const String onboardingDesc1 =
-      'تابع صلاة أبنائك وساعدهم على بناء عادة الصلاة في المسجد';
-  static const String onboardingTitle2 = 'صلاة العائلة معاً ';
+      'منصة متكاملة لربط المسجد بالأسرة، لتشجيع الأجيال على المحافظة على الصلاة';
+  static const String onboardingTitle2 = 'القدوة والتشجيع المستمر ';
   static const String onboardingDesc2 =
-      'تابع حضور أبنائك في المسجد، راقب تقدمهم، وشاركهم الإنجازات';
-  static const String onboardingTitle3 = 'ابدأ الآن! ';
-  static const String onboardingDesc3 = 'أنشئ حسابك وابدأ رحلة ابنك مع الصلاة';
+      'كن الداعم الأول! تكامل بين جهودنا لمتابعة حضور الأبناء وتحفيزهم نحو أداء الصلوات بشغف';
+  static const String onboardingTitle3 = 'انطلق معنا! ';
+  static const String onboardingDesc3 = 'أنشئ حسابك الآن، واختر دورك (إمام، مشرف، أو ولي أمر) لتبدأ الرحلة';
   static const String getStarted = 'ابدأ';
   static const String skip = 'تخطي';
   static const String alreadyHaveAccountQuestion = 'تملك حساب؟ سجل دخولك';

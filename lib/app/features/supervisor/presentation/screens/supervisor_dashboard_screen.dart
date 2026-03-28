@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/app_storage_keys.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/shared_dashboard_widgets.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -39,13 +41,13 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
   String? _mosqueChildrenSubscribedForMosqueId;
   String? _prayerTimingsLoadedForMosqueId;
   List<Map<String, dynamic>> _absentStudents = [];
-<<<<<<< HEAD
   CompetitionStatus _competitionStatus = CompetitionStatus.noCompetition;
   CompetitionModel? _competition;
   String? _competitionLoadedForMosqueId;
-=======
   int _pendingCorrections = 0;
->>>>>>> d2ca40c ( complete everything in last plan successfully)
+
+  /// المسجد المختار حالياً (للتبديل بين عدة مساجد)
+  String? _selectedMosqueId;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -64,7 +66,20 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      // ─── فحص onboarding المشرف ───
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getBool(AppStorageKeys.supervisorOnboardingSeen) ?? false;
+      if (!seen && mounted) {
+        context.go('/supervisor/onboarding');
+        return;
+      }
+      // تحميل المسجد المحفوظ
+      final savedMosqueId = prefs.getString(AppStorageKeys.supervisorSelectedMosqueId);
+      if (savedMosqueId != null && mounted) {
+        setState(() => _selectedMosqueId = savedMosqueId);
+      }
       if (!mounted) return;
       final state = context.read<MosqueBloc>().state;
       if (state is! MosqueLoaded || state.mosques.isEmpty) {
@@ -81,21 +96,117 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
     super.dispose();
   }
 
+  /// تبديل المسجد المختار مع إعادة تعيين كل البيانات المخزنة مؤقتاً
+  void _switchMosque(MosqueModel newMosque) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(AppStorageKeys.supervisorSelectedMosqueId, newMosque.id);
+    if (!mounted) return;
+    setState(() {
+      _selectedMosqueId = newMosque.id;
+      // إعادة تعيين كل البيانات المخزنة مؤقتاً لتُحمّل من جديد للمسجد الجديد
+      _prayerTimingsLoadedForMosqueId = null;
+      _mosqueChildrenSubscribedForMosqueId = null;
+      _competitionLoadedForMosqueId = null;
+      _absentStudents = [];
+      _competitionStatus = CompetitionStatus.noCompetition;
+      _competition = null;
+      _pendingCorrections = 0;
+      _statsRefreshKey++;
+    });
+  }
+
+  /// عرض قائمة اختيار المسجد
+  void _showMosqueSwitcher(BuildContext context, List<MosqueModel> mosques, MosqueModel current) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0D2137),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    'اختر المسجد',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
+                  ),
+                ),
+                ...mosques.map((m) {
+                  final isSelected = m.id == current.id;
+                  return ListTile(
+                    leading: Icon(
+                      isSelected ? Icons.check_circle_rounded : Icons.mosque_rounded,
+                      color: isSelected ? const Color(0xFF69F0AE) : Colors.white60,
+                    ),
+                    title: Text(
+                      m.name,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    subtitle: m.address != null && m.address!.isNotEmpty
+                        ? Text(m.address!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12))
+                        : null,
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (!isSelected) _switchMosque(m);
+                    },
+                  );
+                }),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<MosqueBloc, MosqueState>(
       builder: (context, state) {
         MosqueModel? mosque;
+        List<MosqueModel> approvedMosques = [];
         if (state is MosqueLoaded) {
-          try {
-            mosque = state.mosques.firstWhere(
-              (m) => m.status == MosqueStatus.approved,
-            );
-          } catch (_) {}
+          approvedMosques = state.mosques
+              .where((m) => m.status == MosqueStatus.approved)
+              .toList();
+          if (approvedMosques.isNotEmpty) {
+            // استخدام المسجد المحفوظ إن وُجد، وإلا أول مسجد
+            mosque = approvedMosques.cast<MosqueModel?>().firstWhere(
+              (m) => m!.id == _selectedMosqueId,
+              orElse: () => null,
+            ) ?? approvedMosques.first;
+            // تحديث _selectedMosqueId إذا لم يكن محفوظاً
+            if (_selectedMosqueId != mosque.id) {
+              _selectedMosqueId = mosque.id;
+            }
+          }
         }
         final lat = mosque?.lat;
         final lng = mosque?.lng;
-        if (mosque != null && lat != null && lng != null && mosque.id != _prayerTimingsLoadedForMosqueId) {
+        if (mosque != null &&
+            lat != null &&
+            lng != null &&
+            mosque.id != _prayerTimingsLoadedForMosqueId) {
           _prayerTimingsLoadedForMosqueId = mosque.id;
           sl<PrayerTimesService>().loadTimingsFor(lat, lng).then((_) {
             if (mounted) setState(() {});
@@ -114,7 +225,9 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
             if (mounted) setState(() => _statsRefreshKey++);
           });
           // جلب الغائبين
-          sl<MosqueRepository>().getAbsentStudents(mosque.id, days: 3).then((list) {
+          sl<MosqueRepository>().getAbsentStudents(mosque.id, days: 3).then((
+            list,
+          ) {
             if (mounted) setState(() => _absentStudents = list);
           });
           // جلب عدد طلبات التصحيح المعلقة
@@ -124,7 +237,9 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
         // جلب حالة المسابقة عند تغيّر المسجد
         if (mosque != null && mosque.id != _competitionLoadedForMosqueId) {
           _competitionLoadedForMosqueId = mosque.id;
-          sl<CompetitionRepository>().getCompetitionStatus(mosque.id).then((result) {
+          sl<CompetitionRepository>().getCompetitionStatus(mosque.id).then((
+            result,
+          ) {
             if (mounted) {
               setState(() {
                 _competitionStatus = result.status;
@@ -158,6 +273,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
                                   context,
                                   mosque,
                                   nextPrayer,
+                                  approvedMosques,
                                 ),
                               ),
                               SliverPadding(
@@ -175,14 +291,16 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
                                         mosque,
                                         nextPrayer,
                                       ),
-                                      if (_competitionStatus != CompetitionStatus.noCompetition) ...[
+                                      if (_competitionStatus !=
+                                          CompetitionStatus.noCompetition) ...[
                                         const SizedBox(height: 16),
                                         _buildCompetitionBanner(),
                                       ],
                                       if (_absentStudents.isNotEmpty) ...[
                                         const SizedBox(height: 16),
                                         DashboardAbsenceAlerts(
-                                            absentStudents: _absentStudents),
+                                          absentStudents: _absentStudents,
+                                        ),
                                       ],
                                     ],
                                   ),
@@ -339,6 +457,7 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
     BuildContext context,
     MosqueModel mosque,
     dynamic nextPrayer,
+    List<MosqueModel> approvedMosques,
   ) {
     return Container(
       decoration: const BoxDecoration(
@@ -359,27 +478,51 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'لوحة المشرف',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -0.3,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'لوحة المشرف',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.3,
+                          ),
                         ),
-                      ),
-                      Text(
-                        mosque.name,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.65),
-                          fontWeight: FontWeight.w500,
+                        // اسم المسجد — قابل للضغط إذا فيه أكثر من مسجد
+                        GestureDetector(
+                          onTap: approvedMosques.length > 1
+                              ? () => _showMosqueSwitcher(context, approvedMosques, mosque)
+                              : null,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  mosque.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white.withOpacity(0.65),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (approvedMosques.length > 1) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.swap_horiz_rounded,
+                                  color: Colors.white.withOpacity(0.5),
+                                  size: 16,
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   Row(
                     children: [
@@ -409,21 +552,42 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
+                      // زر تبديل المساجد (يظهر فقط إذا أكثر من مسجد)
+                      if (approvedMosques.length > 1)
+                        GestureDetector(
+                          onTap: () => _showMosqueSwitcher(context, approvedMosques, mosque),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.swap_horiz_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.mosque_rounded,
+                            color: Colors.white,
+                            size: 22,
                           ),
                         ),
-                        child: const Icon(
-                          Icons.mosque_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
                     ],
                   ),
                 ],
@@ -463,7 +627,6 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
       ),
     );
   }
-
 
   Widget _buildStatsChips(MosqueModel mosque) {
     final repo = sl<SupervisorRepository>();
@@ -647,89 +810,10 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
     );
   }
 
-<<<<<<< HEAD
-
   Widget _buildCompetitionBanner() => CompetitionStatusBanner(
-        status: _competitionStatus,
-        competition: _competition,
-      );
-=======
-  Widget _buildActionTile(BuildContext context, _ActionItem item) {
-    return GestureDetector(
-      onTap: item.onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: item.color.withOpacity(0.13),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: item.color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(item.icon, color: item.color, size: 26),
-                ),
-                const SizedBox(height: 9),
-                Text(
-                  item.title,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A2B3C),
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (item.badge != null)
-            Positioned(
-              top: -4,
-              left: -4,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${item.badge}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
->>>>>>> d2ca40c ( complete everything in last plan successfully)
+    status: _competitionStatus,
+    competition: _competition,
+  );
 
   Future<void> _loadPendingCorrections(String mosqueId) async {
     try {
@@ -752,130 +836,3 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen>
     );
   }
 }
-
-<<<<<<< HEAD
-=======
-// ─── Absence Alerts ───
-class _AbsenceAlerts extends StatelessWidget {
-  final List<Map<String, dynamic>> absentStudents;
-  const _AbsenceAlerts({required this.absentStudents});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFF7043).withOpacity(0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF7043).withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF7043).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFFF7043), size: 20),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'تنبيهات الغياب',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A2B3C),
-                      ),
-                    ),
-                    Text(
-                      '${absentStudents.length} طالب بدون حضور 3 أيام',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...absentStudents.take(5).map((s) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                Container(
-                  width: 28, height: 28,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF7043).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      (s['name'] as String).isNotEmpty
-                          ? (s['name'] as String)[0]
-                          : '؟',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFFF7043),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    s['name'] as String,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A2B3C),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )),
-          if (absentStudents.length > 5)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'و ${absentStudents.length - 5} طالب آخر...',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionItem {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final VoidCallback onTap;
-  final int? badge;
-  const _ActionItem({
-    required this.icon,
-    required this.title,
-    required this.color,
-    required this.onTap,
-    this.badge,
-  });
-}
->>>>>>> d2ca40c ( complete everything in last plan successfully)

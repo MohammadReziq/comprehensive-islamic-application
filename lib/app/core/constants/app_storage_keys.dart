@@ -13,4 +13,7 @@ class AppStorageKeys {
 
   /// هل شاف ولي الأمر الـ onboarding الخاص به (بعد أول تسجيل دخول)
   static const String parentOnboardingSeen = 'parent_onboarding_seen';
+
+  /// المسجد المختار حالياً للمشرف (لدعم تعدد المساجد)
+  static const String supervisorSelectedMosqueId = 'supervisor_selected_mosque_id';
 }

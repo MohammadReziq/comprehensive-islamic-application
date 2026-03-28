@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_storage_keys.dart';
@@ -40,7 +41,10 @@ class ImamOnboardingScreen extends StatelessWidget {
                       color: Colors.white,
                       size: 40,
                     ),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(duration: 500.ms)
+                      .scale(begin: const Offset(0.8, 0.8), duration: 500.ms),
                   const SizedBox(height: 20),
 
                   // ─── العنوان ───
@@ -52,7 +56,10 @@ class ImamOnboardingScreen extends StatelessWidget {
                       color: Colors.white,
                       letterSpacing: -0.3,
                     ),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 200.ms, duration: 500.ms)
+                      .slideY(begin: 0.15, curve: Curves.easeOut),
                   const SizedBox(height: 8),
                   Text(
                     'تم إنشاء حسابك بنجاح. إليك الخطوات التالية لإعداد مسجدك:',
@@ -61,7 +68,10 @@ class ImamOnboardingScreen extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.7),
                       height: 1.5,
                     ),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 350.ms, duration: 500.ms)
+                      .slideY(begin: 0.15, curve: Curves.easeOut),
                   const SizedBox(height: 32),
 
                   // ─── Checklist ───
@@ -70,21 +80,30 @@ class ImamOnboardingScreen extends StatelessWidget {
                     title: 'إنشاء المسجد',
                     subtitle: 'تم إنشاء المسجد بنجاح',
                     isCompleted: true,
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 500.ms, duration: 400.ms)
+                      .slideX(begin: 0.1, curve: Curves.easeOut),
                   const SizedBox(height: 14),
                   _ChecklistItem(
                     icon: Icons.person_add_rounded,
                     title: 'إضافة مشرف',
                     subtitle: 'أضف مشرفاً واحداً على الأقل للتحضير',
                     isCompleted: false,
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 600.ms, duration: 400.ms)
+                      .slideX(begin: 0.1, curve: Curves.easeOut),
                   const SizedBox(height: 14),
                   _ChecklistItem(
                     icon: Icons.emoji_events_rounded,
                     title: 'إطلاق مسابقة',
                     subtitle: 'حفّز الأطفال بإطلاق أول مسابقة',
                     isCompleted: false,
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 700.ms, duration: 400.ms)
+                      .slideX(begin: 0.1, curve: Curves.easeOut),
 
                   const Spacer(),
 
@@ -112,8 +131,32 @@ class ImamOnboardingScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                  )
+                      .animate()
+                      .fadeIn(delay: 800.ms, duration: 400.ms)
+                      .slideY(begin: 0.2),
+
+                  // ─── زر تخطي ───
+                  Center(
+                    child: TextButton(
+                      onPressed: () async {
+                        await _markSeen();
+                        if (context.mounted) context.go('/imam/dashboard');
+                      },
+                      child: Text(
+                        'تخطي',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 900.ms, duration: 300.ms),
+
+                  const SizedBox(height: 8),
                 ],
               ),
             ),

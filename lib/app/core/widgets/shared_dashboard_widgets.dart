@@ -16,11 +16,13 @@ class DashboardActionItem {
   final String title;
   final Color color;
   final VoidCallback onTap;
+  final int? badge;
   const DashboardActionItem({
     required this.icon,
     required this.title,
     required this.color,
     required this.onTap,
+    this.badge,
   });
 }
 
@@ -126,54 +128,80 @@ class DashboardActionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: item.onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: item.color.withOpacity(0.13),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: item.color.withOpacity(0.13),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(item.icon, color: item.color, size: 26),
+                ),
+                const SizedBox(height: 9),
+                Text(
+                  item.title,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A2B3C),
+                    height: 1.3,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: item.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
+          ),
+          if (item.badge != null && item.badge! > 0)
+            Positioned(
+              top: -4,
+              left: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${item.badge}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              child: Icon(item.icon, color: item.color, size: 26),
             ),
-            const SizedBox(height: 9),
-            Text(
-              item.title,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A2B3C),
-                height: 1.3,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
+
 
 // ─── Hero Info Chip ───
 

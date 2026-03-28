@@ -1,19 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../injection_container.dart';
-import '../../../../models/child_model.dart';
-import '../../data/repositories/child_repository.dart';
 import '../bloc/children_bloc.dart';
 import '../bloc/children_event.dart';
 import '../bloc/children_state.dart';
+import '../widgets/child_credentials_dialog.dart';
 
-// ═══════════════════════════════════════════════════════════════════
-/// 📁 lib/app/features/parent/presentation/screens/add_child_screen.dart
-// ═══════════════════════════════════════════════════════════════════
+/// شاشة إضافة ابن
 class AddChildScreen extends StatefulWidget {
   const AddChildScreen({super.key});
 
@@ -29,6 +23,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
   bool _createAccount = false;
   bool _loading = false;
   bool _showPass = false;
+  bool _credentialsHandled = false;
 
   @override
   void dispose() {
@@ -41,235 +36,53 @@ class _AddChildScreenState extends State<AddChildScreen> {
   void _submit() {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('أدخل اسم الابن'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل اسم الابن'), behavior: SnackBarBehavior.floating));
       return;
     }
     if (_createAccount) {
       final email = _emailCtrl.text.trim();
       final pass = _passCtrl.text.trim();
       if (email.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('أدخل إيميل الابن لإنشاء الحساب'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل إيميل الابن لإنشاء الحساب'), behavior: SnackBarBehavior.floating));
         return;
       }
       if (pass.length < 6) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('كلمة المرور 6 أحرف على الأقل'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('كلمة المرور 6 أحرف على الأقل'), behavior: SnackBarBehavior.floating));
         return;
       }
     }
     setState(() => _loading = true);
-    context.read<ChildrenBloc>().add(
-      ChildrenAdd(
-        name: name,
-        age: _age,
-        email: _createAccount ? _emailCtrl.text.trim() : null,
-        password: _createAccount ? _passCtrl.text.trim() : null,
-      ),
-    );
-  }
-
-  void _showCredentialsThenPop(
-    BuildContext context,
-    String email,
-    String password,
-  ) {
-    bool obscurePassword = true;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.key_rounded, color: Color(0xFF2E8B57)),
-                SizedBox(width: 8),
-                Text(
-                  'بيانات دخول الابن',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF8E1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFFFCC02)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.warning_amber_rounded,
-                          color: Color(0xFFF57F17), size: 16),
-                      SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'احتفظ بهذه البيانات — لن تظهر مرة أخرى',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFFE65100),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _credRow('الإيميل', email),
-                const SizedBox(height: 10),
-                // كلمة المرور مع إخفاء/إظهار + نسخ
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(
-                      width: 90,
-                      child: Text(
-                        'كلمة المرور',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A2B3C),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        obscurePassword ? '••••••••' : password,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0D2137),
-                        ),
-                      ),
-                    ),
-                    // نسخ
-                    GestureDetector(
-                      onTap: () => Clipboard.setData(
-                        ClipboardData(text: password),
-                      ),
-                      child: const Tooltip(
-                        message: 'نسخ',
-                        child: Icon(Icons.copy_rounded,
-                            size: 17, color: Colors.grey),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // إخفاء / إظهار
-                    GestureDetector(
-                      onTap: () => setDialogState(
-                          () => obscurePassword = !obscurePassword),
-                      child: Icon(
-                        obscurePassword
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded,
-                        size: 17,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  context.read<ChildrenBloc>().add(
-                    const ChildrenCredentialsShown(),
-                  );
-                  if (context.mounted) context.pop();
-                },
-                child: const Text('فهمت، حفظتها'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _credRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1A2B3C),
-            ),
-          ),
-        ),
-        Expanded(
-          child: SelectableText(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF0D2137),
-            ),
-          ),
-        ),
-        // نسخ
-        GestureDetector(
-          onTap: () => Clipboard.setData(ClipboardData(text: value)),
-          child: const Tooltip(
-            message: 'نسخ',
-            child:
-                Icon(Icons.copy_rounded, size: 17, color: Colors.grey),
-          ),
-        ),
-      ],
-    );
+    context.read<ChildrenBloc>().add(ChildrenAdd(
+      name: name, age: _age,
+      email: _createAccount ? _emailCtrl.text.trim() : null,
+      password: _createAccount ? _passCtrl.text.trim() : null,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<ChildrenBloc, ChildrenState>(
       listener: (context, state) {
-        if (state is ChildrenLoaded) {
+        // بعد إضافة الابن بدون حساب → رجوع مباشر
+        if (state is ChildrenLoaded && !_credentialsHandled) {
           setState(() => _loading = false);
           context.pop();
         }
+        // بعد إضافة الابن مع حساب → عرض البيانات ثم الرجوع
         if (state is ChildrenLoadedWithCredentials) {
           setState(() => _loading = false);
-          _showCredentialsThenPop(context, state.email, state.password);
+          _credentialsHandled = true;
+          ChildCredentialsDialog.show(
+            context: context, email: state.email, password: state.password,
+            onDismiss: () {
+              context.read<ChildrenBloc>().add(const ChildrenCredentialsShown());
+              if (context.mounted) context.pop();
+            },
+          );
         }
         if (state is ChildrenError) {
           setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.message), backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating));
         }
       },
       child: Directionality(
@@ -284,120 +97,55 @@ class _AddChildScreenState extends State<AddChildScreen> {
                 sliver: SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      _buildCard(
-                        children: [
-                          _label('اسم الابن'),
-                          _field(
-                            _nameCtrl,
-                            'مثال: أحمد محمد',
-                            icon: Icons.person_rounded,
-                          ),
-                          const SizedBox(height: 16),
-                          _label('العمر'),
-                          _agePicker(),
-                        ],
-                      ),
+                      _buildCard(children: [
+                        _label('اسم الابن'),
+                        _field(_nameCtrl, 'مثال: أحمد محمد', icon: Icons.person_rounded),
+                        const SizedBox(height: 16),
+                        _label('العمر'),
+                        _agePicker(),
+                      ]),
                       const SizedBox(height: 16),
-                      _buildCard(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'إنشاء حساب للابن',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1A2B3C),
-                                ),
-                              ),
-                              Switch(
-                                value: _createAccount,
-                                onChanged: (v) =>
-                                    setState(() => _createAccount = v),
-                                activeColor: AppColors.primary,
-                              ),
-                            ],
-                          ),
-                          if (_createAccount) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              'سيتمكن الابن من تسجيل الدخول بهذه البيانات',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _label('الإيميل'),
-                            _field(
-                              _emailCtrl,
-                              'example@email.com',
-                              icon: Icons.email_rounded,
-                              type: TextInputType.emailAddress,
-                            ),
-                            const SizedBox(height: 12),
-                            _label('كلمة المرور'),
-                            TextField(
-                              controller: _passCtrl,
-                              obscureText: !_showPass,
-                              decoration: InputDecoration(
-                                hintText: '••••••••',
-                                prefixIcon: const Icon(
-                                  Icons.lock_rounded,
-                                  size: 20,
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _showPass
-                                        ? Icons.visibility_off_rounded
-                                        : Icons.visibility_rounded,
-                                    size: 20,
-                                  ),
-                                  onPressed: () =>
-                                      setState(() => _showPass = !_showPass),
-                                ),
-                                filled: true,
-                                fillColor: const Color(0xFFF5F6FA),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            ),
+                      _buildCard(children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('إنشاء حساب للابن', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A2B3C))),
+                            Switch(value: _createAccount, onChanged: (v) => setState(() => _createAccount = v), activeColor: AppColors.primary),
                           ],
+                        ),
+                        if (_createAccount) ...[
+                          const SizedBox(height: 12),
+                          Text('سيتمكن الابن من تسجيل الدخول بهذه البيانات', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          const SizedBox(height: 12),
+                          _label('الإيميل'),
+                          _field(_emailCtrl, 'example@email.com', icon: Icons.email_rounded, type: TextInputType.emailAddress),
+                          const SizedBox(height: 12),
+                          _label('كلمة المرور'),
+                          TextField(
+                            controller: _passCtrl,
+                            obscureText: !_showPass,
+                            decoration: InputDecoration(
+                              hintText: '••••••••',
+                              prefixIcon: const Icon(Icons.lock_rounded, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(_showPass ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20),
+                                onPressed: () => setState(() => _showPass = !_showPass),
+                              ),
+                              filled: true, fillColor: const Color(0xFFF5F6FA),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            ),
+                          ),
                         ],
-                      ),
+                      ]),
                       const SizedBox(height: 24),
                       SizedBox(
-                        width: double.infinity,
-                        height: 52,
+                        width: double.infinity, height: 52,
                         child: ElevatedButton(
                           onPressed: _loading ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 0,
-                          ),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0),
                           child: _loading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text(
-                                  'إضافة الابن',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
+                              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text('إضافة الابن', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                         ),
                       ),
                     ],
@@ -413,45 +161,23 @@ class _AddChildScreenState extends State<AddChildScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF0D2137), Color(0xFF1B5E8A), Color(0xFF2E8B57)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF0D2137), Color(0xFF1B5E8A), Color(0xFF2E8B57)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
       child: SafeArea(
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
+          child: Row(children: [
+            GestureDetector(
+              onTap: () => context.pop(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
               ),
-              const SizedBox(width: 14),
-              const Text(
-                'إضافة ابن',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 14),
+            const Text('إضافة ابن', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+          ]),
         ),
       ),
     );
@@ -459,87 +185,32 @@ class _AddChildScreenState extends State<AddChildScreen> {
 
   Widget _buildCard({required List<Widget> children}) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
+      width: double.infinity, padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
   }
 
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: Color(0xFF1A2B3C),
-      ),
-    ),
+    child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A2B3C))),
   );
 
-  Widget _field(
-    TextEditingController ctrl,
-    String hint, {
-    IconData? icon,
-    TextInputType? type,
-  }) {
+  Widget _field(TextEditingController ctrl, String hint, {IconData? icon, TextInputType? type}) {
     return TextField(
-      controller: ctrl,
-      keyboardType: type,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: icon != null ? Icon(icon, size: 20) : null,
-        filled: true,
-        fillColor: const Color(0xFFF5F6FA),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-      ),
+      controller: ctrl, keyboardType: type,
+      decoration: InputDecoration(hintText: hint, prefixIcon: icon != null ? Icon(icon, size: 20) : null, filled: true, fillColor: const Color(0xFFF5F6FA), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
     );
   }
 
   Widget _agePicker() {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F6FA),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            onPressed: _age > 3 ? () => setState(() => _age--) : null,
-            icon: const Icon(Icons.remove_rounded),
-          ),
-          Text(
-            '$_age سنة',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1A2B3C),
-            ),
-          ),
-          IconButton(
-            onPressed: _age < 18 ? () => setState(() => _age++) : null,
-            icon: const Icon(Icons.add_rounded),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFF5F6FA), borderRadius: BorderRadius.circular(12)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        IconButton(onPressed: _age > 3 ? () => setState(() => _age--) : null, icon: const Icon(Icons.remove_rounded)),
+        Text('$_age سنة', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A2B3C))),
+        IconButton(onPressed: _age < 18 ? () => setState(() => _age++) : null, icon: const Icon(Icons.add_rounded)),
+      ]),
     );
   }
 }

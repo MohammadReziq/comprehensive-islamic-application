@@ -7,13 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_screen.dart';
 import 'package:salati_hayati/app/features/super_admin/presentation/screens/admin_mosques_map_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../features/onboarding/presentation/screens/parent_onboarding_screen.dart';
+import '../../features/onboarding/presentation/screens/imam_onboarding_screen.dart';
+import '../../features/onboarding/presentation/screens/supervisor_onboarding_screen.dart';
 import '../../core/constants/app_storage_keys.dart';
 import '../../core/constants/app_enums.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/auth/presentation/screens/first_entry_screen.dart';
 import '../../features/parent/presentation/screens/home_screen.dart';
 import '../../features/prayer_times/presentation/screens/prayer_time_screen.dart';
 import '../../core/services/prayer_times_service.dart';
@@ -115,6 +117,12 @@ class AppRouter {
       final isOnOnboarding = state.matchedLocation == '/onboarding';
       if (isUnauthenticated && !isOnAuth && !isOnOnboarding) return '/login';
 
+      // السماح بمسارات الـ onboarding الخاصة بالأدوار
+      final isOnRoleOnboarding =
+          state.matchedLocation == '/parent/onboarding' ||
+          state.matchedLocation == '/imam/onboarding' ||
+          state.matchedLocation == '/supervisor/onboarding';
+
       // إذا كان مسجلاً
       if (authState is AuthAuthenticated) {
         final profile = authState.userProfile;
@@ -137,9 +145,10 @@ class AppRouter {
         final isOnAdmin = state.matchedLocation.startsWith('/admin');
         final isOnChildView = state.matchedLocation == '/child-view';
         final isOnMosque =
-            state.matchedLocation.startsWith('/mosque') ||
+            (state.matchedLocation.startsWith('/mosque') ||
             state.matchedLocation.startsWith('/supervisor') ||
-            state.matchedLocation.startsWith('/imam');
+            state.matchedLocation.startsWith('/imam')) &&
+            !isOnRoleOnboarding;
         final isOnHome = state.matchedLocation == '/home';
 
         // منع غير السوبر أدمن من الوصول لـ /admin — توجيهه حسب دوره
@@ -153,17 +162,19 @@ class AppRouter {
         // الابن → شاشة عرض الابن فقط
         if (isChild && !isOnChildView) return '/child-view';
         // الإمام أو المشرف → بوابة المسجد / لوحة الإمام / لوحة المشرف
-        if (isImamOrSupervisor && !isOnMosque) return '/mosque';
+        if (isImamOrSupervisor && !isOnMosque && !isOnRoleOnboarding) return '/mosque';
         // توجيه الأهل إذا لم يكونوا في صفحتهم
         if (!isSuperAdmin &&
             !isImamOrSupervisor &&
             !isChild &&
+            !isOnRoleOnboarding &&
             (isOnAuth || isOnSplash))
           return '/home';
         // منع الأهل من دخول صفحات المسجد والإدارة وواجهة الابن
         if (!isSuperAdmin &&
             !isImamOrSupervisor &&
             !isChild &&
+            !isOnRoleOnboarding &&
             (isOnMosque || isOnAdmin || isOnChildView) &&
             !isOnHome)
           return '/home';
@@ -189,6 +200,21 @@ class AppRouter {
         path: '/onboarding',
         name: 'onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/parent/onboarding',
+        name: 'parentOnboarding',
+        builder: (context, state) => const ParentOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/imam/onboarding',
+        name: 'imamOnboarding',
+        builder: (context, state) => const ImamOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/supervisor/onboarding',
+        name: 'supervisorOnboarding',
+        builder: (context, state) => const SupervisorOnboardingScreen(),
       ),
       GoRoute(
         path: '/login',
@@ -220,11 +246,6 @@ class AppRouter {
         path: '/child-view',
         name: 'childView',
         builder: (context, state) => const ChildViewScreen(),
-      ),
-      GoRoute(
-        path: '/parent/first-entry',
-        name: 'parentFirstEntry',
-        builder: (context, state) => const FirstEntryScreen(),
       ),
       GoRoute(
         path: '/parent/children',

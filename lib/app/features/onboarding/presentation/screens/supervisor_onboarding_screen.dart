@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_storage_keys.dart';
@@ -40,7 +41,10 @@ class SupervisorOnboardingScreen extends StatelessWidget {
                       color: Colors.white,
                       size: 40,
                     ),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(duration: 500.ms)
+                      .scale(begin: const Offset(0.8, 0.8), duration: 500.ms),
                   const SizedBox(height: 24),
 
                   // ─── العنوان ───
@@ -52,7 +56,10 @@ class SupervisorOnboardingScreen extends StatelessWidget {
                       color: Colors.white,
                       letterSpacing: -0.3,
                     ),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 200.ms, duration: 500.ms)
+                      .slideY(begin: 0.15, curve: Curves.easeOut),
                   const SizedBox(height: 12),
                   Text(
                     'أنت مشرف في المسجد. مهمتك الأساسية هي تسجيل حضور الأطفال ومتابعة صلاتهم.',
@@ -61,7 +68,10 @@ class SupervisorOnboardingScreen extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.75),
                       height: 1.6,
                     ),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 350.ms, duration: 500.ms)
+                      .slideY(begin: 0.15, curve: Curves.easeOut),
                   const SizedBox(height: 36),
 
                   // ─── المهام ───
@@ -70,20 +80,29 @@ class SupervisorOnboardingScreen extends StatelessWidget {
                     title: 'تسجيل الحضور',
                     description:
                         'امسح QR الطفل أو ابحث عنه بالاسم لتسجيل حضوره',
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 500.ms, duration: 400.ms)
+                      .slideX(begin: 0.1, curve: Curves.easeOut),
                   const SizedBox(height: 14),
                   _TaskItem(
                     icon: Icons.note_alt_outlined,
                     title: 'الملاحظات',
                     description:
                         'أرسل ملاحظات لأولياء الأمور عن سلوك أطفالهم',
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 600.ms, duration: 400.ms)
+                      .slideX(begin: 0.1, curve: Curves.easeOut),
                   const SizedBox(height: 14),
                   _TaskItem(
                     icon: Icons.edit_note_rounded,
                     title: 'طلبات التصحيح',
                     description: 'راجع ووافق على طلبات تصحيح الحضور',
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 700.ms, duration: 400.ms)
+                      .slideX(begin: 0.1, curve: Curves.easeOut),
 
                   const Spacer(),
 
@@ -111,7 +130,10 @@ class SupervisorOnboardingScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 800.ms, duration: 400.ms)
+                      .slideY(begin: 0.2),
                   const SizedBox(height: 16),
                 ],
               ),
