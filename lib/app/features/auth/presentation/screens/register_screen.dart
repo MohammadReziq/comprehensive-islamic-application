@@ -11,6 +11,7 @@ import '../../../../core/services/auth_video_manager.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import '../widgets/auth_header.dart';
 import '../widgets/auth_video_background.dart';
 import '../widgets/register_form_card.dart';
 
@@ -179,14 +180,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     children: [
                       SizedBox(height: r.sm),
-                      Text(
-                        AppStrings.register,
-                        style: TextStyle(
-                          fontSize: r.textXXL,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textOnDark,
-                        ),
-                      ).animate(),
+                      AuthHeader(
+                        title: AppStrings.register,
+                        subtitle: 'اختر دورك وابدأ رحلتك',
+                      ),
                       SizedBox(height: r.isShortPhone ? r.vsm : r.vmd),
                       RegisterFormCard(
                         formKey: _formKey,

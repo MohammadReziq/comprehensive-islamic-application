@@ -10,6 +10,7 @@ import '../../../../core/services/auth_video_manager.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import '../widgets/auth_header.dart';
 import '../widgets/auth_video_background.dart';
 import '../widgets/forgot_password_dialog.dart';
 import '../widgets/login_form_card.dart';
@@ -180,29 +181,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                'مرحباً بعودتك',
-                                style: TextStyle(
-                                  fontSize: r.textXXL,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
-                                ),
-                              )
-                                  .animate()
-                                  .fadeIn(duration: 700.ms)
-                                  .slideY(begin: -0.3, curve: Curves.easeOut),
-                              const SizedBox(height: 8),
-                              Text(
-                                'تابع صلاة أبنائك بكل يسر',
-                                style: TextStyle(
-                                  fontSize: r.textSM,
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                ),
-                              ).animate().fadeIn(
-                                    delay: 200.ms,
-                                    duration: 600.ms,
-                                  ),
+                              const AuthHeader(
+                                title: 'مرحباً بعودتك',
+                                subtitle: 'نحو جيل محافظ على الصلاة',
+                              ),
                               SizedBox(
                                 height: r.isShortPhone ? r.vmd : r.vxl,
                               ),
