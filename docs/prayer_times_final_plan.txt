@@ -1,0 +1,563 @@
+═══════════════════════════════════════════════════════════════════════════════════════
+     الخطة النهائية الشاملة: نظام مواقيت الصلاة — تطبيق صلاتي حياتي
+     Prayer Times — Final Comprehensive Implementation Plan
+═══════════════════════════════════════════════════════════════════════════════════════
+
+التاريخ: 2026-04-02
+══════════════════════════════════════════════════════════════════════════════════════
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                 المرحلة 1: Smart Location Manager                                ║
+║                 إدارة الموقع الذكية — حفظ + تحديث بهدوء                          ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+📝 ملف جديد: lib/app/core/services/smart_location_manager.dart
+────────────────────────────────────────────────────────────────
+
+الهدف: بدلاً من طلب GPS كل مرة → نحفظ آخر موقع ناجح ونستخدمه فوراً.
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │                     SharedPreferences Keys                       │
+  ├──────────────────┬───────────────────────────────────────────────┤
+  │ prayer_saved_lat │ خط العرض المحفوظ (مثل 31.9539)              │
+  │ prayer_saved_lng │ خط الطول المحفوظ (مثل 35.9106)              │
+  │ prayer_loc_date  │ تاريخ آخر تحديث (ISO 8601)                  │
+  └──────────────────┴───────────────────────────────────────────────┘
+
+  الدوال المطلوبة:
+  ─────────────────
+  1. getSavedLocation()
+     → يعيد (lat, lng) من SharedPreferences فوراً
+     → إذا لا يوجد محفوظ → يعيد (null, null)
+
+  2. saveLocation(lat, lng)
+     → يحفظ الموقع + تاريخ الحفظ
+
+  3. needsRefresh()
+     → يتحقق هل مرّ أكثر من 30 يوم من آخر تحديث
+     → أو هل لا يوجد موقع محفوظ أصلاً
+
+  4. hasSignificantChange(newLat, newLng)
+     → يقارن الجديد بالمحفوظ
+     → إذا الفرق أكبر من ~5 كم → يعيد true
+     → الصيغة: Haversine أو ببساطة (|Δlat| > 0.045 || |Δlng| > 0.045)
+
+  5. getLocationSmart()
+     → الدالة الرئيسية التي تستبدل الطريقة الحالية
+     → المنطق:
+        ┌─────────────────────────────────────────────────────────┐
+        │ 1. اقرأ الموقع المحفوظ من SharedPreferences           │
+        │ 2. إذا وُجد → أعده فوراً (الشاشة تعرض المواقيت)     │
+        │ 3. في الخلفية (بدون انتظار):                          │
+        │    a. تحقق: هل الـ GPS مشغّل والإذن ممنوح؟            │
+        │    b. إذا نعم + (مر 30 يوم أو أول مرة):               │
+        │       → اطلب GPS بهدوء                                 │
+        │       → إذا تغيّر الموقع بشكل ملحوظ:                  │
+        │         → حدّث SharedPreferences                       │
+        │         → أعد تحميل المواقيت                           │
+        │    c. إذا لا → لا تفعل شيئاً                          │
+        │ 4. إذا لم يوجد موقع محفوظ (أول مرة):                  │
+        │    → اطلب الإذن + GPS                                  │
+        │    → احفظ + حمّل المواقيت                              │
+        └─────────────────────────────────────────────────────────┘
+
+  الكود المقترح:
+  ─────────────────
+
+  import 'dart:math';
+  import 'package:geolocator/geolocator.dart';
+  import 'package:shared_preferences/shared_preferences.dart';
+
+  class SmartLocationManager {
+    static const _keyLat = 'prayer_saved_lat';
+    static const _keyLng = 'prayer_saved_lng';
+    static const _keyDate = 'prayer_loc_date';
+    static const _refreshDays = 30;
+    static const _significantChangeDeg = 0.045; // ~5 km
+
+    static Future<({double? lat, double? lng})> getSavedLocation() async {
+      final prefs = await SharedPreferences.getInstance();
+      final lat = prefs.getDouble(_keyLat);
+      final lng = prefs.getDouble(_keyLng);
+      return (lat: lat, lng: lng);
+    }
+
+    static Future<void> saveLocation(double lat, double lng) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_keyLat, lat);
+      await prefs.setDouble(_keyLng, lng);
+      await prefs.setString(_keyDate, DateTime.now().toIso8601String());
+    }
+
+    static Future<bool> needsRefresh() async {
+      final prefs = await SharedPreferences.getInstance();
+      final dateStr = prefs.getString(_keyDate);
+      if (dateStr == null) return true;
+      final saved = DateTime.tryParse(dateStr);
+      if (saved == null) return true;
+      return DateTime.now().difference(saved).inDays >= _refreshDays;
+    }
+
+    static bool hasSignificantChange(
+        double newLat, double newLng, double? oldLat, double? oldLng) {
+      if (oldLat == null || oldLng == null) return true;
+      return (newLat - oldLat).abs() > _significantChangeDeg ||
+             (newLng - oldLng).abs() > _significantChangeDeg;
+    }
+
+    /// الدالة الذكية الرئيسية
+    /// تعيد الموقع فوراً من الكاش إن وُجد، ثم تحدّث في الخلفية
+    /// [onLocationReady] يُستدعى فوراً بالكاش (أو بعد GPS إن كانت أول مرة)
+    /// [onLocationUpdated] يُستدعى إذا تغيّر الموقع بشكل ملحوظ (تحديث خلفي)
+    static Future<void> getLocationSmart({
+      required void Function(double lat, double lng) onLocationReady,
+      void Function(double lat, double lng)? onLocationUpdated,
+    }) async {
+      final saved = await getSavedLocation();
+
+      // ——— إذا عندنا موقع محفوظ → استخدمه فوراً ———
+      if (saved.lat != null && saved.lng != null) {
+        onLocationReady(saved.lat!, saved.lng!);
+
+        // تحديث خلفي إذا مرّ 30 يوم
+        final refresh = await needsRefresh();
+        if (refresh) {
+          _tryBackgroundRefresh(saved.lat!, saved.lng!, onLocationUpdated);
+        }
+        return;
+      }
+
+      // ——— أول مرة: اطلب GPS ———
+      final pos = await _requestGPS();
+      if (pos != null) {
+        await saveLocation(pos.latitude, pos.longitude);
+        onLocationReady(pos.latitude, pos.longitude);
+      }
+    }
+
+    static Future<void> _tryBackgroundRefresh(
+        double oldLat, double oldLng,
+        void Function(double, double)? onUpdated) async {
+      final pos = await _requestGPS();
+      if (pos == null) return;
+      if (hasSignificantChange(pos.latitude, pos.longitude, oldLat, oldLng)) {
+        await saveLocation(pos.latitude, pos.longitude);
+        onUpdated?.call(pos.latitude, pos.longitude);
+      } else {
+        // الموقع لم يتغير — فقط حدّث التاريخ
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_keyDate, DateTime.now().toIso8601String());
+      }
+    }
+
+    static Future<Position?> _requestGPS() async {
+      try {
+        if (!await Geolocator.isLocationServiceEnabled()) return null;
+        var perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.denied) {
+          perm = await Geolocator.requestPermission();
+        }
+        if (perm == LocationPermission.deniedForever ||
+            perm == LocationPermission.denied) return null;
+        return await Geolocator.getCurrentPosition(
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.medium),
+        ).timeout(const Duration(seconds: 8));
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                 المرحلة 2: Smart Prayer Cache                                    ║
+║                 التخزين المؤقت الذكي لمواقيت الصلاة                              ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+📝 تعديل: lib/app/core/services/prayer_times_service.dart
+──────────────────────────────────────────────────────────
+
+الهدف: حفظ المواقيت في SharedPreferences حتى تظهر فوراً بدون إنترنت.
+
+  التعديلات المطلوبة على PrayerTimesService:
+  ─────────────────────────────────────────────
+
+  1. إضافة دالة _saveToCache(Map<Prayer, DateTime> timings, double lat, lng)
+     → تحفظ المواقيت + الإحداثيات + التاريخ في SharedPreferences
+
+  2. إضافة دالة _loadFromCache() → Map<Prayer, DateTime>?
+     → تقرأ من SharedPreferences
+     → تتحقق: هل التاريخ المحفوظ = اليوم؟
+     → إذا نعم → تعيد المواقيت
+     → إذا لا → تعيد null
+
+  3. تعديل loadTimingsFor():
+
+     التدفق الجديد:
+     ┌─────────────────────────────────────────────────────────┐
+     │ loadTimingsFor(lat, lng):                               │
+     │                                                         │
+     │ 1. حاول تحميل من الكاش (SharedPreferences)             │
+     │    → إذا نجح (نفس اليوم + نفس الإحداثيات تقريباً):   │
+     │      → ضع النتيجة في _lastFetch فوراً ✅              │
+     │      → أعد true                                        │
+     │      → في الخلفية: حاول التحديث من API                 │
+     │                                                         │
+     │ 2. إذا لم ينجح الكاش:                                  │
+     │    → اطلب من API                                        │
+     │    → إذا نجح:                                          │
+     │      → حدّث _lastFetch + احفظ في الكاش                 │
+     │      → أعد true                                        │
+     │    → إذا فشل (لا إنترنت):                              │
+     │      → حاول استخدام كاش الأمس كحل أخير                │
+     │      → أعد false                                        │
+     └─────────────────────────────────────────────────────────┘
+
+  SharedPreferences Keys:
+  ────────────────────────
+    prayer_cache_date     = "2026-04-02"
+    prayer_cache_lat      = 31.9539
+    prayer_cache_lng      = 35.9106
+    prayer_cache_fajr     = "2026-04-02T04:45:00"
+    prayer_cache_dhuhr    = "2026-04-02T12:21:00"
+    prayer_cache_asr      = "2026-04-02T15:47:00"
+    prayer_cache_maghrib  = "2026-04-02T18:32:00"
+    prayer_cache_isha     = "2026-04-02T19:52:00"
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                 المرحلة 3: تعديل HomeDataHelper                                  ║
+║                 استبدال الطريقة الحالية بالطريقة الذكية                           ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+📝 تعديل: lib/app/features/parent/presentation/helpers/home_data_helper.dart
+────────────────────────────────────────────────────────────────────────────────
+
+التعديلات:
+──────────
+
+  السلوك الحالي (❌):
+  ─────────────────────
+  loadPrayerTimesWithLocation() {
+    loadingPrayer = true;    // ← المستخدم يرى loading spinner
+    GPS → 12s timeout        // ← ينتظر طويلاً
+    API call                 // ← ينتظر أكثر
+    loadingPrayer = false;   // ← أخيراً يرى النتيجة
+  }
+
+  السلوك الجديد (✅):
+  ─────────────────────
+  loadPrayerTimesWithLocation() {
+    // الخطوة 1: حاول الكاش أولاً
+    final cached = await SmartPrayerCache.loadFromCache();
+    if (cached != null) {
+      prayerLat = cached.lat;
+      prayerLng = cached.lng;
+      loadingPrayer = false;   // ← فوراً! المستخدم يرى المواقيت
+      notifyListeners();
+    }
+
+    // الخطوة 2: Smart Location (في الخلفية)
+    SmartLocationManager.getLocationSmart(
+      onLocationReady: (lat, lng) {
+        prayerLat = lat;
+        prayerLng = lng;
+        loadingPrayer = false;
+        notifyListeners();
+        // حمّل المواقيت من API
+        _loadAndCacheTimings(lat, lng);
+      },
+      onLocationUpdated: (lat, lng) {
+        // الموقع تغيّر بعد التحديث الخلفي
+        prayerLat = lat;
+        prayerLng = lng;
+        notifyListeners();
+        _loadAndCacheTimings(lat, lng);
+      },
+    );
+  }
+
+  النتيجة:
+  ─────────
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  الحالة              │ الوقت المستغرق    │ ماذا يرى المستخدم   │
+  ├──────────────────────┼───────────────────┼─────────────────────│
+  │ كاش + موقع محفوظ    │ < 50 ms           │ المواقيت فوراً ✅   │
+  │ لا كاش + موقع محفوظ │ 1-3 ثواني (API)   │ loading ثم المواقيت │
+  │ أول مرة كلياً       │ 3-8 ثواني         │ GPS → API → مواقيت │
+  │ لا إنترنت + كاش     │ < 50 ms           │ مواقيت الكاش ✅     │
+  │ لا إنترنت + لا كاش  │ فوراً             │ بانر "شغّل الإنترنت"│
+  └──────────────────────┴───────────────────┴─────────────────────┘
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                 المرحلة 4: تحسين Permission Flow                                 ║
+║                 طريقة طلب إذن الموقع بشكل ذكي                                    ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+📝 تعديلات: HomeDataHelper + home_hero_section.dart
+───────────────────────────────────────────────────
+
+هدف: لا نطلب إذن الموقع في لحظة غير مناسبة.
+
+  السيناريوهات:
+  ──────────────
+
+  ┌────────────────────────────────────────────────────────────────────┐
+  │ الحالة 1: أول مرة (لا إذن + لا موقع محفوظ)                      │
+  │                                                                    │
+  │ → بطاقة الصلاة تعرض بانر لطيف:                                   │
+  │   ┌──────────────────────────────────────────────────┐             │
+  │   │ 🕌  مواقيت الصلاة                                │             │
+  │   │ فعّل الموقع لمعرفة أوقات الصلاة بدقة            │             │
+  │   │ [تفعيل الموقع]                                   │             │
+  │   └──────────────────────────────────────────────────┘             │
+  │                                                                    │
+  │ → عند الضغط على "تفعيل الموقع":                                  │
+  │   → يطلب إذن الموقع                                               │
+  │   → إذا وافق → GPS → حفظ → تحميل المواقيت                        │
+  │   → إذا رفض → يظهر بانر ثاني (الحالة 3)                          │
+  ├────────────────────────────────────────────────────────────────────┤
+  │ الحالة 2: الموقع محفوظ (المستخدم العادي)                          │
+  │                                                                    │
+  │ → المواقيت تظهر فوراً من الكاش ✅                                 │
+  │ → لا يحتاج المستخدم فعل أي شيء                                   │
+  ├────────────────────────────────────────────────────────────────────┤
+  │ الحالة 3: رفض الإذن نهائياً (deniedForever)                         │
+  │                                                                    │
+  │ → بطاقة الصلاة تعرض:                                              │
+  │   ┌──────────────────────────────────────────────────┐             │
+  │   │ ⚙️  إذن الموقع مرفوض                            │             │
+  │   │ يمكنك تفعيله من إعدادات الجهاز                  │             │
+  │   │ [فتح الإعدادات]                                  │             │
+  │   └──────────────────────────────────────────────────┘             │
+  │                                                                    │
+  │ → الزر يفتح Geolocator.openAppSettings()                         │
+  ├────────────────────────────────────────────────────────────────────┤
+  │ الحالة 4: الموقع (GPS) مغلق على الجهاز                            │
+  │                                                                    │
+  │ → إذا عندنا موقع محفوظ → نستخدمه (مع ملاحظة صغيرة)             │
+  │ → إذا لا:                                                         │
+  │   ┌──────────────────────────────────────────────────┐             │
+  │   │ 📍  خدمة الموقع مغلقة                            │             │
+  │   │ شغّل الموقع لمعرفة أوقات الصلاة                 │             │
+  │   │ [تشغيل الموقع]                                   │             │
+  │   └──────────────────────────────────────────────────┘             │
+  │                                                                    │
+  │ → الزر يفتح Geolocator.openLocationSettings()                    │
+  └────────────────────────────────────────────────────────────────────┘
+
+  التنفيذ في HomeDataHelper:
+  ──────────────────────────
+
+  إضافة حقل جديد:
+    LocationPermissionStatus permissionStatus = LocationPermissionStatus.unknown;
+    // enum: unknown, granted, denied, deniedForever, serviceDisabled
+
+  هذا الحقل يسمح للـ UI بعرض البانر المناسب بدون طلب الإذن مرة ثانية.
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                 المرحلة 5: مراقبة دورة حياة التطبيق                              ║
+║                 App Lifecycle Observer                                            ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+📝 تعديل: lib/app/features/parent/presentation/screens/home_screen.dart
+────────────────────────────────────────────────────────────────────────
+
+الهدف: إذا ترك المستخدم التطبيق ورجع في يوم جديد → تحديث المواقيت تلقائياً.
+
+  التعديلات:
+  ──────────
+
+  1. إضافة WidgetsBindingObserver إلى HomeScreen:
+
+     class _HomeScreenState extends State<HomeScreen>
+         with WidgetsBindingObserver {
+
+       String? _lastLoadDate; // تاريخ آخر تحميل "yyyy-MM-dd"
+
+       @override
+       void initState() {
+         super.initState();
+         WidgetsBinding.instance.addObserver(this);
+         _lastLoadDate = _todayStr();
+       }
+
+       @override
+       void dispose() {
+         WidgetsBinding.instance.removeObserver(this);
+         super.dispose();
+       }
+
+       @override
+       void didChangeAppLifecycleState(AppLifecycleState state) {
+         if (state == AppLifecycleState.resumed) {
+           final today = _todayStr();
+           if (today != _lastLoadDate) {
+             _lastLoadDate = today;
+             // اليوم تغيّر! حدّث المواقيت
+             _homeHelper.loadPrayerTimesWithLocation();
+           }
+         }
+       }
+
+       String _todayStr() {
+         final now = DateTime.now();
+         return '${now.year}-${now.month}-${now.day}';
+       }
+     }
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                 المرحلة 6: تحسين شاشة المواقيت الكاملة                           ║
+║                 Prayer Time Screen Enhancement                                   ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+📝 تعديل: lib/app/features/prayer_times/presentation/screens/prayer_time_screen.dart
+──────────────────────────────────────────────────────────────────────────────────────
+
+التحسينات المطلوبة:
+────────────────────
+
+  1. أيقونات مخصصة لكل صلاة (بدلاً من ⏱️ واحدة للجميع):
+
+     فجر    → Icons.nightlight_round     (لون: #5C6BC0)
+     ظهر    → Icons.wb_sunny             (لون: #FFA726)
+     عصر    → Icons.wb_twilight          (لون: #FF7043)
+     مغرب   → Icons.nights_stay          (لون: #AB47BC)
+     عشاء   → Icons.dark_mode            (لون: #5C6BC0)
+
+     ⚠️ ملاحظة: هذه الأيقونات والألوان موجودة فعلاً في prayer_card.dart!
+     فقط نحتاج استخدامها في prayer_time_screen.dart أيضاً.
+
+  2. إبراز الصلاة القادمة:
+     → الصلاة القادمة تكون ذات حدود ملونة (border) + خلفية خفيفة
+     → مع علامة "القادمة" بجانبها
+
+  3. إضافة وقت الشروق (Sunrise):
+     → موجود في Aladhan API تحت timings['Sunrise']
+     → يُعرض بين الفجر والظهر كسطر إضافي (بدون أيقونة صلاة)
+
+  4. إدارة ذاتية للموقع:
+     → PrayerTimeScreen لا تحتاج lat/lng من الخارج بعد الآن
+     → تستخدم SmartLocationManager.getSavedLocation() مباشرة
+     → هذا يحل مشكلة "الشاشة فارغة إذا الموقع لم يُحمّل"
+
+  التعديل على Router:
+  ────────────────────
+  الحالي:
+    builder: (context, state) {
+      final extra = state.extra as Map<String, double>?;
+      final lat = extra?['lat'];
+      final lng = extra?['lng'];
+      return PrayerTimeScreen(lat: lat, lng: lng);
+    }
+
+  الجديد:
+    builder: (context, state) => const PrayerTimeScreen()
+    // PrayerTimeScreen تدير الموقع بنفسها عبر SmartLocationManager
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                 المرحلة 7: التحسينات المستقبلية (Backlog)                         ║
+║                 ميزات إضافية للمراحل القادمة                                     ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+هذه الميزات ليست مطلوبة الآن، لكن يمكن إضافتها لاحقاً:
+
+  ┌────┬──────────────────────────────────────┬───────────┬──────────────────────┐
+  │ #  │ الميزة                               │ الأولوية  │ التبعيات              │
+  ├────┼──────────────────────────────────────┼───────────┼──────────────────────┤
+  │ 1  │ إشعارات الصلاة                       │ متوسطة   │ flutter_local_notif.  │
+  │    │ (إشعار قبل 15 دقيقة من كل صلاة)    │           │ + workmanager         │
+  ├────┼──────────────────────────────────────┼───────────┼──────────────────────┤
+  │ 2  │ اختيار مدينة يدوياً                  │ منخفضة   │ بدون تبعيات          │
+  │    │ (بديل للمستخدمين الرافضين للـ GPS)   │           │                      │
+  ├────┼──────────────────────────────────────┼───────────┼──────────────────────┤
+  │ 3  │ اختيار طريقة الحساب                   │ منخفضة   │ تعديل aladhan_api    │
+  │    │ (MWL, Umm al-Qura, Egyptian, etc.)  │           │ + إعدادات المستخدم  │
+  ├────┼──────────────────────────────────────┼───────────┼──────────────────────┤
+  │ 4  │ تعديل يدوي على الأوقات               │ منخفضة   │ SharedPreferences     │
+  │    │ (+/- دقائق لكل صلاة)                │           │                      │
+  ├────┼──────────────────────────────────────┼───────────┼──────────────────────┤
+  │ 5  │ Widget خارجي على الشاشة الرئيسية     │ منخفضة   │ home_widget package   │
+  │    │ (Android Home Screen Widget)         │           │                      │
+  └────┴──────────────────────────────────────┴───────────┴──────────────────────┘
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                     ملخص الملفات المتأثرة                                        ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+  ┌─────┬────────────────────────────────────────────────────────────────┬─────┐
+  │ نوع │ الملف                                                         │مرحلة│
+  ├─────┼────────────────────────────────────────────────────────────────┼─────┤
+  │ NEW │ core/services/smart_location_manager.dart                      │  1  │
+  ├─────┼────────────────────────────────────────────────────────────────┼─────┤
+  │ MOD │ core/services/prayer_times_service.dart                        │  2  │
+  │     │ → إضافة _saveToCache / _loadFromCache / تعديل loadTimingsFor │     │
+  ├─────┼────────────────────────────────────────────────────────────────┼─────┤
+  │ MOD │ parent/helpers/home_data_helper.dart                           │  3  │
+  │     │ → استبدال loadPrayerTimesWithLocation بالنسخة الذكية          │     │
+  │     │ → إضافة permissionStatus enum                                 │     │
+  ├─────┼────────────────────────────────────────────────────────────────┼─────┤
+  │ MOD │ parent/widgets/home_hero_section.dart                          │  4  │
+  │     │ → عرض البانر المناسب حسب permissionStatus                    │     │
+  ├─────┼────────────────────────────────────────────────────────────────┼─────┤
+  │ MOD │ parent/screens/home_screen.dart                                │  5  │
+  │     │ → إضافة WidgetsBindingObserver                                │     │
+  ├─────┼────────────────────────────────────────────────────────────────┼─────┤
+  │ MOD │ prayer_times/screens/prayer_time_screen.dart                   │  6  │
+  │     │ → أيقونات مخصصة + صلاة قادمة + شروق + إدارة ذاتية للموقع   │     │
+  ├─────┼────────────────────────────────────────────────────────────────┼─────┤
+  │ MOD │ core/router/app_router.dart                                    │  6  │
+  │     │ → تبسيط route شاشة المواقيت (إزالة extra params)             │     │
+  ├─────┼────────────────────────────────────────────────────────────────┼─────┤
+  │ MOD │ core/network/aladhan_api.dart                                  │  6  │
+  │     │ → إضافة Sunrise إلى الـ parsing                               │     │
+  └─────┴────────────────────────────────────────────────────────────────┴─────┘
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                     خطة التحقق (Verification Plan)                               ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+
+  ✅ اختبارات تلقائية:
+  ─────────────────────
+  1. flutter analyze → 0 errors
+  2. flutter build apk --debug → نجاح البناء
+
+  ✅ اختبارات يدوية:
+  ────────────────────
+  1. أول فتح (بدون كاش): GPS → المواقيت تظهر → أغلق وافتح → تظهر فوراً
+  2. بدون إنترنت + كاش: المواقيت تظهر من الكاش
+  3. بدون إنترنت + بدون كاش: بانر مناسب يظهر
+  4. رفض إذن الموقع: بانر "فتح الإعدادات"
+  5. GPS مغلق + موقع محفوظ: المواقيت تظهر من المحفوظ
+  6. تشغيل التطبيق في يوم جديد (بدون إغلاق): المواقيت تتحدث
+  7. الإمام/المشرف: المواقيت تعمل بإحداثيات المسجد (لا تأثر)
+  8. الضغط على بطاقة الصلاة: شاشة المواقيت تفتح بنجاح
+
+  ✅ أداء:
+  ─────────
+  - زمن ظهور المواقيت (مع كاش): < 100ms
+  - زمن ظهور المواقيت (بدون كاش): < 5 ثواني
+  - لا يوجد HomeDataHelper disposed error ✅ (تم إصلاحه)
+
+
+
+═══════════════════════════════════════════════════════════════════════════════════════
+                           نهاية الخطة النهائية ✨
+═══════════════════════════════════════════════════════════════════════════════════════

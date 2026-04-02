@@ -8,8 +8,10 @@ import '../bloc/children_event.dart';
 import '../bloc/children_state.dart';
 import '../../../../models/child_model.dart';
 import '../widgets/child_list_card.dart';
+import '../widgets/feature_gradient_header.dart';
+import '../widgets/children_empty_state.dart';
 
-/// 📁 lib/app/features/parent/presentation/screens/children_screen.dart
+/// شاشة قائمة الأبناء
 class ChildrenScreen extends StatefulWidget {
   const ChildrenScreen({super.key});
 
@@ -18,10 +20,8 @@ class ChildrenScreen extends StatefulWidget {
 }
 
 class _ChildrenScreenState extends State<ChildrenScreen> {
-  /// childId → مرتبط بمسجد؟
   Map<String, bool> _linkedMap = {};
 
-  /// جلب حالة الربط لكل الأبناء دفعة واحدة (query واحد)
   Future<void> _fetchLinkStatus(List<ChildModel> children) async {
     if (children.isEmpty) return;
     final childIds = children.map((c) => c.id).toList();
@@ -41,9 +41,7 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
           };
         });
       }
-    } catch (_) {
-      // silent — الحالة ستُعاد عند pull-to-refresh
-    }
+    } catch (_) {}
   }
 
   Future<void> _refresh() async {
@@ -70,26 +68,20 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
                 : state is ChildrenLoadedWithCredentials
                     ? state.children
                     : <ChildModel>[];
-            final isLoading =
-                state is ChildrenLoading || state is ChildrenInitial;
-            final hasUnlinked = _linkedMap.isNotEmpty &&
-                _linkedMap.values.any((linked) => !linked);
+            final isLoading = state is ChildrenLoading || state is ChildrenInitial;
+            final hasUnlinked = _linkedMap.isNotEmpty && _linkedMap.values.any((linked) => !linked);
 
             return RefreshIndicator(
               onRefresh: _refresh,
               color: AppColors.primary,
               child: CustomScrollView(
-                // ضروري لتفعيل pull-to-refresh حتى عندما المحتوى أقل من الشاشة
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  // ─── Header ───
-                  SliverToBoxAdapter(child: _buildHeader(context)),
-
-                  // ─── إرشاد: أبناء غير مرتبطين ───
+                  const SliverToBoxAdapter(
+                    child: FeatureGradientHeader(title: 'أبنائي'),
+                  ),
                   if (hasUnlinked)
                     SliverToBoxAdapter(child: _buildUnlinkedBanner()),
-
-                  // ─── Content ───
                   if (isLoading)
                     const SliverFillRemaining(
                       child: Center(child: CircularProgressIndicator()),
@@ -100,15 +92,10 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              state.message,
-                              textAlign: TextAlign.center,
-                            ),
+                            Text(state.message, textAlign: TextAlign.center),
                             const SizedBox(height: 16),
                             ElevatedButton(
-                              onPressed: () => context
-                                  .read<ChildrenBloc>()
-                                  .add(const ChildrenLoad()),
+                              onPressed: () => context.read<ChildrenBloc>().add(const ChildrenLoad()),
                               child: const Text('إعادة المحاولة'),
                             ),
                           ],
@@ -116,7 +103,7 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
                       ),
                     )
                   else if (children.isEmpty)
-                    SliverFillRemaining(child: _buildEmpty(context))
+                    const SliverFillRemaining(child: ChildrenEmptyState())
                   else
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
@@ -152,52 +139,6 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF0D2137), Color(0xFF1B5E8A), Color(0xFF2E8B57)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Text(
-                'أبنائي',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildUnlinkedBanner() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -214,55 +155,10 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
           Expanded(
             child: Text(
               'بعض أبنائك لم يُربطوا بمسجد بعد — اضغط على بطاقة الابن لربطه',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFFE65100),
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 12, color: Color(0xFFE65100), fontWeight: FontWeight.w600),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildEmpty(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: const Icon(
-                Icons.child_care_rounded,
-                color: Color(0xFF4CAF50),
-                size: 42,
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'لا يوجد أبناء بعد',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1A2B3C),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'اضغط على "إضافة ابن" لإضافة ابنك الأول',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -13,6 +13,7 @@ import '../widgets/child_stats_card.dart';
 import '../widgets/child_linked_mosques_card.dart';
 import '../widgets/child_link_mosque_card.dart';
 import '../widgets/child_edit_dialog.dart';
+import '../widgets/feature_gradient_header.dart';
 
 /// شاشة بطاقة الابن
 class ChildCardScreen extends StatefulWidget {
@@ -136,7 +137,23 @@ class _ChildCardScreenState extends State<ChildCardScreen> {
                     ? const Center(child: Text('الابن غير موجود'))
                     : CustomScrollView(
                         slivers: [
-                          SliverToBoxAdapter(child: _buildHeader(context)),
+                          SliverToBoxAdapter(
+                            child: FeatureGradientHeader(
+                              title: _child!.name,
+                              subtitle: Text(
+                                '${_child!.age} سنة · ${_child!.totalPoints} نقطة',
+                                style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.65)),
+                              ),
+                              trailing: GestureDetector(
+                                onTap: () => ChildEditDialog.show(context: context, child: _child!, childId: widget.childId, onSaved: _load),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+                                  child: const Icon(Icons.edit_rounded, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ),
+                          ),
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                             sliver: SliverToBoxAdapter(
@@ -172,56 +189,6 @@ class _ChildCardScreenState extends State<ChildCardScreen> {
                           ),
                         ],
                       ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF0D2137), Color(0xFF1B5E8A), Color(0xFF2E8B57)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_child!.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
-                    Text(
-                      '${_child!.age} سنة · ${_child!.totalPoints} نقطة',
-                      style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.65)),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () => ChildEditDialog.show(context: context, child: _child!, childId: widget.childId, onSaved: _load),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.edit_rounded, color: Colors.white, size: 20),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

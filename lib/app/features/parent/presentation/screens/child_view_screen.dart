@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/realtime_service.dart';
 import '../../../../injection_container.dart';
@@ -7,11 +7,13 @@ import '../../../../models/child_model.dart';
 import '../../../../models/attendance_model.dart';
 import '../../../../models/competition_model.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_event.dart';
+
+
 import '../../data/repositories/child_repository.dart';
 import '../../../notes/data/repositories/notes_repository.dart';
 import '../../../competitions/data/repositories/competition_repository.dart';
+import '../widgets/child_view_hero.dart';
+import '../widgets/child_stats_row.dart';
 import '../widgets/child_view_qr_card.dart';
 import '../widgets/child_view_today_attendance.dart';
 import '../widgets/child_view_info_cards.dart';
@@ -132,13 +134,13 @@ class _ChildViewScreenState extends State<ChildViewScreen>
                           position: _slideAnim,
                           child: CustomScrollView(
                             slivers: [
-                              SliverToBoxAdapter(child: _buildHero()),
+                              SliverToBoxAdapter(child: ChildViewHero(child: _child!)),
                               SliverPadding(
                                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                                 sliver: SliverToBoxAdapter(
                                   child: Column(
                                     children: [
-                                      _buildStatsRow(),
+                                      ChildStatsRow(child: _child!),
                                       const SizedBox(height: 16),
                                       ChildViewQrCard(child: _child!),
                                       const SizedBox(height: 16),
@@ -195,89 +197,4 @@ class _ChildViewScreenState extends State<ChildViewScreen>
       ),
     ),
   );
-
-  Widget _buildHero() {
-    final child = _child!;
-    final level = (child.totalPoints ~/ 100) + 1;
-    return Container(
-      decoration: const BoxDecoration(gradient: LinearGradient(
-        colors: [Color(0xFF0D2137), Color(0xFF1B5E8A), Color(0xFF2E8B57)],
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
-      )),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          child: Column(
-            children: [
-              Container(
-                width: 88, height: 88,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2), shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.4), width: 2.5),
-                ),
-                child: Center(child: Text(
-                  child.name.isNotEmpty ? child.name[0] : '؟',
-                  style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800, color: Colors.white),
-                )),
-              ),
-              const SizedBox(height: 14),
-              Text(child.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFD54F).withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFFFD54F).withOpacity(0.5)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFFFFD54F), size: 16),
-                    const SizedBox(width: 5),
-                    Text('المستوى $level', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFFFD54F))),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatsRow() {
-    final child = _child!;
-    return Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: Row(
-        children: [
-          Expanded(child: _statCard('النقاط', '${child.totalPoints}', Icons.star_rounded, const Color(0xFFFFB300))),
-          const SizedBox(width: 10),
-          Expanded(child: _statCard('السلسلة', '${child.currentStreak} يوم', Icons.local_fire_department_rounded, const Color(0xFFFF7043))),
-          const SizedBox(width: 10),
-          Expanded(child: _statCard('الأفضل', '${child.bestStreak} يوم', Icons.emoji_events_rounded, const Color(0xFF9C27B0))),
-        ],
-      ),
-    );
-  }
-
-  Widget _statCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: color.withOpacity(0.12), blurRadius: 10, offset: const Offset(0, 3))],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 26),
-          const SizedBox(height: 7),
-          Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF1A2B3C))),
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-        ],
-      ),
-    );
-  }
 }

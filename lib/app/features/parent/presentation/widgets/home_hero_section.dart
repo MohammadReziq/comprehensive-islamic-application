@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../../core/constants/hadiths_prayer.dart';
+import '../../../../core/services/smart_location_manager.dart';
 import 'package:go_router/go_router.dart';
 
 /// قسم Hero: مواقيت الصلاة + بطاقة الحديث
@@ -10,6 +12,7 @@ class HomeHeroSection extends StatelessWidget {
   final bool loadingPrayer;
   final bool prayerLoadError;
   final int hadithIndex;
+  final LocationPermissionStatus permissionStatus;
   final VoidCallback onRetryPrayer;
   final VoidCallback onNextHadith;
 
@@ -21,6 +24,7 @@ class HomeHeroSection extends StatelessWidget {
     required this.loadingPrayer,
     required this.prayerLoadError,
     required this.hadithIndex,
+    this.permissionStatus = LocationPermissionStatus.unknown,
     required this.onRetryPrayer,
     required this.onNextHadith,
   });
@@ -78,11 +82,7 @@ class HomeHeroSection extends StatelessWidget {
       );
     }
     if (lat == null || lng == null) {
-      return _buildMessageCard(
-        icon: Icons.location_off_rounded,
-        message: 'الرجاء تشغيل الموقع حتى نعرف مواقيت الصلاة',
-        onTap: onRetryPrayer,
-      );
+      return _buildPermissionBanner();
     }
     if (prayerLoadError) {
       return _buildMessageCard(
@@ -140,6 +140,29 @@ class HomeHeroSection extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildPermissionBanner() {
+    switch (permissionStatus) {
+      case LocationPermissionStatus.deniedForever:
+        return _buildMessageCard(
+          icon: Icons.settings_rounded,
+          message: 'إذن الموقع مرفوض — يمكنك تفعيله من إعدادات الجهاز',
+          onTap: () => Geolocator.openAppSettings(),
+        );
+      case LocationPermissionStatus.serviceDisabled:
+        return _buildMessageCard(
+          icon: Icons.location_disabled_rounded,
+          message: 'خدمة الموقع مغلقة — شغّلها لمعرفة مواقيت الصلاة',
+          onTap: () => Geolocator.openLocationSettings(),
+        );
+      default:
+        return _buildMessageCard(
+          icon: Icons.location_on_rounded,
+          message: 'فعّل الموقع لمعرفة أوقات الصلاة بدقة',
+          onTap: onRetryPrayer,
+        );
+    }
   }
 
   String _formatCountdown(Duration? remaining) {

@@ -1,12 +1,10 @@
-// lib/app/features/parent/presentation/screens/child_notes_screen.dart
-// صندوق ملاحظات الابن — التحسين 7
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../../../../core/constants/app_colors.dart';
 import '../../../../injection_container.dart';
 import '../../../../models/note_model.dart';
 import '../../../notes/data/repositories/notes_repository.dart';
+import '../widgets/note_detail_bottom_sheet.dart';
 
 class ChildNotesScreen extends StatefulWidget {
   const ChildNotesScreen({super.key, required this.childId, required this.childName});
@@ -54,69 +52,7 @@ class _ChildNotesScreenState extends State<ChildNotesScreen> {
 
   void _showDetail(NoteModel note) {
     _markRead(note);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.55,
-        maxChildSize: 0.85,
-        minChildSize: 0.3,
-        builder: (_, ctrl) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-            ),
-            child: ListView(
-              controller: ctrl,
-              children: [
-                // Handle
-                Center(
-                  child: Container(
-                    width: 40, height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // العنوان
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'ملاحظة من المشرف',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // نص الملاحظة
-                Text(
-                  note.message,
-                  style: const TextStyle(
-                      fontSize: 15, height: 1.7, color: Color(0xFF3D4F5F)),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  DateFormat('yyyy/MM/dd HH:mm').format(note.createdAt.toLocal()),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    NoteDetailBottomSheet.show(context, note);
   }
 
   @override
@@ -180,8 +116,7 @@ class _ChildNotesScreenState extends State<ChildNotesScreen> {
                   color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.speaker_notes_rounded,
-                    color: AppColors.primary, size: 22),
+                child: const Icon(Icons.speaker_notes_rounded, color: AppColors.primary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -201,8 +136,7 @@ class _ChildNotesScreenState extends State<ChildNotesScreen> {
                       note.message,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -216,10 +150,7 @@ class _ChildNotesScreenState extends State<ChildNotesScreen> {
                 Container(
                   width: 10,
                   height: 10,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
                 ),
             ],
           ),
@@ -229,27 +160,26 @@ class _ChildNotesScreenState extends State<ChildNotesScreen> {
   }
 
   Widget _buildEmpty() => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inbox_rounded, size: 60, color: Colors.grey),
-            SizedBox(height: 12),
-            Text('لا توجد ملاحظات بعد',
-                style: TextStyle(fontSize: 16, color: Colors.grey)),
-          ],
-        ),
-      );
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.inbox_rounded, size: 60, color: Colors.grey),
+        SizedBox(height: 12),
+        Text('لا توجد ملاحظات بعد', style: TextStyle(fontSize: 16, color: Colors.grey)),
+      ],
+    ),
+  );
 
   Widget _buildError() => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: _load, child: const Text('إعادة المحاولة')),
-          ],
-        ),
-      );
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+        const SizedBox(height: 12),
+        Text(_error!, style: const TextStyle(color: Colors.grey)),
+        const SizedBox(height: 16),
+        FilledButton(onPressed: _load, child: const Text('إعادة المحاولة')),
+      ],
+    ),
+  );
 }
