@@ -15,7 +15,7 @@ class ChildNotesScreen extends StatefulWidget {
   @override
   State<ChildNotesScreen> createState() => _ChildNotesScreenState();
 }
-
+ 
 class _ChildNotesScreenState extends State<ChildNotesScreen> {
   List<NoteModel> _notes = [];
   bool _loading = true;

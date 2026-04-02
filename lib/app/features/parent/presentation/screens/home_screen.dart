@@ -228,22 +228,24 @@ class _HomeScreenState extends State<HomeScreen>
     return [
       HomeAction(Icons.child_care_rounded, 'أبنائي', const Color(0xFF5C8BFF), () async {
         await context.push('/parent/children');
-        if (mounted) { 
-          context.read<ChildrenBloc>().add(const ChildrenLoad()); 
-          _helper.loadUnreadCount(); 
-        }
+        if (!context.mounted) return;
+        context.read<ChildrenBloc>().add(const ChildrenLoad()); 
+        _helper.loadUnreadCount(); 
       }),
       if (_helper.competitionStatus == CompetitionStatus.running)
         HomeAction(Icons.edit_note_rounded, 'طلب تصحيح', const Color(0xFF9C27B0), () async {
           await context.push('/parent/corrections');
-          if (mounted) _helper.loadUnreadCount();
+          if (!context.mounted) return;
+          _helper.loadUnreadCount();
         }),
       HomeAction(Icons.forum_rounded, 'الملاحظات', const Color(0xFF00BCD4), () async {
         await context.push('/parent/notes');
+        if (!context.mounted) return;
         _helper.loadUnreadCount();
       }, badge: _helper.unreadCount),
       HomeAction(Icons.campaign_rounded, 'الإعلانات', const Color(0xFFFF9800), () async {
         await context.push('/parent/announcements');
+        if (!context.mounted) return;
         _helper.loadUnreadCount();
       }, badge: _helper.announcementsUnreadCount),
     ];

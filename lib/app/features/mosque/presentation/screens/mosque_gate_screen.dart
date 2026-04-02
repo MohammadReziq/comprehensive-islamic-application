@@ -160,8 +160,8 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
           const SizedBox(height: AppDimensions.spacingSM),
           Text(
             isSupervisor
-                ? 'ادخل كود الدعوة الذي أعطاك إياه مدير المسجد لتنضم وتُسجّل الحضور'
-                : AppStrings.imamGateSubtitle,
+                ? 'ادخل كود الدعوة الذي أعطاك إياه مدير المسجد (الإمام) لتنضم كمسؤول'
+                : 'قم بإنشاء مسجدك لتبدء بإدارته و إضافة المشرفين والأبناء',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -172,25 +172,9 @@ class _MosqueGateScreenState extends State<MosqueGateScreen> {
           const SizedBox(height: AppDimensions.paddingXXL),
           if (!isSupervisor) ...[
             AppButton(
-              text: AppStrings.createMosque,
+              text: 'إنشاء مسجد جديد',
               onPressed: () => context.push('/mosque/create'),
               icon: Icons.add_circle_outline,
-            ),
-            const SizedBox(height: AppDimensions.paddingMD),
-            ElevatedButton.icon(
-              onPressed: () => context.push('/mosque/join'),
-              icon: const Icon(Icons.group_add),
-              label: Text(AppStrings.joinMosque),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                side: const BorderSide(color: Colors.white70),
-                minimumSize: const Size(double.infinity, AppDimensions.buttonHeight),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDimensions.radiusMD),
-                ),
-              ),
             ),
           ] else ...[
             AppButton(
