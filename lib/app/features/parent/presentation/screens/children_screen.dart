@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/network/supabase_client.dart';
 import '../bloc/children_bloc.dart';
 import '../bloc/children_event.dart';
 import '../bloc/children_state.dart';
@@ -12,41 +11,8 @@ import '../widgets/feature_gradient_header.dart';
 import '../widgets/children_empty_state.dart';
 
 /// شاشة قائمة الأبناء
-class ChildrenScreen extends StatefulWidget {
+class ChildrenScreen extends StatelessWidget {
   const ChildrenScreen({super.key});
-
-  @override
-  State<ChildrenScreen> createState() => _ChildrenScreenState();
-}
-
-class _ChildrenScreenState extends State<ChildrenScreen> {
-  Map<String, bool> _linkedMap = {};
-
-  Future<void> _fetchLinkStatus(List<ChildModel> children) async {
-    if (children.isEmpty) return;
-    final childIds = children.map((c) => c.id).toList();
-    try {
-      final res = await supabase
-          .from('mosque_children')
-          .select('child_id')
-          .inFilter('child_id', childIds)
-          .eq('is_active', true);
-      final linkedIds = {
-        for (final row in (res as List)) row['child_id'] as String,
-      };
-      if (mounted) {
-        setState(() {
-          _linkedMap = {
-            for (final c in children) c.id: linkedIds.contains(c.id),
-          };
-        });
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _refresh() async {
-    context.read<ChildrenBloc>().add(const ChildrenLoad());
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,25 +20,29 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F6FA),
-        body: BlocConsumer<ChildrenBloc, ChildrenState>(
-          listener: (context, state) {
-            if (state is ChildrenLoaded) {
-              _fetchLinkStatus(state.children);
-            } else if (state is ChildrenLoadedWithCredentials) {
-              _fetchLinkStatus(state.children);
-            }
-          },
+        body: BlocBuilder<ChildrenBloc, ChildrenState>(
           builder: (context, state) {
             final children = state is ChildrenLoaded
                 ? state.children
                 : state is ChildrenLoadedWithCredentials
                     ? state.children
                     : <ChildModel>[];
+            final linkedIds = state is ChildrenLoaded
+                ? state.linkedChildIds
+                : state is ChildrenLoadedWithCredentials
+                    ? state.linkedChildIds
+                    : <String>{};
             final isLoading = state is ChildrenLoading || state is ChildrenInitial;
-            final hasUnlinked = _linkedMap.isNotEmpty && _linkedMap.values.any((linked) => !linked);
+            final hasUnlinked = linkedIds.isNotEmpty
+                ? children.any((c) => !linkedIds.contains(c.id))
+                : children.isNotEmpty && linkedIds.isEmpty
+                    ? false // لم يُجلب بعد
+                    : false;
 
             return RefreshIndicator(
-              onRefresh: _refresh,
+              onRefresh: () async {
+                context.read<ChildrenBloc>().add(const ChildrenLoad());
+              },
               color: AppColors.primary,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -111,7 +81,7 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
                         delegate: SliverChildBuilderDelegate(
                           (context, i) => ChildListCard(
                             child: children[i],
-                            isLinked: _linkedMap[children[i].id],
+                            isLinked: linkedIds.contains(children[i].id),
                           ),
                           childCount: children.length,
                         ),

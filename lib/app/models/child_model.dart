@@ -13,6 +13,9 @@ class ChildModel extends Equatable {
   final int bestStreak;
   final DateTime createdAt;
 
+  /// هل للابن حساب تسجيل دخول (login_user_id != null)
+  final bool hasAccount;
+
   const ChildModel({
     required this.id,
     required this.parentId,
@@ -24,6 +27,7 @@ class ChildModel extends Equatable {
     this.currentStreak = 0,
     this.bestStreak = 0,
     required this.createdAt,
+    this.hasAccount = false,
   });
 
   factory ChildModel.fromJson(Map<String, dynamic> json) {
@@ -38,6 +42,7 @@ class ChildModel extends Equatable {
       currentStreak: json['current_streak'] as int? ?? 0,
       bestStreak: json['best_streak'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
+      hasAccount: json['login_user_id'] != null,
     );
   }
 
@@ -67,6 +72,7 @@ class ChildModel extends Equatable {
     int? currentStreak,
     int? bestStreak,
     DateTime? createdAt,
+    bool? hasAccount,
   }) {
     return ChildModel(
       id: id ?? this.id,
@@ -79,6 +85,7 @@ class ChildModel extends Equatable {
       currentStreak: currentStreak ?? this.currentStreak,
       bestStreak: bestStreak ?? this.bestStreak,
       createdAt: createdAt ?? this.createdAt,
+      hasAccount: hasAccount ?? this.hasAccount,
     );
   }
 
@@ -86,5 +93,6 @@ class ChildModel extends Equatable {
   List<Object?> get props => [
         id, parentId, name, age, qrCode,
         avatarUrl, totalPoints, currentStreak, bestStreak, createdAt,
+        hasAccount,
       ];
 }

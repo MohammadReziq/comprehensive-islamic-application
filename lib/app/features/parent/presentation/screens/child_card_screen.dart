@@ -13,6 +13,7 @@ import '../widgets/child_stats_card.dart';
 import '../widgets/child_linked_mosques_card.dart';
 import '../widgets/child_link_mosque_card.dart';
 import '../widgets/child_edit_dialog.dart';
+import '../widgets/create_child_account_dialog.dart';
 import '../widgets/feature_gradient_header.dart';
 
 /// شاشة بطاقة الابن
@@ -179,6 +180,10 @@ class _ChildCardScreenState extends State<ChildCardScreen> {
                                         onLink: _linkMosque,
                                       ),
                                     ),
+                                  if (_child != null && !_child!.hasAccount) ...[
+                                    const SizedBox(height: 16),
+                                    _buildCreateAccountCard(),
+                                  ],
                                   if (_competitionRunning) ...[
                                     const SizedBox(height: 16),
                                     _buildActionsCard(context),
@@ -217,6 +222,67 @@ class _ChildCardScreenState extends State<ChildCardScreen> {
             Icon(Icons.chevron_left_rounded, color: Colors.grey.shade400),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCreateAccountCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))],
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.person_add_rounded, color: AppColors.primary, size: 22),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text('هذا الابن ليس لديه حساب',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A2B3C))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'أنشئ حساباً له ليتمكن من تسجيل الدخول ومتابعة نقاطه بنفسه',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.5),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {
+                CreateChildAccountDialog.show(
+                  context: context,
+                  childId: widget.childId,
+                  childName: _child!.name,
+                  onAccountCreated: _load,
+                );
+              },
+              icon: const Icon(Icons.key_rounded, size: 18),
+              label: const Text('إنشاء حساب للابن', style: TextStyle(fontWeight: FontWeight.w700)),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

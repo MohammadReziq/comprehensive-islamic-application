@@ -102,6 +102,38 @@ class ChildRepository {
     return AddChildResult(child);
   }
 
+  /// إنشاء حساب لابن موجود — يستدعي نفس Edge Function المستخدمة في addChild
+  Future<AddChildResult> createAccountForChild({
+    required String childId,
+    required String email,
+    required String password,
+  }) async {
+    final child = await getMyChild(childId);
+    if (child == null) throw Exception('الابن غير موجود أو لا يخصك');
+    if (child.hasAccount) throw Exception('هذا الابن لديه حساب مسبقاً');
+
+    try {
+      final res = await supabase.functions.invoke(
+        'create_child_account',
+        body: {'child_id': childId, 'email': email, 'password': password},
+      );
+      if (res.status == 200 && res.data != null) {
+        final data = res.data as Map<String, dynamic>?;
+        return AddChildResult(
+          child,
+          email: data?['email'] as String? ?? email,
+          password: data?['password'] as String? ?? password,
+        );
+      }
+      final errMsg = _parseEdgeFunctionError(res);
+      throw Exception(errMsg);
+    } on Exception {
+      rethrow;
+    } catch (e) {
+      throw Exception('فشل الاتصال أو إنشاء الحساب: ${e.toString()}');
+    }
+  }
+
   /// ربط ابن بمسجد (بكود المسجد)
   Future<void> linkChildToMosque({
     required String childId,

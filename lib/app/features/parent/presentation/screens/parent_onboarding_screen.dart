@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_storage_keys.dart';
 import '../../../../injection_container.dart';
 import '../../data/repositories/child_repository.dart';
+import '../widgets/child_credentials_dialog.dart';
 
 /// شاشة تعريفية لولي الأمر بعد أول تسجيل دخول
 /// 3 صفحات: ترحيب → إضافة طفل → كود المسجد
@@ -25,12 +26,20 @@ class _ParentOnboardingScreenState extends State<ParentOnboardingScreen> {
   final _childAgeCtrl = TextEditingController();
   final _mosqueCodeCtrl = TextEditingController();
 
+  // حقول إنشاء حساب (اختيارية)
+  bool _createAccount = false;
+  bool _showPassword = false;
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+
   @override
   void dispose() {
     _pageController.dispose();
     _childNameCtrl.dispose();
     _childAgeCtrl.dispose();
     _mosqueCodeCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
@@ -80,7 +89,14 @@ class _ParentOnboardingScreenState extends State<ParentOnboardingScreen> {
         if (age != null && age > 0 && age <= 18) {
           try {
             final repo = sl<ChildRepository>();
-            final result = await repo.addChild(name: name, age: age);
+            final email = _createAccount ? _emailCtrl.text.trim() : null;
+            final password = _createAccount ? _passwordCtrl.text.trim() : null;
+            final result = await repo.addChild(
+              name: name,
+              age: age,
+              email: (email != null && email.isNotEmpty) ? email : null,
+              password: (password != null && password.isNotEmpty) ? password : null,
+            );
             if (code.isNotEmpty) {
               try {
                 await repo.linkChildToMosque(
@@ -97,6 +113,17 @@ class _ParentOnboardingScreenState extends State<ParentOnboardingScreen> {
                   );
                 }
               }
+            }
+            // عرض بيانات الدخول إن أُنشئ حساب
+            if (result.email != null && result.password != null && mounted) {
+              ChildCredentialsDialog.show(
+                context: context,
+                email: result.email!,
+                password: result.password!,
+                onDismiss: () {},
+              );
+              // ننتظر قليلاً ليقرأ المستخدم البيانات قبل الانتقال
+              await Future.delayed(const Duration(milliseconds: 300));
             }
           } catch (_) {
             if (mounted) {
@@ -357,6 +384,90 @@ class _ParentOnboardingScreenState extends State<ParentOnboardingScreen> {
                 if (age < 3 || age > 18) return 'العمر لازم يكون بين 3 و 18';
                 return null;
               },
+            ),
+            const SizedBox(height: 20),
+            // ─── Toggle إنشاء حساب للابن ───
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'إنشاء حساب للابن',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                      Switch(
+                        value: _createAccount,
+                        onChanged: (v) => setState(() => _createAccount = v),
+                        activeColor: Colors.white,
+                        activeTrackColor: Colors.white.withValues(alpha: 0.4),
+                      ),
+                    ],
+                  ),
+                  if (_createAccount) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'سيتمكن الابن من تسجيل الدخول بهذه البيانات',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInputField(
+                      controller: _emailCtrl,
+                      label: 'إيميل الابن',
+                      icon: Icons.email_rounded,
+                      keyboardType: TextInputType.emailAddress,
+                      textDirection: TextDirection.ltr,
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _passwordCtrl,
+                      obscureText: !_showPassword,
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      decoration: InputDecoration(
+                        labelText: 'كلمة المرور',
+                        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                        prefixIcon: const Icon(Icons.lock_rounded, color: Colors.white54),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            color: Colors.white54,
+                          ),
+                          onPressed: () => setState(() => _showPassword = !_showPassword),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white, width: 1.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
             const Spacer(),
             _buildNextButton('التالي', _nextPage),

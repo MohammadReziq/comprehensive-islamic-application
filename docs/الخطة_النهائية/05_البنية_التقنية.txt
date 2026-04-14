@@ -1,0 +1,381 @@
+بسم الله الرحمن الرحيم
+
+================================================================================
+  05 — البنية التقنية المطلوبة
+  تطبيق "صلاتي حياتي" — الخطة النهائية
+================================================================================
+
+الفهرس:
+  1. Database Changes (جداول + migrations)
+  2. Flutter Changes (models, repos, blocs, screens)
+  3. Supabase (RPCs, Triggers, Realtime)
+  4. هيكل الملفات الجديدة
+  5. ترتيب التنفيذ (4 موجات)
+
+
+================================================================================
+  1. Database Changes
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1.1 تعديلات على جدول competitions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  الحقول الجديدة:
+
+  ┌───────────────────┬───────────────────────────────────────┐
+  │ الحقل             │ الوصف                                 │
+  ├───────────────────┼───────────────────────────────────────┤
+  │ competition_type  │ TEXT DEFAULT 'local'                  │
+  │                   │ القيم: 'local' | 'global'             │
+  │                   │ محلية أو عامة                         │
+  ├───────────────────┼───────────────────────────────────────┤
+  │ prayer_points     │ JSONB (موجود — migration 043)         │
+  │                   │ نقاط كل صلاة للمسابقة                 │
+  ├───────────────────┼───────────────────────────────────────┤
+  │ created_by_role   │ TEXT NOT NULL DEFAULT 'imam'           │
+  │                   │ القيم: 'imam' | 'super_admin'         │
+  │                   │ من أنشأ المسابقة                      │
+  └───────────────────┴───────────────────────────────────────┘
+
+  ⚠ mosque_id يبقى NOT NULL للمحلية.
+  للعامة: mosque_id = NULL (أو UUID خاص بالنظام).
+
+  البديل الأبسط (مُوصى به للـ MVP):
+  ← المسابقة العامة تُخزن بـ mosque_id = UUID مُحدد ("نظام")
+  ← والمساجد المشاركة في competition_mosques
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1.2 جدول جديد: competition_mosques
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  CREATE TABLE competition_mosques (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    competition_id  UUID NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
+    mosque_id       UUID NOT NULL REFERENCES mosques(id) ON DELETE CASCADE,
+    joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+    UNIQUE(competition_id, mosque_id)
+  );
+
+  الغاية: ربط المسابقة العامة بالمساجد المشاركة.
+  is_active: لو أُزيل المسجد من المسابقة ← false (لا حذف — للأرشيف)
+
+  RLS:
+  - السوبر أدمن: CRUD كامل
+  - الإمام: قراءة (يرى المساجد المشاركة)
+  - المشرف: قراءة
+  - ولي الأمر: قراءة
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1.3 تعديل Trigger 045 (auto-assign)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  الوضع الحالي: يبحث عن مسابقة نشطة للمسجد.
+  ← يبقى كما هو — يعيّن competition_id للمسابقة المحلية.
+
+  المسابقة العامة: لا تعتمد على competition_id في attendance.
+  ← تُحسب من competition_mosques + prayer_date.
+
+  ← لا تغيير على Trigger 045 ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1.4 RPC جديد: get_global_leaderboard
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  CREATE OR REPLACE FUNCTION get_global_leaderboard(
+    p_competition_id UUID,
+    p_limit INT DEFAULT 50,
+    p_offset INT DEFAULT 0
+  ) RETURNS TABLE (
+    child_id UUID,
+    child_name TEXT,
+    mosque_name TEXT,
+    total_points BIGINT,
+    attendance_count BIGINT,
+    rank BIGINT
+  ) AS $$
+  BEGIN
+    RETURN QUERY
+    WITH comp AS (
+      SELECT prayer_points, start_date, end_date
+      FROM competitions WHERE id = p_competition_id
+    ),
+    mosque_ids AS (
+      SELECT mosque_id FROM competition_mosques
+      WHERE competition_id = p_competition_id AND is_active = true
+    ),
+    scores AS (
+      SELECT
+        a.child_id,
+        SUM(
+          CASE a.prayer
+            WHEN 'fajr'    THEN (comp.prayer_points->>'fajr')::INT
+            WHEN 'dhuhr'   THEN (comp.prayer_points->>'dhuhr')::INT
+            WHEN 'asr'     THEN (comp.prayer_points->>'asr')::INT
+            WHEN 'maghrib' THEN (comp.prayer_points->>'maghrib')::INT
+            WHEN 'isha'    THEN (comp.prayer_points->>'isha')::INT
+            ELSE 0
+          END
+        ) as total,
+        COUNT(*) as cnt
+      FROM attendance a, comp
+      WHERE a.mosque_id IN (SELECT mosque_id FROM mosque_ids)
+        AND a.prayer_date BETWEEN comp.start_date AND comp.end_date
+        AND a.location_type = 'mosque'
+      GROUP BY a.child_id
+    )
+    SELECT
+      s.child_id,
+      c.name as child_name,
+      m.name_ar as mosque_name,
+      s.total as total_points,
+      s.cnt as attendance_count,
+      ROW_NUMBER() OVER (ORDER BY s.total DESC) as rank
+    FROM scores s
+    JOIN children c ON c.id = s.child_id
+    JOIN mosque_children mc ON mc.child_id = s.child_id
+    JOIN mosques m ON m.id = mc.mosque_id
+    ORDER BY s.total DESC
+    LIMIT p_limit OFFSET p_offset;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1.5 RPC: get_mosque_ranking
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  يحسب ترتيب المساجد (متوسط النقاط لكل طفل):
+
+  -- يُترك للتنفيذ — المنطق:
+  -- مجموع نقاط كل أطفال المسجد / عدد الأطفال = المتوسط
+  -- ترتيب المساجد بالمتوسط (الأعدل)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1.6 RLS policies جديدة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ■ competitions (تعديل):
+    - إضافة: السوبر أدمن يدير المسابقات العامة
+      USING (
+        EXISTS (SELECT 1 FROM users WHERE auth_id = auth.uid()
+                AND role = 'super_admin')
+        AND competition_type = 'global'
+      )
+
+  ■ competition_mosques (جديد):
+    - السوبر أدمن: CRUD
+    - الباقي: SELECT فقط
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1.7 Migrations المطلوبة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌─────────────┬───────────────────────────────────────────┐
+  │ اسم مقترح   │ المحتوى                                  │
+  ├─────────────┼───────────────────────────────────────────┤
+  │ 046_global_ │ إضافة competition_type + created_by_role │
+  │ competitions│ لـ competitions                           │
+  │ .sql        │ إنشاء competition_mosques                │
+  │             │ RLS للجدولين                              │
+  │             │ Realtime لـ competition_mosques            │
+  ├─────────────┼───────────────────────────────────────────┤
+  │ 047_global_ │ RPC get_global_leaderboard                │
+  │ leaderboard │ RPC get_mosque_ranking                    │
+  │ .sql        │                                          │
+  └─────────────┴───────────────────────────────────────────┘
+
+
+================================================================================
+  2. Flutter Changes
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2.1 Models
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ■ تعديل CompetitionModel (competition_model.dart):
+    + competitionType (String: 'local'|'global')
+    + createdByRole (String: 'imam'|'super_admin')
+    + prayerPoints (Map<String, int>)
+
+  ■ جديد: CompetitionMosqueModel
+    - competitionId, mosqueId, joinedAt, isActive
+    - mosqueName (من JOIN)
+    - childrenCount (من COUNT)
+
+  ■ جديد: GlobalLeaderboardEntry
+    - childId, childName, mosqueName, totalPoints, attendanceCount, rank
+
+  ■ جديد: MosqueRankingEntry
+    - mosqueId, mosqueName, averagePoints, totalChildren, rank
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2.2 Repositories
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ■ تعديل CompetitionRepository:
+    + createGlobal(): إنشاء مسابقة عامة + competition_mosques
+    + getGlobalLeaderboard(): استدعاء RPC
+    + getMosqueRanking(): استدعاء RPC
+    + addMosqueToCompetition(): إضافة مسجد
+    + removeMosqueFromCompetition(): إزالة مسجد
+    + getGlobalForMosque(): المسابقة العامة للمسجد (لو مشارك)
+    + getAllGlobal(): كل المسابقات العامة (للسوبر أدمن)
+    (الدوال الحالية تبقى — للمسابقات المحلية)
+
+  ■ تعديل AdminRepository (super_admin/data):
+    + getApprovedMosques(): قائمة المساجد المعتمدة (للاختيار)
+    + getMosqueStats(): عدد الأطفال + المشرفين لكل مسجد
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2.3 BLoCs
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ■ تعديل CompetitionBloc:
+    + events: CreateGlobalCompetition, LoadGlobalLeaderboard,
+              AddMosque, RemoveMosque, LoadMosqueRanking
+    + states: GlobalCompetitionLoaded, GlobalLeaderboardLoaded,
+              MosqueRankingLoaded
+
+  ■ لا حاجة لـ BLoC جديد — التوسيع يكفي.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2.4 Screens (شاشات جديدة)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ■ للسوبر أدمن:
+    1. ManageGlobalCompetitionsScreen — قائمة المسابقات العامة
+    2. CreateGlobalCompetitionScreen — إنشاء (الاسم + تواريخ + نقاط)
+    3. SelectMosquesScreen — اختيار المساجد المشاركة
+    4. GlobalLeaderboardScreen — الترتيب العام
+    5. MosqueRankingScreen — ترتيب المساجد
+
+  ■ للإمام (إضافات):
+    6. GlobalCompetitionViewScreen — عرض المسابقة العامة (قراءة فقط)
+    (أو: تبويب جديد في ManageCompetitionScreen)
+
+  ■ لولي الأمر (ناقص حالياً — يُبنى الآن):
+    7. ParentCompetitionScreen — المسابقة النشطة + ترتيب أطفاله
+    (يعرض المحلية + العامة لو موجودة)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2.5 Services
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ■ تعديل RealtimeService:
+    + subscribe لـ competition_mosques (لو المسجد أُضيف/أُزيل)
+    + subscribe لـ competitions (لو عامة أُنشئت/فُعّلت/أُنهيت)
+
+  ■ PointsService: لا تغيير (client-side للعرض فقط)
+
+
+================================================================================
+  3. Supabase — RPCs, Triggers, Realtime
+================================================================================
+
+  RPCs:
+  1. get_global_leaderboard(competition_id, limit, offset) — موصوف أعلاه
+  2. get_mosque_ranking(competition_id) — ترتيب المساجد
+  3. activate_global_competition(competition_id) — تفعيل عامة
+     (يتحقق أن المُنشئ super_admin)
+
+  Triggers:
+  لا triggers جديدة — Trigger 045 يبقى كما هو.
+  Leaderboard العام يُحسب بـ RPC وليس trigger.
+
+  Realtime:
+  ALTER PUBLICATION supabase_realtime ADD TABLE competition_mosques;
+
+
+================================================================================
+  4. هيكل الملفات الجديدة
+================================================================================
+
+  supabase/migrations/
+  ├── 046_global_competitions.sql          [جديد]
+  └── 047_global_leaderboard.sql           [جديد]
+
+  lib/app/models/
+  ├── competition_model.dart               [تعديل]
+  ├── competition_mosque_model.dart        [جديد]
+  ├── global_leaderboard_entry.dart        [جديد]
+  └── mosque_ranking_entry.dart            [جديد]
+
+  lib/app/features/competitions/data/repositories/
+  └── competition_repository.dart          [تعديل — إضافة 6 دوال]
+
+  lib/app/features/super_admin/
+  ├── data/repositories/
+  │   └── admin_repository.dart            [تعديل — إضافة 2 دوال]
+  └── presentation/
+      ├── screens/
+      │   ├── manage_global_competitions_screen.dart  [جديد]
+      │   ├── create_global_competition_screen.dart   [جديد]
+      │   ├── select_mosques_screen.dart              [جديد]
+      │   ├── global_leaderboard_screen.dart          [جديد]
+      │   └── mosque_ranking_screen.dart              [جديد]
+      └── widgets/
+          ├── global_competition_card.dart             [جديد]
+          └── mosque_selection_tile.dart               [جديد]
+
+  lib/app/features/parent/presentation/screens/
+  └── parent_competition_screen.dart       [جديد]
+
+
+================================================================================
+  5. ترتيب التنفيذ (4 موجات)
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  الموجة 1 — حرجة (بدونها التطبيق لا يعمل بشكل سليم)
+  الأولوية: عالية جداً | المدة: 3-5 أيام
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. AttendanceValidationService (منع التسجيل قبل الأذان)
+  2. شاشة طلب تصحيح لولي الأمر (الريبو جاهز — يحتاج UI فقط)
+  3. الإمام يحدد موقع المسجد (lat/lng)
+  4. ربط أوقات الصلاة بالمسجد (PrayerTimesService)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  الموجة 2 — مسابقات + إكمال الأدوار
+  الأولوية: عالية | المدة: 5-7 أيام
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Migration 046 (competition_type + competition_mosques)
+  2. Migration 047 (RPCs للـ leaderboard العام)
+  3. تعديل CompetitionModel و CompetitionRepository
+  4. شاشات السوبر أدمن (إنشاء + اختيار مساجد + ترتيب)
+  5. شاشة المسابقة لولي الأمر
+  6. عرض المسابقة العامة (قراءة) للإمام والمشرف
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  الموجة 3 — تحسين التجربة
+  الأولوية: متوسطة | المدة: 3-5 أيام
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Realtime لطلبات التصحيح والملاحظات
+  2. رسائل خطأ واضحة (بالعربية)
+  3. Pull-to-refresh في كل القوائم
+  4. Skeleton loading
+  5. مشاركة نتائج المسابقة العامة
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  الموجة 4 — مؤجلة (بعد الإطلاق التجريبي)
+  الأولوية: منخفضة
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. FCM (إشعارات push)
+  2. Offline Mode
+  3. عرض الابن للباركود (ربط جهاز)
+  4. الإعلانات (جدول + واجهة)
+  5. تغيير النقاط أثناء المسابقة
+  6. صلاة التراويح
+  7. طلب انسحاب الإمام من المسابقة العامة
+  8. Materialized Views للأداء (لو > 100 مسجد)
+
+
+================================================================================
+  نهاية الملف الخامس — البنية التقنية
+  يتبع: 06_خارطة_الطريق.txt
+================================================================================

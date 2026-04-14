@@ -16,7 +16,10 @@ class ChildrenBloc extends Bloc<ChildrenEvent, ChildrenState> {
     emit(const ChildrenLoading());
     try {
       final list = await _repo.getMyChildren();
-      emit(ChildrenLoaded(list));
+      final linkedIds = await _repo.getLinkedChildIds(
+        list.map((c) => c.id).toList(),
+      );
+      emit(ChildrenLoaded(list, linkedChildIds: linkedIds));
     } catch (err) {
       emit(ChildrenError(err.toString().replaceFirst('Exception: ', '')));
     }
@@ -31,10 +34,15 @@ class ChildrenBloc extends Bloc<ChildrenEvent, ChildrenState> {
         password: e.password,
       );
       if (result.email != null && result.password != null) {
+        final list = await _repo.getMyChildren();
+        final linkedIds = await _repo.getLinkedChildIds(
+          list.map((c) => c.id).toList(),
+        );
         emit(ChildrenLoadedWithCredentials(
-          await _repo.getMyChildren(),
+          list,
           email: result.email!,
           password: result.password!,
+          linkedChildIds: linkedIds,
         ));
       } else {
         add(const ChildrenLoad());
@@ -47,7 +55,7 @@ class ChildrenBloc extends Bloc<ChildrenEvent, ChildrenState> {
   void _onCredentialsShown(ChildrenCredentialsShown e, Emitter<ChildrenState> emit) {
     final state = this.state;
     if (state is ChildrenLoadedWithCredentials) {
-      emit(ChildrenLoaded(state.children));
+      emit(ChildrenLoaded(state.children, linkedChildIds: state.linkedChildIds));
     }
   }
 }
